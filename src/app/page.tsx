@@ -20,6 +20,7 @@ export default function Home() {
       <section className="hero">
         <SatinRidges
           className="hero-satin"
+          style={{ position: "absolute", inset: 0 }}
           colors={["#2A2A30", "#A1A1B5"]}
           backgroundColor="#050505"
           angle={-20}
