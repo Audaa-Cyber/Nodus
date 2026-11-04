@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { ArrowDown, ArrowRight, ArrowUpRight, Check, ChevronDown, CircleHelp, Clock3, Copy, CreditCard, FileText, LockKeyhole, Menu, QrCode, ShieldCheck, Sparkles, Wallet, X } from "lucide-react";
+import { ArrowDown, ArrowUpRight, Check, ChevronDown, CircleHelp, Clock3, Copy, FileText, LockKeyhole, Menu, QrCode, ShieldCheck, Wallet, X } from "lucide-react";
 import SatinRidges from "@/components/satin-ridges";
 
 const satinColors: [string, string] = ["#34383B", "#B9B0A4"];
