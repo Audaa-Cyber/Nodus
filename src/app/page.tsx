@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowDownRight, ArrowRight, ChevronRight, CircleDot, ReceiptText, ScanLine, ShieldCheck, WalletCards } from "lucide-react";
+import { ArrowDownRight, ArrowRight, ChevronRight, ReceiptText, ScanLine, ShieldCheck, WalletCards } from "lucide-react";
 import SatinRidges from "@/components/satin-ridges";
 
 const steps = [
