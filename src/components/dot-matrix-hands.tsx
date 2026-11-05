@@ -111,15 +111,14 @@ export default function DotMatrixHands() {
     let rows = 0;
     let step = 7;
     let rowStep = 14;
-    let fieldA: HTMLCanvasElement;
-    let fieldB: HTMLCanvasElement;
-    let ctxA: CanvasRenderingContext2D;
-    let ctxB: CanvasRenderingContext2D;
-    let pixelsA: Uint8ClampedArray;
-    let pixelsB: Uint8ClampedArray;
+    const fieldA = document.createElement("canvas");
+    const fieldB = document.createElement("canvas");
+    const ctxA = fieldA.getContext("2d", { willReadFrequently: true })!;
+    const ctxB = fieldB.getContext("2d", { willReadFrequently: true })!;
+    let pixelsA = new Uint8ClampedArray(0);
+    let pixelsB = new Uint8ClampedArray(0);
     let tiles: Record<string, Tile> | null = null;
     let start = 0;
-    let lastTime = 0;
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     const resize = () => {
@@ -134,12 +133,8 @@ export default function DotMatrixHands() {
       rowStep = step * 2.05;
       cols = Math.ceil(width / step);
       rows = Math.ceil(height / rowStep);
-      fieldA = document.createElement("canvas");
-      fieldB = document.createElement("canvas");
       fieldA.width = fieldB.width = cols;
       fieldA.height = fieldB.height = rows;
-      ctxA = fieldA.getContext("2d", { willReadFrequently: true })!;
-      ctxB = fieldB.getContext("2d", { willReadFrequently: true })!;
     };
 
     const image = new Image();
@@ -165,7 +160,6 @@ export default function DotMatrixHands() {
       if (disposed || !tiles) return;
       const elapsed = reduceMotion ? 0 : (now - start) / 1000;
       const time = elapsed % 20;
-      lastTime = time;
 
       ctxA.fillStyle = "#fff";
       ctxB.fillStyle = "#fff";
