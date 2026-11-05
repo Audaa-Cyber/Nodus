@@ -2,13 +2,13 @@
 
 Status: active
 Scope: public marketing site and embedded checkout preview
-Reference: the Nodus dot-matrix hero supplied by the user
+Reference: the user's dot-matrix hero direction
 
 ## Design intent
 
-The site should feel like one designed object, not a collection of separately generated sections. The hero's quiet editorial direction is the source of truth for every section below it.
+The site should read as one designed object, not a collection of generated sections. The hero's warm-white editorial direction is the source of truth for every section below it.
 
-The visual idea comes from the product itself: a bill is a precise record, a QR is a compact doorway, and settlement is a clear final state. Use that language in layout, typography, diagrams, and interaction.
+The visual language comes from the product: an invoice is a precise record, a QR is a compact doorway, and settlement is a clear final state. Use that logic in layout, typography, diagrams, and interaction.
 
 ## Visual tokens
 
@@ -20,10 +20,10 @@ The visual idea comes from the product itself: a bill is a precise record, a QR 
 - Accent: neutral greys only
 - Typography: Inter for all UI and display text
 - Display type: medium weight, tight tracking, deliberate line breaks
-- Body: 13–14px on desktop, 12–13px on compact screens, line-height 1.7–1.85
+- Body: 13–14px desktop, 12–13px compact screens, line-height 1.7–1.85
 - Controls: black fill, white text, restrained borders
-- Surfaces: same warm canvas or white for the invoice; no unrelated beige/dark panels
-- Shadows: only subtle separation for the invoice preview
+- Surfaces: warm canvas and white for the invoice
+- Shadows: subtle separation for the invoice preview only
 
 ## Layout principles
 
@@ -31,17 +31,19 @@ The visual idea comes from the product itself: a bill is a precise record, a QR 
 - Use the same max-width container and consistent horizontal gutters throughout.
 - Sections may vary in composition, but not in visual language.
 - Prefer editorial columns, large type, thin rules, and purposeful whitespace over repeated cards.
-- Use numbered steps and clear visual sequences when explaining the payment flow.
-- Keep the checkout preview visually believable and legible. It is a product illustration, not a fake live integration.
+- Explain the payment flow as a clear sequence, not a generic feature-card grid.
+- Keep the checkout preview believable and legible. It is a product illustration, not a fake live integration.
 - On mobile, stack content in reading order and retain generous touch targets.
 
 ## Motion and interaction
 
-- Motion must communicate state or spatial continuity, not decorate empty space.
+- Motion must communicate feedback, state, or spatial continuity. If instant state change is equally clear, prefer instant.
 - Keep the dot-matrix animation as the hero's signature.
-- Buttons need hover, focus-visible, and active feedback.
-- Disclosure controls must expose their state to assistive technology.
-- Respect `prefers-reduced-motion`.
+- Buttons use fast press feedback and restrained hover color changes. Avoid blanket `transition: all`.
+- The invoice breakdown uses a short grid-row reveal; the menu opens from its own location and closes on Escape.
+- Copy feedback stays on the copy control. No unnecessary toast.
+- The hero canvas pauses when the document is hidden and renders once when reduced motion is requested.
+- Respect `prefers-reduced-motion` across the page.
 - Never imply that a demo payment moved funds or was verified on-chain.
 
 ## Anti-patterns
@@ -52,7 +54,8 @@ The visual idea comes from the product itself: a bill is a precise record, a QR 
 - No mixing serif editorial typography with Inter in the same page.
 - No tiny body copy used as visual texture.
 - No invented customer logos, testimonials, transaction metrics, or payment claims.
+- No fake settlement-success state in the interactive preview.
 
 ## Product truth
 
-Nodus is an invoice and QR checkout concept for business payments with stablecoins. The landing page may demonstrate the customer flow, but it must label simulated payment behavior as a demo until real wallet connection, transaction submission, and settlement verification are implemented.
+Nodus is an invoice and QR checkout concept for business payments with stablecoins. The landing page demonstrates the customer flow only. Its payment action is explicitly simulated; it does not connect a wallet, submit a transaction, move funds, or verify settlement. A live product must verify the transaction on the relevant network before closing an invoice.
