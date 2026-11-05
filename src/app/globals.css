@@ -347,3 +347,24 @@ main > footer > * {
   .process-content h3 { font-size: 13px; }
   .process-content p { font-size: 9px; }
 }
+
+
+/* Compact, transparent hand animation stage */
+.hands-feature {
+  margin: 4px 0;
+  padding: 0;
+  background: transparent;
+}
+.hands-feature-inner {
+  min-height: 0;
+  padding: 0;
+  background: transparent;
+}
+.hands-feature-inner .hands-canvas {
+  height: clamp(180px, 24vw, 320px);
+}
+@media (max-width: 700px) {
+  .hands-feature { margin: 4px 0; padding: 0; }
+  .hands-feature-inner { min-height: 0; padding: 0; }
+  .hands-feature-inner .hands-canvas { height: 180px; }
+}
