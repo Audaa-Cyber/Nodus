@@ -75,7 +75,7 @@ export default function DotMatrixHands() {
       const a = aCtx.getImageData(0, 0, cols, rows).data;
       const b = bCtx.getImageData(0, 0, cols, rows).data;
       ctx.clearRect(0, 0, width, height);
-      ctx.textAlign = "center";\n      ctx.textBaseline = "middle";\n      ctx.font = `500 ${Math.max(7, step * 1.48)}px ui-monospace, monospace`;
+      ctx.fillStyle = "#101010";
       const tick = Math.floor(t * 5);
       for (let j = 0; j < rows; j++) {
         const leftMix = mixAt(t, 7.1, 17.2, 2.1);
@@ -100,9 +100,9 @@ export default function DotMatrixHands() {
           let level = 0;
           for (const candidate of levels) if (v >= candidate - .12) level = candidate;
           if (!level) continue;
-          const digit = hash(i * 1.7 + tick, j * 2.3) > .5 ? "1" : "0";
-          ctx.fillStyle = `rgba(255, 255, 255, ${.42 + level * .28})`;
-          ctx.fillText(digit, (i + .5) * step, (j + .5) * rowStep);
+          ctx.beginPath();
+          ctx.arc((i + .5) * step, (j + .5) * rowStep, step * .43 * (level === .25 ? .42 : level), 0, Math.PI * 2);
+          ctx.fill();
         }
       }
       if (!reduced && !document.hidden) raf = requestAnimationFrame(render);
