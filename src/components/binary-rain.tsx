@@ -29,7 +29,7 @@ export default function BinaryRain() {
         for (let k = 0; k < stream.length; k++) {
           const y = stream.y - k * 14;
           if (y < -12 || y > height + 12) continue;
-          const digit = Math.sin(now * .0007 + stream.phase + k * 2.1) > 0 ? "1" : "0";
+          const digit = Math.sin(now * .00082 + stream.phase + k * 2.1) > 0 ? "1" : "0";
           const fade = (1 - k / stream.length) * (.48 + .2 * Math.sin(now * .0004 + index));
           ctx.fillStyle = `rgba(255, 255, 255, ${Math.max(0, fade)})`;
           ctx.fillText(digit, stream.x + Math.sin(now * .00015 + stream.phase) * 2, y);
