@@ -94,7 +94,7 @@ export default function Home() {
 
       <section className="manifesto section-pad" id="product">
         <div className="shell manifesto-grid">
-          <div className="section-index">02 <i>/</i> THE THINKING</div>
+          <div className="section-index">02 <i>/</i> WHY THE BILL MATTERS</div>
           <div className="manifesto-content">
             <p className="manifesto-overline">THE BILL IS PART OF THE SERVICE</p>
             <h2>Guests should know<br />exactly <em>what they owe.</em></h2>
@@ -109,7 +109,7 @@ export default function Home() {
           <div className="flow-grid">
             <article className="flow-card"><div className="flow-number"><span>01</span><FileText size={17} /></div><div className="flow-illustration bill-illustration"><div className="paper-sheet"><span /><span /><span /><i /></div></div><div className="flow-copy"><h3>Create the invoice</h3><p>Add items, quantities, and service charges. The guest sees the breakdown and total before paying.</p></div></article>
             <article className="flow-card"><div className="flow-number"><span>02</span><QrCode size={17} /></div><div className="flow-illustration qr-illustration"><div className="qr-frame"><QrCode size={68} strokeWidth={1.15} /></div></div><div className="flow-copy"><h3>Let them scan</h3><p>The guest scans the invoice QR code, selects an available stablecoin network, and approves the transaction in their wallet.</p></div></article>
-            <article className="flow-card"><div className="flow-number"><span>03</span><ShieldCheck size={17} /></div><div className="flow-illustration settle-illustration"><div className="settle-ring"><Check size={31} strokeWidth={1.4} /></div><span className="settle-caption">PAYMENT VERIFIED</span></div><div className="flow-copy"><h3>Verify and close</h3><p>After the transaction settles, the payment integration can verify it and update the invoice status.</p></div></article>
+            <article className="flow-card"><div className="flow-number"><span>03</span><ShieldCheck size={17} /></div><div className="flow-illustration settle-illustration"><div className="settle-ring"><Check size={31} strokeWidth={1.4} /></div><span className="settle-caption">SETTLEMENT CHECK</span></div><div className="flow-copy"><h3>Verify and close</h3><p>After the transaction settles, the payment integration can verify it and update the invoice status.</p></div></article>
           </div>
         </div>
       </section>
@@ -118,10 +118,10 @@ export default function Home() {
         <div className="shell business-panel">
           <div className="business-copy"><div className="section-index">04 <i>/</i> FOR THE BUSINESS</div><h2>Create bills.<br /><em>Track payment.</em></h2><p>Your team creates the invoice. Guests scan and pay from their wallets. The invoice stays linked to its payment status and receipt.</p><Link href="#demo" className="button button-dark">Try the checkout preview <ArrowUpRight size={16} /></Link></div>
           <div className="business-details">
-            <div className="detail-row"><span><Clock3 size={16} /> Less waiting</span><p>Guests open the checkout by scanning the invoice QR code.</p></div>
-            <div className="detail-row"><span><ShieldCheck size={16} /> Clear confirmation</span><p>Settlement status, not a screenshot, determines when a bill is paid.</p></div>
-            <div className="detail-row"><span><Wallet size={16} /> Customer choice</span><p>Let guests choose from the stablecoins and networks your business supports.</p></div>
-            <div className="detail-row"><span><CircleHelp size={16} /> No hidden magic</span><p>Show the total before payment and keep the receipt with the invoice.</p></div>
+            <div className="detail-row"><span><Clock3 size={16} /> QR access</span><p>Guests open the invoice checkout by scanning its QR code.</p></div>
+            <div className="detail-row"><span><ShieldCheck size={16} /> Payment verification</span><p>Settlement status, not a screenshot, determines when a bill is paid.</p></div>
+            <div className="detail-row"><span><Wallet size={16} /> Supported assets</span><p>Let guests choose from the stablecoins and networks your business supports.</p></div>
+            <div className="detail-row"><span><CircleHelp size={16} /> Itemized receipt</span><p>Show each charge before payment and keep the receipt linked to the invoice.</p></div>
           </div>
         </div>
       </section>
