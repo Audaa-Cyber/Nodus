@@ -285,29 +285,25 @@ p { text-wrap: pretty; }
   pointer-events: none;
   opacity: .16;
   filter: blur(.55px);
+  mix-blend-mode: difference;
 }
 .footer-main, .footer-bottom {
   position: relative;
   z-index: 9;
 }
 .hero-copy { z-index: 10; }
-.hands-stage {
-  position: relative;
-  z-index: 9;
-  flex: 0 0 clamp(280px, 34vh, 360px);
-  width: 100%;
-  height: clamp(280px, 34vh, 360px);
-  margin-top: auto;
-  overflow: hidden;
-  pointer-events: none;
-}
-.hands-canvas {
-  display: block;
+.footer { position: relative; isolation: isolate; overflow: hidden; }
+.footer-hands-stage {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
   width: 100%;
   height: 100%;
-  opacity: .72;
-  mix-blend-mode: difference;
+  pointer-events: none;
+  opacity: .2;
+  mix-blend-mode: screen;
 }
+.footer-hands-stage .hands-canvas { display: block; width: 100%; height: 100%; }
 .hero-kicker { display: none; }
 .process-list {
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -319,7 +315,6 @@ p { text-wrap: pretty; }
 .process-visual { height: 190px; margin: 0 0 26px; background: #e4e8ed; }
 .process-content p { max-width: 100%; }
 @media (max-width: 700px) {
-  .hands-stage { flex-basis: 185px; height: 185px; }
   .process-list { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
   .process-visual { height: 104px; margin-bottom: 15px; }
   .process-content h3 { font-size: 15px; line-height: 1.2; }
