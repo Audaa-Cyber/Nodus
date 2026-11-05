@@ -5,10 +5,6 @@ import { useEffect, useRef } from "react";
 const fract = (value: number) => value - Math.floor(value);
 const hash = (x: number, y: number, seed: number) =>
   fract(Math.sin(x * 127.1 + y * 311.7 + seed * 74.7) * 43758.5453);
-const smooth = (a: number, b: number, value: number) => {
-  const t = Math.max(0, Math.min(1, (value - a) / (b - a)));
-  return t * t * (3 - 2 * t);
-};
 
 export default function BinaryField() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -26,8 +22,8 @@ export default function BinaryField() {
     let columns = 0;
     let rows = 0;
     let lastFrame = 0;
-    const cellX = 22;
-    const cellY = 23;
+    const cellX = 19;
+    const cellY = 21;
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     const resize = () => {
@@ -39,47 +35,42 @@ export default function BinaryField() {
       canvas.height = Math.round(height * dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       columns = Math.ceil(width / cellX) + 1;
-      rows = Math.ceil(height / cellY) + 1;
+      rows = Math.ceil(height / cellY) + 2;
     };
 
     const render = (now: number) => {
       if (disposed) return;
-      if (!reduceMotion && now - lastFrame < 42) {
+      if (!reduceMotion && now - lastFrame < 48) {
         frame = requestAnimationFrame(render);
         return;
       }
       lastFrame = now;
-
       ctx.clearRect(0, 0, width, height);
-      ctx.font = "12px 'DM Mono', monospace";
+      ctx.font = "11px 'DM Mono', monospace";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
 
       const seconds = reduceMotion ? 0 : now / 1000;
-      const seed = Math.floor(seconds / 1.35);
-      const drift = reduceMotion ? 0 : (seconds * 3.2) % cellY;
+      const drift = reduceMotion ? 0 : (seconds * 0.72) % cellY;
+      const seed = Math.floor(seconds / 2.8);
 
-      for (let row = -1; row < rows; row++) {
-        for (let col = 0; col < columns; col++) {
-          const x = (col * cellX + cellX / 2) / width;
-          const y = (row * cellY + drift) / height;
+      for (let col = 0; col < columns; col++) {
+        const x = (col * cellX) / Math.max(1, width);
+        const edgeFade = Math.min(1, x * 5.5, (1 - x) * 5.5);
 
-          const leftStroke = Math.abs(x - 0.17);
-          const rightStroke = Math.abs(x - 0.83);
-          const diagonalY = 0.88 - ((x - 0.17) / 0.66) * 0.72;
-          const diagonalStroke =
-            x >= 0.17 && x <= 0.83 ? Math.abs(y - diagonalY) : 1;
-          const distance = Math.min(leftStroke, rightStroke, diagonalStroke);
-          const letter = 1 - smooth(0.018, 0.095, distance);
-          const verticalFade = smooth(0.02, 0.2, y) * (1 - smooth(0.84, 1.08, y));
-          const edgeFade = smooth(0.02, 0.12, x) * (1 - smooth(0.88, 0.98, x));
-          const wave = 0.72 + 0.28 * Math.sin(seconds * 0.22 + col * 0.17 + row * 0.08);
-          const strength = letter * verticalFade * edgeFade * wave;
+        for (let row = -1; row < rows; row++) {
+          const y = (row * cellY + drift) / Math.max(1, height);
+          const centerBand = Math.exp(-Math.pow((y - 0.48) / 0.58, 2));
+          const wave = 0.5 + 0.5 * Math.sin(col * 0.19 - row * 0.11 + seconds * 0.2);
+          const secondaryWave = 0.5 + 0.5 * Math.sin(col * 0.075 + row * 0.17 - seconds * 0.13);
+          const density = 0.16 + wave * 0.24 + secondaryWave * 0.12;
+          const strength = centerBand * edgeFade * density;
+          const variation = 0.72 + hash(col, row, 5) * 0.28;
+          const alpha = Math.min(0.42, strength * variation);
 
-          if (strength < 0.045 || hash(col, row, 3) < 0.16) continue;
+          if (alpha < 0.025) continue;
 
           const digit = hash(col, row, seed) > 0.5 ? "1" : "0";
-          const alpha = Math.min(0.62, strength * (0.34 + hash(row, col, 9) * 0.32));
           ctx.fillStyle = `rgba(36, 75, 134, ${alpha})`;
           ctx.fillText(digit, col * cellX + cellX / 2, row * cellY + cellY / 2 + drift);
         }
