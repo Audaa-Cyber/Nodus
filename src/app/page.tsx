@@ -101,9 +101,6 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="hands-stage" aria-hidden="true">
-          <DotMatrixHands />
-        </div>
       </section>
 
       <section className="checkout-section section-pad" id="checkout">
@@ -322,6 +319,7 @@ export default function Home() {
       </section>
 
       <footer className="footer">
+        <div className="footer-hands-stage" aria-hidden="true"><DotMatrixHands /></div>
         <div className="shell footer-main">
           <div className="footer-brand-block">
             <Link href="#top" className="brand footer-brand">
