@@ -349,16 +349,16 @@ main > footer > * {
 }
 
 
-/* Compact, transparent hand animation stage */
+/* Hand animation continues the footer's dark surface */
 .hands-feature {
   margin: 4px 0;
   padding: 0;
-  background: transparent;
+  background: var(--dark);
 }
 .hands-feature-inner {
   min-height: 0;
   padding: 0;
-  background: transparent;
+  background: var(--dark);
 }
 .hands-feature-inner .hands-canvas {
   height: clamp(180px, 24vw, 320px);
