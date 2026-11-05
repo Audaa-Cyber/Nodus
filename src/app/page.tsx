@@ -17,7 +17,8 @@ import {
   Wallet,
   X,
 } from "lucide-react";
-import BinaryField from "@/components/binary-field";
+import DotMatrixHands from "@/components/dot-matrix-hands";
+import BinaryRain from "@/components/binary-rain";
 
 const methods = ["USDC · Ethereum", "USDC · Solana", "USDT · Ethereum"];
 
@@ -57,6 +58,7 @@ export default function Home() {
 
   return (
     <main>
+      <BinaryRain />
       <section className="hero" id="top">
         <nav className="nav shell" aria-label="Main navigation">
           <Link href="#top" className="brand" onClick={closeMenu} aria-label="Nodus home">
@@ -86,7 +88,6 @@ export default function Home() {
         </nav>
 
         <div className="hero-copy shell">
-          <p className="hero-kicker">A BETTER WAY TO GET PAID</p>
           <h1>Close the bill.<br /><span>Keep things moving.</span></h1>
           <div className="hero-bottom">
             <p className="hero-lede">
@@ -100,9 +101,8 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="binary-stage" aria-hidden="true">
-          <BinaryField />
-          <div className="binary-caption"><span>INVOICE</span><span>PAYMENT</span><span>CONFIRMATION</span></div>
+        <div className="hands-stage" aria-hidden="true">
+          <DotMatrixHands />
         </div>
       </section>
 
