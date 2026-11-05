@@ -3,9 +3,8 @@
 import Link from "next/link";
 import { useState } from "react";
 import { ArrowDown, ArrowUpRight, Check, ChevronDown, CircleHelp, Clock3, Copy, FileText, LockKeyhole, Menu, QrCode, ShieldCheck, Wallet, X } from "lucide-react";
-import SatinRidges from "@/components/satin-ridges";
+import DotMatrixHands from "@/components/dot-matrix-hands";
 
-const satinColors: [string, string] = ["#34383B", "#B9B0A4"];
 const methods = ["USDC · Ethereum", "USDC · Solana", "USDT · Ethereum"];
 
 export default function Home() {
@@ -27,35 +26,50 @@ export default function Home() {
 
   return (
     <main>
-      <section className="hero" id="top">
-        <SatinRidges className="hero-satin" style={{ position: "absolute", inset: 0 }} colors={satinColors} backgroundColor="#111315" angle={-24} scale={1.1} depth={1.1} warp={0.8} detail={1.1} gloss={0.55} highlight={0.8} sheen={0.48} lightAngle={24} flow={0.75} speed={0.45} interactive swell={0.8} swellRadius={0.2} clickRipples dpr={1.5} />
-        <div className="hero-shade" />
+      <section className="hero kindred-hero" id="top">
+        <DotMatrixHands />
         <nav className="nav shell">
           <Link href="#top" className="brand"><span className="brand-symbol">n</span><span>nodus<span className="brand-dot">.</span></span></Link>
           <div className={`nav-links ${menuOpen ? "is-open" : ""}`}>
-            <Link href="#product" onClick={() => setMenuOpen(false)}>The product</Link>
+            <Link href="#product" onClick={() => setMenuOpen(false)}>Product</Link>
             <Link href="#flow" onClick={() => setMenuOpen(false)}>How it works</Link>
             <Link href="#business" onClick={() => setMenuOpen(false)}>For business</Link>
           </div>
           <div className="nav-right">
-            <Link href="#demo" className="nav-cta">Explore the checkout <ArrowUpRight size={15} /></Link>
+            <Link href="#demo" className="nav-cta">Explore checkout <ArrowUpRight size={15} /></Link>
             <button className="menu-toggle" aria-label="Toggle navigation" onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? <X /> : <Menu />}</button>
           </div>
         </nav>
 
-        <div className="hero-grid shell">
-          <div className="hero-copy">
-            <div className="eyebrow"><span /> A CLEARER WAY TO SETTLE</div>
-            <h1>Good business<br />ends <em>beautifully.</em></h1>
-            <p className="hero-lede">An elegant checkout for the moment the bill arrives. Create a clear invoice, let your guest scan and pay, then verify the settlement.</p>
-            <div className="hero-actions">
-              <Link href="#demo" className="button button-light">Explore the checkout <ArrowUpRight size={16} /></Link>
-              <Link href="#flow" className="text-link">See how it works <ArrowDown size={15} /></Link>
-            </div>
-            <div className="hero-note"><span className="note-rule" /> Built around the bill, not the blockchain.</div>
+        <div className="hero-copy">
+          <div className="eyebrow"><span /> BILLING, WITHOUT THE FRICTION</div>
+          <h1><span>Every bill,</span><br /><strong>beautifully settled.</strong></h1>
+          <p className="hero-lede">Turn an itemized bill into a simple QR checkout. Customers scan, choose a supported stablecoin, and approve payment from their wallet.</p>
+          <div className="hero-actions">
+            <Link href="#demo" className="button button-dark hero-pill">Explore Nodus <ArrowUpRight size={16} /></Link>
+            <Link href="#flow" className="text-link">See how it works <ArrowDown size={15} /></Link>
           </div>
-          <div className="hero-demo-wrap" id="demo">
-            <div className="demo-caption"><span>LIVE PRODUCT PREVIEW</span><span>01 / 03</span></div>
+          <div className="hero-note">A better last step for everyday commerce.</div>
+        </div>
+
+        <div className="hero-features">
+          <span><i>01</i> INVOICE FIRST</span>
+          <span><i>02</i> QR CHECKOUT</span>
+          <span><i>03</i> USDC / USDT</span>
+          <span><i>04</i> VERIFIED SETTLEMENT</span>
+        </div>
+      </section>
+
+      <section className="demo-section section-pad" id="demo">
+        <div className="shell demo-layout">
+          <div className="demo-intro">
+            <div className="section-index">01 <i>/</i> TRY THE CHECKOUT</div>
+            <h2>A bill your<br /><em>customers understand.</em></h2>
+            <p>See how Nodus turns a business invoice into a clear, customer-approved stablecoin payment.</p>
+            <span className="demo-disclaimer">INTERACTIVE PREVIEW · NO REAL FUNDS MOVE</span>
+          </div>
+          <div className="hero-demo-wrap">
+            <div className="demo-caption"><span>INVOICE PREVIEW</span><span>01 / 01</span></div>
             <div className="invoice-card">
               <div className="invoice-top"><div><span className="micro-label">YOUR BILL FROM</span><h3>Maison Café</h3><p>Table 08 · Addis Ababa</p></div><div className="invoice-logo">m.</div></div>
               <div className="invoice-meta"><span>INVOICE <b>N° 0248</b></span><button onClick={handleCopy} className="copy-id"><Copy size={12} />{copied ? "Copied" : "Copy ID"}</button></div>
@@ -71,15 +85,14 @@ export default function Home() {
                 <ChevronDown size={14} />
               </div>
               <button className={`pay-button ${paid ? "is-paid" : ""}`} onClick={() => setPaid(!paid)}>
-                {paid ? <><Check size={16} /> Payment confirmed · Demo</> : <> { "Continue to payment" } <ArrowUpRight size={16} /></>}
+                {paid ? <><Check size={16} /> Payment confirmed · Demo</> : <>Continue to payment <ArrowUpRight size={16} /></>}
               </button>
               {paid && <div className="payment-feedback"><span className="success-pulse" /> Demo complete. No funds were moved.</div>}
               <div className="invoice-foot"><ShieldCheck size={13} /> Payment status is verified before the bill closes.</div>
             </div>
-            <div className="demo-footnote"><span>INTERACTIVE DEMO</span><span>Try changing the network or opening the breakdown ↗</span></div>
+            <div className="demo-footnote"><span>INTERACTIVE DEMO</span><span>Change the network or expand the breakdown ↗</span></div>
           </div>
         </div>
-        <div className="hero-bottom shell"><span>SCROLL TO DISCOVER</span><span className="bottom-line" /><span>DESIGNED FOR EVERYDAY COMMERCE</span></div>
       </section>
 
       <section className="manifesto section-pad" id="product">
