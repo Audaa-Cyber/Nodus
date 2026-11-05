@@ -111,7 +111,7 @@ export default function DotMatrixHands() {
       }
 
       ctx.lineWidth = .65;
-      ctx.strokeStyle = "rgba(12, 14, 16, .9)";
+      ctx.strokeStyle = "rgba(255, 255, 255, .52)";
       for (let j = 0; j < rows; j++) {
         const leftMix = mixAt(t, 7.1, 17.2, 2.1);
         const rightMix = mixAt(t, 3.1, 12.8, 2.1);
