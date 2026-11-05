@@ -50,14 +50,14 @@ export default function Home() {
           </div>
         </nav>
         <div className="hero-copy">
-          <div className="eyebrow"><span /> BILLING, WITHOUT THE FRICTION</div>
-          <h1><span>Every bill,</span><br /><strong>beautifully settled.</strong></h1>
-          <p className="hero-lede">Turn an itemized bill into a simple QR checkout. Customers scan, choose a supported stablecoin, and approve payment from their wallet.</p>
+          <div className="eyebrow"><span /> INVOICES AND QR CHECKOUT</div>
+          <h1><span>A clearer bill,</span><br /><strong>ready to pay.</strong></h1>
+          <p className="hero-lede">Create an itemized bill and share it as a QR code. Guests scan it, choose a supported stablecoin, and approve the payment in their wallet.</p>
           <div className="hero-actions">
             <Link href="#demo" className="button button-dark hero-pill">Explore Nodus <ArrowUpRight size={16} /></Link>
             <Link href="#flow" className="text-link">See how it works <ArrowDown size={15} /></Link>
           </div>
-          <div className="hero-note">A better last step for everyday commerce.</div>
+          <div className="hero-note">For businesses that accept stablecoin payments.</div>
         </div>
         <div className="hero-features" aria-label="Nodus workflow">
           <span><i>01</i> ITEMIZED BILL</span><span><i>02</i> QR CHECKOUT</span><span><i>03</i> STABLECOIN CHOICE</span><span><i>04</i> PAYMENT STATUS</span>
@@ -68,8 +68,8 @@ export default function Home() {
         <div className="shell demo-layout">
           <div className="demo-intro">
             <div className="section-index">01 <i>/</i> TRY THE CHECKOUT</div>
-            <h2>A bill your<br /><em>customers understand.</em></h2>
-            <p>Explore the guest experience, from a clear itemized bill to a customer-approved payment choice.</p>
+            <h2>The full bill.<br /><em>Before they pay.</em></h2>
+            <p>Change the payment network, inspect the total, and try the checkout flow.</p>
             <span className="demo-disclaimer">INTERACTIVE PREVIEW · SIMULATED PAYMENT · NO REAL FUNDS MOVE</span>
           </div>
           <div className="hero-demo-wrap">
@@ -96,38 +96,38 @@ export default function Home() {
         <div className="shell manifesto-grid">
           <div className="section-index">02 <i>/</i> THE THINKING</div>
           <div className="manifesto-content">
-            <p className="manifesto-overline">A SMALL MOMENT. A BETTER EXPERIENCE.</p>
-            <h2>The payment should feel<br />as considered as <em>the service.</em></h2>
-            <div className="manifesto-bottom"><p className="manifesto-copy">A bill is more than a number at the bottom of a meal. It is the last touchpoint between a business and its guest. Nodus makes that moment clear, calm, and easy to trust.</p><span className="manifesto-mark" aria-hidden="true">N° 0248</span></div>
+            <p className="manifesto-overline">THE BILL IS PART OF THE SERVICE</p>
+            <h2>Guests should know<br />exactly <em>what they owe.</em></h2>
+            <div className="manifesto-bottom"><p className="manifesto-copy">Guests should be able to check every item, see the total, and choose how to pay. Nodus puts those details in one QR checkout.</p><span className="manifesto-mark" aria-hidden="true">N° 0248</span></div>
           </div>
         </div>
       </section>
 
       <section className="flow-section section-pad" id="flow">
         <div className="shell">
-          <div className="section-head"><div><div className="section-index">03 <i>/</i> THE FLOW</div><h2>From table to<br /><em>settled.</em></h2></div><p>Three deliberate steps. A clear bill, a familiar scan, and a payment status the business can trust.</p></div>
+          <div className="section-head"><div><div className="section-index">03 <i>/</i> THE FLOW</div><h2>From table to<br /><em>settled.</em></h2></div><p>Create the invoice, let the guest scan it, then verify the payment before closing the bill.</p></div>
           <div className="flow-grid">
-            <article className="flow-card"><div className="flow-number"><span>01</span><FileText size={17} /></div><div className="flow-illustration bill-illustration"><div className="paper-sheet"><span /><span /><span /><i /></div></div><div className="flow-copy"><h3>Prepare the bill</h3><p>Build an itemized invoice with quantities, service, and a clear total. Every line is visible before payment.</p></div></article>
-            <article className="flow-card"><div className="flow-number"><span>02</span><QrCode size={17} /></div><div className="flow-illustration qr-illustration"><div className="qr-frame"><QrCode size={68} strokeWidth={1.15} /></div></div><div className="flow-copy"><h3>Let them scan</h3><p>One QR code opens a guest-friendly checkout. Customers choose a supported asset and approve from their wallet.</p></div></article>
-            <article className="flow-card"><div className="flow-number"><span>03</span><ShieldCheck size={17} /></div><div className="flow-illustration settle-illustration"><div className="settle-ring"><Check size={31} strokeWidth={1.4} /></div><span className="settle-caption">PAYMENT VERIFIED</span></div><div className="flow-copy"><h3>Verify and close</h3><p>In a live integration, settlement verification updates the invoice and keeps its digital receipt connected.</p></div></article>
+            <article className="flow-card"><div className="flow-number"><span>01</span><FileText size={17} /></div><div className="flow-illustration bill-illustration"><div className="paper-sheet"><span /><span /><span /><i /></div></div><div className="flow-copy"><h3>Create the invoice</h3><p>Add items, quantities, and service charges. The guest sees the breakdown and total before paying.</p></div></article>
+            <article className="flow-card"><div className="flow-number"><span>02</span><QrCode size={17} /></div><div className="flow-illustration qr-illustration"><div className="qr-frame"><QrCode size={68} strokeWidth={1.15} /></div></div><div className="flow-copy"><h3>Let them scan</h3><p>The guest scans the invoice QR code, selects an available stablecoin network, and approves the transaction in their wallet.</p></div></article>
+            <article className="flow-card"><div className="flow-number"><span>03</span><ShieldCheck size={17} /></div><div className="flow-illustration settle-illustration"><div className="settle-ring"><Check size={31} strokeWidth={1.4} /></div><span className="settle-caption">PAYMENT VERIFIED</span></div><div className="flow-copy"><h3>Verify and close</h3><p>After the transaction settles, the payment integration can verify it and update the invoice status.</p></div></article>
           </div>
         </div>
       </section>
 
       <section className="business-section section-pad" id="business">
         <div className="shell business-panel">
-          <div className="business-copy"><div className="section-index">04 <i>/</i> FOR THE BUSINESS</div><h2>Keep service<br />moving. <em>Stay in control.</em></h2><p>Give your team a straightforward way to create bills and give guests a checkout that respects their time. Keep the invoice, payment status, and receipt connected.</p><Link href="#demo" className="button button-dark">Try the checkout preview <ArrowUpRight size={16} /></Link></div>
+          <div className="business-copy"><div className="section-index">04 <i>/</i> FOR THE BUSINESS</div><h2>Create bills.<br /><em>Track payment.</em></h2><p>Your team creates the invoice. Guests scan and pay from their wallets. The invoice stays linked to its payment status and receipt.</p><Link href="#demo" className="button button-dark">Try the checkout preview <ArrowUpRight size={16} /></Link></div>
           <div className="business-details">
-            <div className="detail-row"><span><Clock3 size={16} /> Less waiting</span><p>A QR checkout guests can complete at their own pace.</p></div>
+            <div className="detail-row"><span><Clock3 size={16} /> Less waiting</span><p>Guests open the checkout by scanning the invoice QR code.</p></div>
             <div className="detail-row"><span><ShieldCheck size={16} /> Clear confirmation</span><p>Settlement status, not a screenshot, determines when a bill is paid.</p></div>
-            <div className="detail-row"><span><Wallet size={16} /> Customer choice</span><p>Support selected stablecoins and networks with customer approval.</p></div>
-            <div className="detail-row"><span><CircleHelp size={16} /> No hidden magic</span><p>Transparent totals and a receipt the guest can keep.</p></div>
+            <div className="detail-row"><span><Wallet size={16} /> Customer choice</span><p>Let guests choose from the stablecoins and networks your business supports.</p></div>
+            <div className="detail-row"><span><CircleHelp size={16} /> No hidden magic</span><p>Show the total before payment and keep the receipt with the invoice.</p></div>
           </div>
         </div>
       </section>
 
-      <section className="closing section-pad"><div className="shell closing-inner"><div className="section-index">THE LAST STEP, RECONSIDERED</div><h2>Make the final<br /><em>moment feel right.</em></h2><div className="closing-bottom"><p>Clear bills. Customer-approved payments. A status both sides can understand.</p><Link href="#demo" className="button button-light">Explore Nodus <ArrowUpRight size={16} /></Link></div></div></section>
-      <footer className="footer shell"><Link href="#top" className="brand"><span className="brand-symbol">n</span><span>nodus<span className="brand-dot">.</span></span></Link><span>Clear bills. Clear payment status.</span><span>© {new Date().getFullYear()} Nodus</span></footer>
+      <section className="closing section-pad"><div className="shell closing-inner"><div className="section-index">NODUS CHECKOUT</div><h2>Give every bill<br /><em>a clear way to pay.</em></h2><div className="closing-bottom"><p>Itemized invoices. Wallet-approved payments. Verified payment status.</p><Link href="#demo" className="button button-light">Explore Nodus <ArrowUpRight size={16} /></Link></div></div></section>
+      <footer className="footer shell"><Link href="#top" className="brand"><span className="brand-symbol">n</span><span>nodus<span className="brand-dot">.</span></span></Link><span>Invoices and payment status, in one place.</span><span>© {new Date().getFullYear()} Nodus</span></footer>
     </main>
   );
 }
