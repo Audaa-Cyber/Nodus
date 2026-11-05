@@ -291,9 +291,9 @@ p { text-wrap: pretty; }
 .hands-stage {
   position: relative;
   z-index: 9;
-  flex: 0 0 clamp(205px, 25vh, 285px);
+  flex: 0 0 clamp(280px, 34vh, 360px);
   width: 100%;
-  height: clamp(205px, 25vh, 285px);
+  height: clamp(280px, 34vh, 360px);
   margin-top: auto;
   overflow: hidden;
   pointer-events: none;
