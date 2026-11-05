@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import {
+  ArrowRight,
+  ArrowUpRight,
   Check,
   ChevronDown,
   CircleHelp,
@@ -70,7 +72,7 @@ export default function Home() {
           </div>
 
           <div className="nav-right">
-            <Link href="#checkout" className="nav-cta">View the demo</Link>
+            <Link href="#checkout" className="nav-cta">View the demo <ArrowUpRight size={14} strokeWidth={1.7} aria-hidden="true" /></Link>
             <button
               className="menu-toggle"
               type="button"
@@ -93,8 +95,8 @@ export default function Home() {
               choose a supported stablecoin, and approve payment from their wallet.
             </p>
             <div className="hero-actions">
-              <Link href="#checkout" className="button button-dark">Explore the checkout</Link>
-              <Link href="#how-it-works" className="button-link">How it works <span aria-hidden="true">↘</span></Link>
+              <Link href="#checkout" className="button button-dark">Explore the checkout <ArrowUpRight size={15} strokeWidth={1.7} aria-hidden="true" /></Link>
+              <Link href="#how-it-works" className="button-link">How it works <ArrowRight size={15} strokeWidth={1.6} aria-hidden="true" /></Link>
             </div>
           </div>
         </div>
@@ -245,7 +247,7 @@ export default function Home() {
                 </div>
               </div>
               <div className="process-content">
-                <span className="process-label">FIRST</span>
+                <span className="process-label">INVOICE PREPARATION</span>
                 <h3>Create the invoice</h3>
                 <p>Add items, quantities, and service charges. The guest sees the full breakdown before paying.</p>
               </div>
@@ -256,7 +258,7 @@ export default function Home() {
                 <div className="qr-frame"><QrCode size={104} strokeWidth={1.1} /></div>
               </div>
               <div className="process-content">
-                <span className="process-label">THEN</span>
+                <span className="process-label">GUEST CHECKOUT</span>
                 <h3>Share the QR code</h3>
                 <p>The guest scans the invoice, selects an available stablecoin network, and approves from their wallet.</p>
               </div>
@@ -268,7 +270,7 @@ export default function Home() {
                 <span>SETTLEMENT VERIFIED</span>
               </div>
               <div className="process-content">
-                <span className="process-label">FINALLY</span>
+                <span className="process-label">PAYMENT STATUS</span>
                 <h3>Verify the payment</h3>
                 <p>Once connected to a live payment integration, verified settlement can update the invoice and receipt.</p>
               </div>
@@ -286,7 +288,7 @@ export default function Home() {
               Give your team one place to prepare the bill and give guests a
               direct way to pay. Keep the invoice, payment status, and receipt together.
             </p>
-            <Link href="#checkout" className="button button-light">See the guest checkout</Link>
+            <Link href="#checkout" className="button button-light">See the guest checkout <ArrowUpRight size={15} strokeWidth={1.7} aria-hidden="true" /></Link>
           </div>
           <div className="business-details">
             <div className="detail-row">
@@ -315,7 +317,7 @@ export default function Home() {
           <h2>Make paying<br /><span>the easy part.</span></h2>
           <div className="closing-bottom">
             <p>Itemized invoices. Wallet-approved payments. Verified payment status.</p>
-            <Link href="#checkout" className="button button-light">Explore the checkout</Link>
+            <Link href="#checkout" className="button button-light">Explore the checkout <ArrowUpRight size={15} strokeWidth={1.7} aria-hidden="true" /></Link>
           </div>
         </div>
       </section>
@@ -343,7 +345,7 @@ export default function Home() {
           </div>
           <div className="footer-contact">
             <span className="footer-label">GET STARTED</span>
-            <Link href="#checkout" className="footer-cta">View the checkout <span aria-hidden="true">↗</span></Link>
+            <Link href="#checkout" className="footer-cta">View the checkout <ArrowUpRight size={15} strokeWidth={1.7} aria-hidden="true" /></Link>
           </div>
         </div>
         <div className="shell footer-bottom">
