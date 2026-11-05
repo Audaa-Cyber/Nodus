@@ -319,7 +319,6 @@ export default function Home() {
       </section>
 
       <footer className="footer">
-        <div className="footer-hands-stage" aria-hidden="true"><DotMatrixHands /></div>
         <div className="shell footer-main">
           <div className="footer-brand-block">
             <Link href="#top" className="brand footer-brand">
@@ -351,6 +350,12 @@ export default function Home() {
           <Link href="#top">Back to top ↑</Link>
         </div>
       </footer>
+
+      <section className="hands-feature" aria-label="Nodus dot matrix hand animation">
+        <div className="hands-feature-inner">
+          <DotMatrixHands />
+        </div>
+      </section>
     </main>
   );
 }
