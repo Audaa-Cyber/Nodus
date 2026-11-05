@@ -209,3 +209,128 @@ body{font-family:Inter,system-ui,sans-serif}
   .demo-section{padding-block:78px}
 }
 @media(prefers-reduced-motion:reduce){.dot-matrix-canvas{opacity:.92}}
+
+
+/* ------------------------------------------------------------------
+   NODUS / Editorial system
+   One continuous visual language from hero to footer.
+   ------------------------------------------------------------------ */
+:root{
+  color-scheme:light;
+  --nodus-paper:#f7f7f5;
+  --nodus-ink:#111;
+  --nodus-muted:#777;
+  --nodus-soft:#999;
+  --nodus-line:rgba(17,17,17,.14);
+  --nodus-line-strong:rgba(17,17,17,.24);
+  --nodus-accent:#8b8b8b;
+  --ink:var(--nodus-ink);
+  --paper:var(--nodus-paper);
+  --paper-dim:#777;
+  --muted:var(--nodus-muted);
+  --line:var(--nodus-line);
+  --accent:var(--nodus-accent);
+  --accent-light:#777;
+}
+html{background:var(--nodus-paper);color:var(--nodus-ink)}
+body,button,select,input,textarea{font-family:Inter,Arial,Helvetica,sans-serif}
+body{background:var(--nodus-paper);color:var(--nodus-ink)}
+main{background:var(--nodus-paper);color:var(--nodus-ink)}
+.shell{width:min(1240px,calc(100% - 112px))}
+.section-pad{padding:clamp(84px,10vw,138px) 0}
+.section-index,.manifesto-overline,.micro-label,.invoice-meta,.pay-label,.demo-caption,.demo-footnote{font-family:Inter,Arial,sans-serif;font-weight:500;letter-spacing:1.35px}
+.section-index{color:#777}
+.section-index i{color:#b2b2b2}
+h1,h2,h3,p,a,button{font-family:Inter,Arial,Helvetica,sans-serif}
+.manifesto h2,.section-head h2,.business-copy h2,.closing h2,.demo-intro h2,.flow-card h3,.invoice-top h3,.detail-row>span,.invoice-total strong{font-family:Inter,Arial,Helvetica,sans-serif}
+.manifesto h2,.section-head h2,.business-copy h2,.closing h2,.demo-intro h2{font-weight:500;letter-spacing:-.065em;line-height:1.03}
+.manifesto h2 em,.section-head h2 em,.business-copy h2 em,.closing h2 em,.demo-intro h2 em{font-style:normal;font-weight:400;color:#8c8c8c}
+.manifesto,.flow-section,.business-section,.closing{background:var(--nodus-paper);color:var(--nodus-ink)}
+.manifesto{border-top:1px solid var(--nodus-line)}
+.manifesto-grid{grid-template-columns:minmax(130px,.7fr) minmax(0,2.3fr);gap:8%}
+.manifesto-overline{color:#888;font-size:9px;margin-bottom:24px}
+.manifesto h2{font-size:clamp(42px,6vw,76px);margin-bottom:25px}
+.manifesto h2 em{color:#999}
+.manifesto-copy{color:#6f6f6f;font-size:14px;line-height:1.8;max-width:540px}
+.demo-section{background:var(--nodus-paper);color:var(--nodus-ink);border-top:1px solid var(--nodus-line)}
+.demo-layout{grid-template-columns:minmax(0,1fr) minmax(340px,410px);gap:clamp(48px,9vw,130px)}
+.demo-intro h2{font-size:clamp(44px,6vw,76px);margin-bottom:25px}
+.demo-intro h2 em{color:#999}
+.demo-intro p{font-size:14px;line-height:1.8;color:#707070;max-width:400px}
+.demo-disclaimer{font-family:Inter,Arial,sans-serif;color:#929292;font-size:9px;letter-spacing:1.3px}
+.demo-caption,.demo-footnote{color:#888;font-size:8px}
+.invoice-card{background:#fff;color:#171717;border:1px solid var(--nodus-line);box-shadow:0 18px 48px rgba(0,0,0,.045);padding:27px 27px 18px}
+.invoice-top h3{font-weight:600;font-size:22px;letter-spacing:-.7px}
+.invoice-logo{border-radius:0;border-color:#c7c7c7;color:#555;font-family:Inter,Arial,sans-serif;font-style:normal;font-weight:600}
+.invoice-total strong{font-weight:500;letter-spacing:-1px}
+.pay-button{background:#111;border-color:#111;color:#fff}
+.pay-button:hover{background:#333}
+.flow-section{border-top:1px solid var(--nodus-line);border-bottom:1px solid var(--nodus-line)}
+.section-head{align-items:end;margin-bottom:clamp(42px,6vw,70px)}
+.section-head .section-index{margin-bottom:24px}
+.section-head h2{font-size:clamp(46px,6vw,78px)}
+.section-head>p{max-width:330px;color:#707070;font-size:13px;line-height:1.8}
+.flow-grid{border-top:1px solid var(--nodus-line-strong);border-bottom:1px solid var(--nodus-line-strong)}
+.flow-card{min-height:370px;padding:24px 30px 30px 0}
+.flow-card+.flow-card{border-left:1px solid var(--nodus-line);padding-left:30px}
+.flow-number{color:#777;font-size:10px}
+.flow-number svg{color:#777}
+.flow-illustration{height:160px;margin:14px 0 23px}
+.paper-sheet{background:#fff;box-shadow:8px 8px 0 #e8e8e6;border:1px solid #e1e1df}
+.paper-sheet span{background:#c9c9c7}
+.paper-sheet i{background:#888}
+.qr-frame{border-color:#d0d0ce;color:#222}
+.qr-frame:before,.qr-frame:after{border-color:#777}
+.settle-ring{border-color:#bdbdbb;color:#222;box-shadow:0 0 0 13px rgba(17,17,17,.025),0 0 0 27px rgba(17,17,17,.012)}
+.settle-caption{color:#888}
+.flow-card h3{font-size:20px;font-weight:600;letter-spacing:-.6px;color:#171717}
+.flow-card p{color:#747474;font-size:12px;line-height:1.8}
+.business-section{border-bottom:1px solid var(--nodus-line)}
+.business-panel{grid-template-columns:minmax(0,1.1fr) minmax(300px,.9fr);gap:clamp(55px,10vw,145px)}
+.business-copy .section-index{margin-bottom:25px}
+.business-copy h2{font-size:clamp(44px,6vw,76px)}
+.business-copy h2 em{color:#999}
+.business-copy>p{font-size:14px;line-height:1.8;color:#707070;max-width:440px}
+.button-dark{background:#111;color:#fff;border:1px solid #111}
+.button-dark:hover{background:#333;color:#fff}
+.business-details{border-top:1px solid var(--nodus-line-strong)}
+.detail-row{padding:21px 0;border-bottom:1px solid var(--nodus-line)}
+.detail-row>span{font-size:15px;font-weight:600;letter-spacing:-.3px}
+.detail-row svg{color:#777}
+.detail-row p{font-size:11px;line-height:1.75;color:#777;margin-left:26px}
+.closing{border-top:1px solid var(--nodus-line);text-align:left}
+.closing-inner{align-items:flex-start}
+.closing .section-index{margin-bottom:27px;color:#777}
+.closing h2{font-size:clamp(54px,8vw,100px);margin-bottom:22px}
+.closing h2 em{color:#999}
+.closing p{font-size:13px;color:#777;margin-bottom:30px}
+.button-light{background:#111;color:#fff;border:1px solid #111}
+.button-light:hover{background:#333;color:#fff}
+.footer{border-top:1px solid var(--nodus-line);min-height:105px;color:#888;font-size:10px}
+.footer .brand{color:#111;font-family:Inter,Arial,sans-serif;font-size:19px;font-weight:600;letter-spacing:-.8px}
+.footer .brand-symbol{border-radius:0;border-color:#111;color:#111;font-family:Inter,Arial,sans-serif;font-style:normal;font-weight:600}
+.footer .brand-dot{color:#999}
+.kindred-hero{background:var(--nodus-paper);color:var(--nodus-ink)}
+.kindred-hero .brand,.kindred-hero .brand-symbol{color:#111}
+.kindred-hero .nav-links{font-family:Inter,Arial,sans-serif}
+.kindred-hero .nav-cta,.kindred-hero .hero-pill{background:#111;color:#fff;border-color:#111}
+.kindred-hero .nav-cta:hover,.kindred-hero .hero-pill:hover{background:#333;color:#fff}
+.kindred-hero .hero-note{font-family:Inter,Arial,sans-serif}
+@media(max-width:900px){
+  .shell{width:min(100% - 48px,700px)}
+  .demo-layout{grid-template-columns:1fr;gap:42px}
+  .demo-section .hero-demo-wrap{justify-self:start;max-width:440px;width:100%}
+  .manifesto-grid{grid-template-columns:1fr;gap:27px}
+  .business-panel{grid-template-columns:1fr;gap:50px}
+  .section-pad{padding:92px 0}
+}
+@media(max-width:640px){
+  .shell{width:calc(100% - 38px)}
+  .section-pad{padding:78px 0}
+  .flow-card{padding:22px 0 28px;min-height:0}
+  .flow-card+.flow-card{border-left:0;border-top:1px solid var(--nodus-line);padding-left:0}
+  .flow-illustration{height:135px}
+  .invoice-card{padding:21px 18px 16px}
+  .closing-inner{align-items:flex-start}
+  .footer{padding-block:24px}
+}
