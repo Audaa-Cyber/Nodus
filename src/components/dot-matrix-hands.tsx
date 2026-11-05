@@ -19,7 +19,7 @@ export default function DotMatrixHands() {
     image.crossOrigin = "anonymous";
     image.src = SOURCE;
     let raf = 0, disposed = false, width = 0, height = 0, dpr = 1, cols = 0, rows = 0;
-    let step = 6.4, rowStep = 13.1, radius = 2.9;
+    let step = 6.4, rowStep = 13.1;
     let fieldA = document.createElement("canvas"), fieldB = document.createElement("canvas");
     let aCtx = fieldA.getContext("2d", { willReadFrequently: true })!;
     let bCtx = fieldB.getContext("2d", { willReadFrequently: true })!;
@@ -33,7 +33,7 @@ export default function DotMatrixHands() {
       dpr = Math.min(2, window.devicePixelRatio || 1);
       canvas.width = Math.round(width * dpr); canvas.height = Math.round(height * dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      step = Math.max(5.8, width / 245); rowStep = step * 2.05; radius = step * .43;
+      step = Math.max(5.8, width / 245); rowStep = step * 2.05;
       cols = Math.ceil(width / step); rows = Math.ceil(height / rowStep);
       fieldA = document.createElement("canvas"); fieldB = document.createElement("canvas");
       fieldA.width = fieldB.width = cols; fieldA.height = fieldB.height = rows;
@@ -75,7 +75,7 @@ export default function DotMatrixHands() {
       const a = aCtx.getImageData(0, 0, cols, rows).data;
       const b = bCtx.getImageData(0, 0, cols, rows).data;
       ctx.clearRect(0, 0, width, height);
-      ctx.fillStyle = "#101010";
+      ctx.textAlign = "center";\n      ctx.textBaseline = "middle";\n      ctx.font = `500 ${Math.max(7, step * 1.48)}px ui-monospace, monospace`;
       const tick = Math.floor(t * 5);
       for (let j = 0; j < rows; j++) {
         const leftMix = mixAt(t, 7.1, 17.2, 2.1);
@@ -100,9 +100,9 @@ export default function DotMatrixHands() {
           let level = 0;
           for (const candidate of levels) if (v >= candidate - .12) level = candidate;
           if (!level) continue;
-          ctx.beginPath();
-          ctx.arc((i + .5) * step, (j + .5) * rowStep, radius * (level === .25 ? .42 : level), 0, Math.PI * 2);
-          ctx.fill();
+          const digit = hash(i * 1.7 + tick, j * 2.3) > .5 ? "1" : "0";
+          ctx.fillStyle = `rgba(255, 255, 255, ${.42 + level * .28})`;
+          ctx.fillText(digit, (i + .5) * step, (j + .5) * rowStep);
         }
       }
       if (!reduced && !document.hidden) raf = requestAnimationFrame(render);
