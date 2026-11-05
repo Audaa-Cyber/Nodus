@@ -75,7 +75,7 @@ export default function DotMatrixHands() {
       const a = aCtx.getImageData(0, 0, cols, rows).data;
       const b = bCtx.getImageData(0, 0, cols, rows).data;
       ctx.clearRect(0, 0, width, height);
-      ctx.fillStyle = "#101010";
+      ctx.fillStyle = "#ffffff";
       const tick = Math.floor(t * 5);
       for (let j = 0; j < rows; j++) {
         const leftMix = mixAt(t, 7.1, 17.2, 2.1);
