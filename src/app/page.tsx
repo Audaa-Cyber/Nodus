@@ -10,7 +10,6 @@ import {
   CircleHelp,
   Clock3,
   Copy,
-  FileText,
   LockKeyhole,
   Menu,
   QrCode,
