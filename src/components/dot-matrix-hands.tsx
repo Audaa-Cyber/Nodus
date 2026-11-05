@@ -78,6 +78,38 @@ export default function DotMatrixHands() {
       const b = bCtx.getImageData(0, 0, cols, rows).data;
       ctx.clearRect(0, 0, width, height);
       const tick = Math.floor(t * 5);
+
+      // Small rain streaks travel down each active column and dissolve into
+      // the hand pixels at the exact point where the build pass reaches them.
+      if (!reduced && phase < 6.65) {
+        ctx.save();
+        ctx.lineCap = "round";
+        for (let i = 1; i < cols; i += 3) {
+          const columnDelay = hash(Math.floor(i / 3), 19) * .72;
+          const progress = (phase - columnDelay) / 5.4;
+          if (progress < 0 || progress > 1) continue;
+          const y = progress * height;
+          const row = Math.max(0, Math.min(rows - 1, Math.floor(y / rowStep)));
+          const source = row < rows / 2 ? a : b;
+          const mask = 1 - source[(row * cols + i) * 4] / 255;
+          if (mask < .48) continue;
+          const x = (i + .5) * step;
+          const streakLength = 5 + hash(i, tick) * 9;
+          const fade = (1 - Math.abs(progress - .5) * .7) * Math.min(1, (6.65 - phase) * 1.8);
+          ctx.strokeStyle = `rgba(255, 255, 255, ${.72 * fade})`;
+          ctx.lineWidth = .8 + hash(i, tick + 4) * .7;
+          ctx.beginPath();
+          ctx.moveTo(x, y - streakLength * .55);
+          ctx.lineTo(x, y + streakLength * .45);
+          ctx.stroke();
+          ctx.fillStyle = `rgba(255, 255, 255, ${.9 * fade})`;
+          ctx.beginPath();
+          ctx.arc(x, y + streakLength * .45, 1.05, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+
       ctx.lineWidth = .65;
       ctx.strokeStyle = "rgba(12, 14, 16, .9)";
       for (let j = 0; j < rows; j++) {
