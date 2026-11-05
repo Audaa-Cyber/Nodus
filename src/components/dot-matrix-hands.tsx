@@ -20,8 +20,9 @@ export default function DotMatrixHands() {
     image.src = SOURCE;
     let raf = 0, disposed = false, width = 0, height = 0, dpr = 1, cols = 0, rows = 0;
     let step = 6.4, rowStep = 13.1, radius = 2.9;
-    let fieldA: HTMLCanvasElement, fieldB: HTMLCanvasElement;
-    let aCtx: CanvasRenderingContext2D, bCtx: CanvasRenderingContext2D;
+    let fieldA = document.createElement("canvas"), fieldB = document.createElement("canvas");
+    let aCtx = fieldA.getContext("2d", { willReadFrequently: true })!;
+    let bCtx = fieldB.getContext("2d", { willReadFrequently: true })!;
     let start = 0;
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const rects = [[0, .06, .47, .40], [.53, .06, .47, .40], [0, .55, .47, .40], [.53, .55, .47, .40]];
