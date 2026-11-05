@@ -149,7 +149,7 @@ export default function DotMatrixHands() {
       };
       start = performance.now();
       resize();
-      if (!frame) frame = requestAnimationFrame(render);
+      if (!document.hidden && !frame) frame = requestAnimationFrame(render);
     };
     image.onerror = () => {
       canvas.classList.add("dots-failed");
@@ -220,16 +220,37 @@ export default function DotMatrixHands() {
         }
       }
 
-      frame = requestAnimationFrame(render);
+      if (!reduceMotion && !document.hidden) {
+        frame = requestAnimationFrame(render);
+      }
     }
 
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        cancelAnimationFrame(frame);
+        frame = 0;
+        return;
+      }
+      if (tiles && !frame) {
+        start = performance.now();
+        frame = requestAnimationFrame(render);
+      }
+    };
+
     resize();
-    const observer = new ResizeObserver(resize);
+    const observer = new ResizeObserver(() => {
+      resize();
+      if (reduceMotion && tiles && !document.hidden && !frame) {
+        frame = requestAnimationFrame(render);
+      }
+    });
     observer.observe(canvas);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => {
       disposed = true;
       cancelAnimationFrame(frame);
       observer.disconnect();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, []);
 
