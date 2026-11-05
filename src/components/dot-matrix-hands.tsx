@@ -69,14 +69,17 @@ export default function DotMatrixHands() {
     const render = (now: number) => {
       if (disposed || !image.complete || !image.naturalWidth) return;
       if (!start) start = now;
-      const t = reduced ? 0 : ((now - start) / 1000) % 24;
+      const elapsed = reduced ? 0 : (now - start) / 1000;
+      const t = elapsed % 24;
+      const phase = reduced ? 6 : elapsed % 12;
       drawPose(aCtx, rects[0], rects[1], t);
       drawPose(bCtx, rects[2], rects[3], t);
       const a = aCtx.getImageData(0, 0, cols, rows).data;
       const b = bCtx.getImageData(0, 0, cols, rows).data;
       ctx.clearRect(0, 0, width, height);
-      ctx.fillStyle = "#171816";
       const tick = Math.floor(t * 5);
+      ctx.lineWidth = .65;
+      ctx.strokeStyle = "rgba(12, 14, 16, .9)";
       for (let j = 0; j < rows; j++) {
         const leftMix = mixAt(t, 7.1, 17.2, 2.1);
         const rightMix = mixAt(t, 3.1, 12.8, 2.1);
@@ -100,9 +103,22 @@ export default function DotMatrixHands() {
           let level = 0;
           for (const candidate of levels) if (v >= candidate - .12) level = candidate;
           if (!level) continue;
+
+          // Each column has its own falling-rain delay. Dots light up as the
+          // rain reaches them, then dissolve downward once the hands are formed.
+          const columnDelay = hash(Math.floor(i / 3), 19) * .72;
+          const revealAt = (j / Math.max(1, rows)) * 5.4 + columnDelay;
+          const build = reduced ? 1 : smooth(revealAt, revealAt + .22, phase);
+          const dissolveAt = 7.25 + (j / Math.max(1, rows)) * 1.8 + hash(i, j + 91) * .35;
+          const dissolve = reduced ? 0 : smooth(dissolveAt, dissolveAt + .48, phase);
+          const alpha = build * (1 - dissolve);
+          if (alpha <= .015) continue;
+
           ctx.beginPath();
           ctx.arc((i + .5) * step, (j + .5) * rowStep, step * .43 * (level === .25 ? .42 : level), 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
           ctx.fill();
+          ctx.stroke();
         }
       }
       if (!reduced && !document.hidden) raf = requestAnimationFrame(render);
