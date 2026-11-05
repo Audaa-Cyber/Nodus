@@ -142,7 +142,7 @@ p { text-wrap: pretty; }
 .paper-sheet i { width: 48%; height: 5px; margin-top: auto; background: #777970; }
 .qr-frame { width: 132px; height: 132px; display: grid; place-items: center; color: #252720; background: #ffffff; }
 .verify-visual { align-content: center; gap: 18px; }
-.verify-mark { width: 96px; height: 96px; display: grid; place-items: center; border: 1px solid #a8aaa1; border-radius: 50%; color: var(--accent); }
+.verify-mark { width: 96px; height: 96px; display: grid; place-items: center; border: 1px solid #a8aaa1; border-radius: 50%; color: #000000; }
 .verify-visual > span { color: #85877f; font-family: var(--mono); font-size: 8px; letter-spacing: .13em; }
 .process-label { color: #aab5c1; font-size: 8px; }
 .process-content h3 { margin: 13px 0 11px; font-size: clamp(23px, 2.6vw, 31px); font-weight: 500; letter-spacing: -.8px; }
