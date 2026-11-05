@@ -262,7 +262,7 @@ export default function Home() {
 
             <article className="process-item">
               <div className="process-visual verify-visual">
-                <div className="verify-mark"><Check size={38} strokeWidth={1.3} /></div>
+                <div className="verify-mark"><Check size={58} strokeWidth={4.5} /></div>
                 <span>SETTLEMENT VERIFIED</span>
               </div>
               <div className="process-content">
