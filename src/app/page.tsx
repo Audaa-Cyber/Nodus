@@ -100,7 +100,6 @@ export default function Home() {
             </div>
           </div>
         </div>
-
       </section>
 
       <section className="checkout-section section-pad" id="checkout">
@@ -349,13 +348,12 @@ export default function Home() {
           <span>Built around a clearer way to pay.</span>
           <Link href="#top">Back to top ↑</Link>
         </div>
-      </footer>
-
-      <section className="hands-feature" aria-label="Nodus dot matrix hand animation">
-        <div className="hands-feature-inner">
-          <DotMatrixHands />
+        <div className="hands-feature" aria-label="Nodus dot matrix hand animation">
+          <div className="hands-feature-inner">
+            <DotMatrixHands />
+          </div>
         </div>
-      </section>
+      </footer>
     </main>
   );
 }
