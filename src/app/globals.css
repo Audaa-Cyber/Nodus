@@ -405,3 +405,14 @@ main > footer > * {
 }
 .success-pulse { background: var(--crystal-silver); }
 .process-visual, .qr-frame { background: transparent; }
+
+/* Hide scrollbars across browsers while keeping scrolling enabled */
+* {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+*::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
