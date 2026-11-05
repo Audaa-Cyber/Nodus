@@ -97,14 +97,14 @@ export default function Home() {
 
       <section className="manifesto section-pad" id="product">
         <div className="shell manifesto-grid">
-          <div className="section-index">01 <i>/</i> THE THINKING</div>
+          <div className="section-index">02 <i>/</i> THE THINKING</div>
           <div><p className="manifesto-overline">A SMALL MOMENT. A BETTER EXPERIENCE.</p><h2>The payment should feel<br />as considered as <em>the service.</em></h2><p className="manifesto-copy">A bill is more than a number at the bottom of a meal. It is the last touchpoint between a business and its guest. Nodus makes that moment clear, calm, and easy to trust.</p></div>
         </div>
       </section>
 
       <section className="flow-section section-pad" id="flow">
         <div className="shell">
-          <div className="section-head"><div><div className="section-index">02 <i>/</i> THE FLOW</div><h2>From table to<br /><em>settled.</em></h2></div><p>Three deliberate steps. No wallet jargon at the table. No guessing whether the payment arrived.</p></div>
+          <div className="section-head"><div><div className="section-index">03 <i>/</i> THE FLOW</div><h2>From table to<br /><em>settled.</em></h2></div><p>Three deliberate steps. No wallet jargon at the table. No guessing whether the payment arrived.</p></div>
           <div className="flow-grid">
             <article className="flow-card"><div className="flow-number">01 <FileText size={18} /></div><div className="flow-illustration bill-illustration"><div className="paper-sheet"><span /><span /><span /><i /></div></div><h3>Prepare the bill</h3><p>Build an itemized invoice with quantities, service, and a clear total. Every line is visible before payment.</p></article>
             <article className="flow-card"><div className="flow-number">02 <QrCode size={18} /></div><div className="flow-illustration qr-illustration"><div className="qr-frame"><QrCode size={72} strokeWidth={1.15} /></div></div><h3>Let them scan</h3><p>One QR code opens a guest-friendly checkout. They choose a supported asset and approve from their wallet.</p></article>
@@ -115,7 +115,7 @@ export default function Home() {
 
       <section className="business-section section-pad" id="business">
         <div className="shell business-panel">
-          <div className="business-copy"><div className="section-index">03 <i>/</i> FOR THE BUSINESS</div><h2>Keep service<br />moving. <em>Stay in control.</em></h2><p>Give your team a straightforward way to create bills and give guests a checkout that respects their time. Nodus keeps the invoice, payment status, and receipt together.</p><Link href="#demo" className="button button-dark">Try the interactive preview <ArrowUpRight size={16} /></Link></div>
+          <div className="business-copy"><div className="section-index">04 <i>/</i> FOR THE BUSINESS</div><h2>Keep service<br />moving. <em>Stay in control.</em></h2><p>Give your team a straightforward way to create bills and give guests a checkout that respects their time. Nodus keeps the invoice, payment status, and receipt together.</p><Link href="#demo" className="button button-dark">Try the interactive preview <ArrowUpRight size={16} /></Link></div>
           <div className="business-details"><div className="detail-row"><span><Clock3 size={16} /> Less waiting</span><p>A QR checkout that guests can complete at their own pace.</p></div><div className="detail-row"><span><ShieldCheck size={16} /> Clear confirmation</span><p>Settlement status, not a screenshot, determines when a bill is paid.</p></div><div className="detail-row"><span><Wallet size={16} /> Customer choice</span><p>Support for selected stablecoins and networks, with customer approval.</p></div><div className="detail-row"><span><CircleHelp size={16} /> No hidden magic</span><p>Transparent totals and a receipt the guest can keep.</p></div></div>
         </div>
       </section>
