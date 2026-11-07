@@ -1,5 +1,4 @@
-import { apiSuccess } from "@/lib/api/response";
-import { handleApiError } from "@/lib/errors";
+import { apiSuccess, apiError } from "@/lib/api/response";
 import { isClientSupabaseConfigured } from "@/config/env.client";
 import { isServerSupabaseConfigured } from "@/config/env.server";
 import { isNearServerConfigured } from "@/lib/server/near-boundary";
@@ -34,7 +33,12 @@ export async function GET() {
       },
     });
   } catch (error) {
-    return handleApiError(error);
+    const message = error instanceof Error ? error.message : "Health check failed";
+    return apiError({
+      code: "HEALTH_CHECK_FAILED",
+      message,
+      status: 500,
+    });
   }
 }
 

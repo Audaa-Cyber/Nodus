@@ -354,7 +354,7 @@ export function deriveEvmPublicKey(
   // 4. Generate the uncompressed 64-byte EVM public key (excluding the 0x04 prefix)
   const fullUncompressedBytes = childPoint.toRawBytes(false); // 65 bytes starting with 0x04
   const uncompressed64Bytes = fullUncompressedBytes.subarray(1); // 64 bytes (X || Y coordinates)
-  const uncompressedHex: Hex = `0x${bytesToHex(uncompressed64Bytes).slice(2)}`;
+  const uncompressedHex: Hex = bytesToHex(uncompressed64Bytes);
 
   return {
     childPoint,

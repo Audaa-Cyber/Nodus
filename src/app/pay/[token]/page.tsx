@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { formatMoney } from "@/lib/invoices";
-import { InvoiceWalletCheckout } from "@/components/wallet/invoice-wallet-checkout";
+import { LazyInvoiceWalletCheckout } from "@/components/wallet/lazy-wallet-checkout";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -35,6 +35,15 @@ function safeFormatMoney(amountMinor: number, currency: string) {
   }
 }
 
+function formatBaseUnits(amount: string | null, decimals: number | null) {
+  if (!amount || !/^\d+$/.test(amount) || !Number.isInteger(decimals) || decimals === null || decimals < 0 || decimals > 30) return "Amount unavailable";
+  if (decimals === 0) return amount;
+  const padded = amount.padStart(decimals + 1, "0");
+  const whole = padded.slice(0, -decimals);
+  const fraction = padded.slice(-decimals).replace(/0+$/, "");
+  return fraction ? `${whole}.${fraction}` : whole;
+}
+
 export default async function PublicInvoicePage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   if (!PUBLIC_TOKEN_PATTERN.test(token)) return unavailablePage("This link is unavailable", "Check that the invoice link is correct, or ask the business for a new one.", "invalid");
@@ -49,6 +58,7 @@ export default async function PublicInvoicePage({ params }: { params: Promise<{ 
   if (!invoice.business_name || !invoice.invoice_number || !invoice.description || invoice.amount_minor === null || !invoice.currency || !invoice.issue_date || !invoice.status) {
     return unavailablePage("Invoice details are temporarily unavailable", "We couldn't load this invoice right now.", "error");
   }
+  const { data: receipts } = await supabase.rpc("lookup_shared_payment_receipts", { p_token_hash: tokenHash });
 
   const status = invoice.status;
   const statusMessage = status === "paid"
@@ -70,8 +80,16 @@ export default async function PublicInvoicePage({ params }: { params: Promise<{ 
     <section className="public-invoice-description" aria-label="Invoice description"><h2>Description</h2><p>{invoice.description}</p></section>
     <dl className="public-invoice-dates"><div><dt>Issued</dt><dd>{displayDate(invoice.issue_date)}</dd></div>{invoice.due_date && <div><dt>Due</dt><dd>{displayDate(invoice.due_date)}</dd></div>}</dl>
     <p className={`public-invoice-status public-status-${status}`} role="status">{statusMessage}</p>
+    {receipts && receipts.length > 0 && <section className="public-invoice-description" aria-labelledby="payment-receipt-title"><h2 id="payment-receipt-title">Payment receipt</h2><ul>{receipts.map((receipt) => {
+      const outcome = receipt.outcome === "VERIFIED" ? "Verified settlement"
+        : receipt.outcome === "PARTIAL" ? "Verified partial payment"
+          : receipt.outcome === "OVERPAID" ? "Verified payment; overpayment review required"
+            : "Payment received; reconciliation review required";
+      const hashes = Array.isArray(receipt.destination_tx_hashes) ? receipt.destination_tx_hashes.filter((hash): hash is string => typeof hash === "string" && /^0x[0-9a-fA-F]{64}$/.test(hash)) : [];
+      return <li key={receipt.receipt_number}><strong>{receipt.receipt_number}</strong><p>{outcome}</p><p>{formatBaseUnits(receipt.received_amount_base_units, receipt.received_asset_decimals)} {receipt.destination_asset_id ?? "asset"} on {receipt.destination_network ?? "network"}</p>{hashes.map((hash) => <p key={hash}>Destination transaction: <code>{hash}</code></p>)}</li>;
+    })}</ul><p className="public-invoice-note">This receipt reflects payment verification and is not a separate invoice.</p></section>}
     {(status === "open" || status === "overdue") ? (
-      <InvoiceWalletCheckout
+      <LazyInvoiceWalletCheckout
         shareToken={token}
         invoiceNumber={invoice.invoice_number}
         amountMinor={invoice.amount_minor}

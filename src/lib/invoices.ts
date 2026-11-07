@@ -8,8 +8,42 @@ export function effectiveStatus(invoice: Pick<Invoice, "status" | "due_date">, t
   return invoice.status;
 }
 
-export function formatMoney(minor: number, currency: string) {
-  return new Intl.NumberFormat("en", { style: "currency", currency, minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(minor / 100);
+const KNOWN_CRYPTO_TOKENS = new Set([
+  "USDC",
+  "USDT",
+  "NEAR",
+  "ETH",
+  "SOL",
+  "BTC",
+  "DAI",
+  "POL",
+  "AVAX",
+  "BNB",
+]);
+
+export function formatMoney(minor: number, currency: string): string {
+  const normalizedCurrency = (currency || "USD").trim().toUpperCase();
+  const amount = (minor || 0) / 100;
+
+  const formattedNumber = new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(amount);
+
+  if (KNOWN_CRYPTO_TOKENS.has(normalizedCurrency)) {
+    return `${formattedNumber} ${normalizedCurrency}`;
+  }
+
+  try {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: normalizedCurrency,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount);
+  } catch {
+    return `${formattedNumber} ${normalizedCurrency}`;
+  }
 }
 
 export function parseInvoiceForm(formData: FormData) {

@@ -1,4 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -14,8 +13,8 @@
   --accent: #244b86;
   --dark: #171916;
   --dark-muted: #c0c8d2;
-  --sans: "DM Sans", Arial, sans-serif;
-  --mono: "DM Mono", monospace;
+  --sans: var(--font-dm-sans), "DM Sans", Arial, sans-serif;
+  --mono: var(--font-dm-mono), "DM Mono", monospace;
   --ease: cubic-bezier(.2,.75,.25,1);
 }
 * { box-sizing: border-box; }
@@ -28,7 +27,7 @@ button:focus-visible, a:focus-visible, select:focus-visible { outline: 2px solid
 ::selection { background: var(--ink); color: white; }
 .shell { width: min(1320px, calc(100% - 112px)); margin-inline: auto; }
 .section-pad { padding: clamp(96px, 11vw, 158px) 0; }
-.eyebrow, .hero-kicker, .micro-label, .invoice-meta, .pay-label, .invoice-stage-heading, .invoice-note, .demo-disclaimer, .process-label, .footer-label, .binary-caption {
+.eyebrow, .hero-kicker, .micro-label, .invoice-meta, .pay-label, .invoice-stage-heading, .invoice-note, .demo-disclaimer, .process-label, .footer-label {
   font-family: var(--mono); font-size: 9px; font-weight: 400; letter-spacing: .12em;
 }
 .eyebrow { margin: 0 0 30px; color: var(--muted); }
@@ -68,9 +67,6 @@ p { text-wrap: pretty; }
 .button-link { display: inline-flex; align-items: center; gap: 12px; padding: 12px 0; color: var(--ink); font-size: 11px; }
 .button-link span { color: var(--accent); transition: transform 180ms var(--ease); }
 .button-link:hover span { transform: translate(3px, 3px); }
-.binary-stage { position: relative; z-index: 1; flex: 0 0 245px; width: 100%; height: 245px; margin-top: auto; overflow: hidden; }
-.binary-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-.binary-caption { position: absolute; right: max(56px, calc((100vw - 1320px) / 2)); bottom: 19px; left: max(56px, calc((100vw - 1320px) / 2)); display: flex; justify-content: space-between; color: #9a9b94; font-size: 8px; }
 
 /* Checkout */
 .checkout-section { background: #ffffff; }
@@ -197,7 +193,6 @@ p { text-wrap: pretty; }
   .hero { min-height: 850px; }
   .hero h1 { font-size: clamp(64px, 10vw, 100px); }
   .hero-bottom { align-items: center; flex-direction: column; gap: 26px; }
-  .binary-caption { right: 32px; left: 32px; }
   .checkout-layout { grid-template-columns: 1fr minmax(330px, 410px); gap: 48px; }
   .checkout-copy h2, .process-heading h2, .business-copy h2 { font-size: clamp(50px, 6vw, 70px); }
   .statement-layout { grid-template-columns: 1fr 2fr; }
@@ -230,8 +225,6 @@ p { text-wrap: pretty; }
   .hero-lede { max-width: 370px; font-size: 13px; line-height: 1.7; }
   .hero-actions { flex-wrap: wrap; gap: 18px; }
   .button { min-height: 48px; gap: 12px; padding-inline: 16px; }
-  .binary-stage { flex-basis: 190px; height: 190px; }
-  .binary-caption { right: 20px; bottom: 15px; left: 20px; font-size: 7px; }
   .checkout-layout, .business-layout { grid-template-columns: 1fr; gap: 44px; }
   .checkout-copy { padding: 0; }
   .checkout-copy h2, .process-heading h2, .business-copy h2 { font-size: clamp(52px, 12vw, 72px); }
@@ -682,7 +675,7 @@ main > footer > * {
   --crystal-silver-bright: #d0d8e2;
   --accent: #8996a6;
 }
-.eyebrow, .hero-kicker, .hero-lede, .binary-caption, .nav-links, .nav-cta,
+.eyebrow, .hero-kicker, .hero-lede, .nav-links, .nav-cta,
 .hero h1 span, .checkout-copy h2 span, .process-heading h2 span,
 .business-copy h2 span, .section-description, .demo-disclaimer,
 .invoice-stage-heading, .invoice-note, .process-label, .process-content p,

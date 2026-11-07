@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { isAddress } from "viem";
 import { NextResponse } from "next/server";
-import { QuoteRequest, type TokenResponse } from "@defuse-protocol/one-click-sdk-typescript";
+import { QuoteRequest, verifyQuoteSignature, type TokenResponse } from "@defuse-protocol/one-click-sdk-typescript";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getWalletNetwork } from "@/lib/wallet/networks";
@@ -40,11 +40,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
   let verifiedAssetIds: Set<string>;
   try { verifiedAssetIds = assertLivePaymentsEnabled(); }
   catch (error) { return jsonError(error instanceof Error ? error.message : "live_payments_disabled", 503); }
-  const limitKey = `${createHash("sha256").update(token, "utf8").digest("hex")}:${commit ? "commit" : "preview"}`;
+  const tokenHash = createHash("sha256").update(token, "utf8").digest("hex");
+  const limitKey = `${tokenHash}:${commit ? "commit" : "preview"}`;
   if (!allowOneClickRequest(limitKey, commit ? 3 : 10, 60_000)) return jsonError("quote_rate_limit", 429);
 
   try {
-    const tokenHash = createHash("sha256").update(token, "utf8").digest("hex");
     const supabase = await createSupabaseServerClient();
     const { data: contexts, error: contextError } = await supabase.rpc("lookup_shared_payment_context", { p_token_hash: tokenHash });
     const context = contexts?.[0];
@@ -60,8 +60,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
     if (!addressMatches(source.blockchain, body.refundAddress)) return jsonError("invalid_refund_address", 422);
 
     const receivingNetwork = getWalletNetwork(context.receiving_network);
+    if (!receivingNetwork) return jsonError("destination_route_not_verified", 422);
     const destination = tokens.find((entry) => entry.symbol.toUpperCase() === "USDC"
-      && getWalletNetwork(entry.blockchain)?.key === receivingNetwork?.key
+      && getWalletNetwork(entry.blockchain)?.key === receivingNetwork.key
       && verifiedAssetIds.has(entry.assetId));
     if (!destination || !getWalletNetwork(destination.blockchain)) return jsonError("destination_route_not_verified", 422);
     if (!Number.isInteger(destination.decimals) || destination.decimals < 2 || destination.decimals > 30) return jsonError("invalid_destination_asset", 503);
@@ -74,9 +75,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
       if (existing?.mode === "live" && existing.quote_snapshot) {
         return NextResponse.json({ mode: "live-committed", attempt: existing, quote: existing.quote_snapshot }, { headers: { "Cache-Control": "no-store" } });
       }
-      const { data: active } = await admin.from("payment_attempts").select("id,mode,status").eq("invoice_id", context.invoice_id)
-        .in("status", ["MOCK_QUOTE_READY", "PENDING_DEPOSIT", "KNOWN_DEPOSIT_TX", "PROCESSING", "SUCCESS"]).limit(1);
-      if (active?.some((row) => row.mode === "live" || row.status !== "SUCCESS")) return jsonError("active_payment_attempt_exists", 409);
+      const { data: active } = await admin.from("payment_attempts").select("id").eq("invoice_id", context.invoice_id)
+        .or("status.in.(MOCK_QUOTE_READY,PENDING_DEPOSIT,KNOWN_DEPOSIT_TX,PROCESSING),and(mode.eq.live,status.eq.SUCCESS,settlement_resolved_at.is.null)").limit(1);
+      if (active?.length) return jsonError("active_payment_attempt_exists", 409);
     }
     const quoteRequest: QuoteRequest = {
       dry: !commit,
@@ -93,10 +94,20 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
       deadline: new Date(Date.now() + 20 * 60_000).toISOString(),
     };
     const response = await requestOneClickQuote(quoteRequest);
-    if (!/^\d+$/.test(response.quote?.amountIn ?? "") || !/^\d+$/.test(response.quote?.amountOut ?? "")
+    if (!verifyQuoteSignature(response)
+      || !/^\d+$/.test(response.quote?.amountIn ?? "") || BigInt(response.quote?.amountIn ?? "0") <= 0n
+      || !/^\d+$/.test(response.quote?.amountOut ?? "") || BigInt(response.quote?.amountOut ?? "0") <= 0n
       || !/^\d+$/.test(response.quote?.minAmountOut ?? "")
+      || response.quote.amountOut !== targetAmount
+      || BigInt(response.quote.minAmountOut) > BigInt(response.quote.amountOut)
+      || response.quoteRequest.dry !== !commit
+      || response.quoteRequest.swapType !== QuoteRequest.swapType.EXACT_OUTPUT
+      || response.quoteRequest.depositType !== QuoteRequest.depositType.ORIGIN_CHAIN
+      || response.quoteRequest.recipientType !== QuoteRequest.recipientType.DESTINATION_CHAIN
       || response.quoteRequest.originAsset !== source.assetId
       || response.quoteRequest.destinationAsset !== destination.assetId
+      || response.quoteRequest.amount !== targetAmount
+      || response.quoteRequest.slippageTolerance !== 100
       || response.quoteRequest.recipient !== context.receiving_address
       || response.quoteRequest.refundTo !== body.refundAddress) return jsonError("invalid_upstream_quote", 502);
     if (!commit) return NextResponse.json({ mode: "live-preview", invoice: { number: context.invoice_number, amountMinor: context.amount_minor, currency: context.currency }, source: { assetId: source.assetId, symbol: source.symbol, blockchain: source.blockchain, decimals: source.decimals }, destination: { assetId: destination.assetId, symbol: destination.symbol, blockchain: destination.blockchain, decimals: destination.decimals, recipient: context.receiving_address }, quote: response }, { headers: { "Cache-Control": "no-store" } });
@@ -111,7 +122,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
       p_source_asset_id: source.assetId,
       p_source_network: sourceNetwork.key,
       p_destination_asset_id: destination.assetId,
-      p_destination_network: context.receiving_network,
+      p_destination_network: receivingNetwork.key,
       p_recipient_address: context.receiving_address,
       p_requested_amount: response.quote.amountIn,
       p_expected_received_amount: response.quote.amountOut,

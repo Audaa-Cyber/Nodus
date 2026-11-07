@@ -5,6 +5,27 @@ import InvoiceSharePanel from "@/components/invoice-share-panel";
 import { getBusinessContext } from "@/lib/auth/business-context";
 import { effectiveStatus, formatMoney } from "@/lib/invoices";
 
+function formatUtcDate(dateString: string): string {
+  try {
+    const iso = dateString.includes("T") ? dateString : `${dateString}T00:00:00Z`;
+    return new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeZone: "UTC" }).format(new Date(iso));
+  } catch {
+    return dateString;
+  }
+}
+
+function formatUtcDateTime(dateString: string): string {
+  try {
+    return new Intl.DateTimeFormat("en-US", {
+      dateStyle: "medium",
+      timeStyle: "short",
+      timeZone: "UTC",
+    }).format(new Date(dateString)) + " UTC";
+  } catch {
+    return dateString;
+  }
+}
+
 export default async function InvoiceDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ cancelled?: string; error?: string }> }) {
   const [{ id }, query] = await Promise.all([params, searchParams]);
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) notFound();
@@ -13,6 +34,8 @@ export default async function InvoiceDetailPage({ params, searchParams }: { para
   if (!business) notFound();
   const { data: invoice, error } = await supabase.from("invoices").select("*").eq("id", id).eq("business_id", business.id).maybeSingle();
   if (error || !invoice) notFound();
+  const { data: receipts } = await supabase.from("payment_receipts").select("receipt_number,issued_at,payment_attempt_id")
+    .eq("invoice_id", id).eq("business_id", business.id).order("issued_at", { ascending: false });
   const status = effectiveStatus(invoice);
   const shareState = !invoice.share_token_hash
     ? "none"
@@ -25,8 +48,9 @@ export default async function InvoiceDetailPage({ params, searchParams }: { para
     <Link className="back-link" href="/dashboard/invoices">← Back to invoices</Link>
     <header className="detail-heading"><div><p className="eyebrow">INVOICE · {invoice.invoice_number}</p><h1>{invoice.customer_name}</h1><span className={`status status-${status}`}>{status}</span></div><div className="detail-actions">{canEdit && <Link className="button button-outline" href={`/dashboard/invoices/${id}/edit`}>Edit invoice</Link>}</div></header>
     {query.cancelled && <p className="form-success" role="status">Invoice cancelled. It can no longer be payable.</p>}{query.error && <p className="form-error" role="alert">Invoice could not be cancelled.</p>}
-    <section className="invoice-detail-sheet"><div className="detail-amount"><span>AMOUNT DUE</span><strong>{formatMoney(invoice.amount_minor, invoice.currency)}</strong></div><dl><div><dt>From</dt><dd>{business.business_name}</dd></div><div><dt>Customer</dt><dd>{invoice.customer_name}{invoice.customer_email && <span>{invoice.customer_email}</span>}</dd></div><div><dt>Description</dt><dd>{invoice.description}</dd></div><div><dt>Issue date</dt><dd>{new Date(`${invoice.issue_date}T00:00:00`).toLocaleDateString()}</dd></div><div><dt>Due date</dt><dd>{invoice.due_date ? new Date(`${invoice.due_date}T00:00:00`).toLocaleDateString() : "Not set"}</dd></div><div><dt>Created</dt><dd>{new Date(invoice.created_at).toLocaleString()}</dd></div><div><dt>Updated</dt><dd>{new Date(invoice.updated_at).toLocaleString()}</dd></div></dl></section>
+    <section className="invoice-detail-sheet"><div className="detail-amount"><span>AMOUNT DUE</span><strong>{formatMoney(invoice.amount_minor, invoice.currency)}</strong></div><dl><div><dt>From</dt><dd>{business.business_name}</dd></div><div><dt>Customer</dt><dd>{invoice.customer_name}{invoice.customer_email && <span>{invoice.customer_email}</span>}</dd></div><div><dt>Description</dt><dd>{invoice.description}</dd></div><div><dt>Issue date</dt><dd>{formatUtcDate(invoice.issue_date)}</dd></div><div><dt>Due date</dt><dd>{invoice.due_date ? formatUtcDate(invoice.due_date) : "Not set"}</dd></div><div><dt>Created</dt><dd>{formatUtcDateTime(invoice.created_at)}</dd></div><div><dt>Updated</dt><dd>{formatUtcDateTime(invoice.updated_at)}</dd></div></dl></section>
     <InvoiceSharePanel invoiceId={id} shareState={shareState} expiresAt={invoice.share_token_expires_at} canShare={invoice.status !== "draft"} />
+    {receipts && receipts.length > 0 && <section className="invoice-detail-sheet" aria-labelledby="payment-history-title"><h2 id="payment-history-title">Verified payment history</h2><ul>{receipts.map((receipt) => <li key={receipt.payment_attempt_id}><strong>{receipt.receipt_number}</strong> · {formatUtcDateTime(receipt.issued_at)}</li>)}</ul></section>}
     {canCancel && <section className="cancel-panel"><div><h2>Cancel invoice</h2><p>Cancelled invoices cannot be reopened and will not be payable.</p></div><CancelInvoiceForm invoiceId={id} /></section>}
     {invoice.status === "paid" && <p className="form-help">Paid status is recorded only after verified settlement.</p>}
   </main>;

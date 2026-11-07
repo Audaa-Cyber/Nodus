@@ -129,7 +129,13 @@ export function LivePaymentFlow({ token, invoiceNumber, amountMinor, currency, a
       const result = await response.json();
       if (!response.ok) throw new Error(result.error ?? "Execution status unavailable.");
       setAttempt(result.attempt as PaymentAttempt);
-      setStatusText(`1Click execution status: ${result.execution.status}. NODUS invoice status is unchanged pending independent verification.`);
+      const outcome = result.settlement?.outcome as string | undefined;
+      if (outcome === "VERIFIED") setStatusText(`Settlement independently verified. Receipt ${result.settlement.receiptNumber ?? "issued"}; invoice status: ${result.settlement.invoiceStatus}.`);
+      else if (outcome === "PARTIAL") setStatusText("Settlement independently verified as a partial payment. The invoice remains open; no receipt represents a full payment.");
+      else if (outcome === "OVERPAID") setStatusText("Settlement independently verified, but the received amount exceeds the invoice. Business review is required; the invoice was not marked paid.");
+      else if (outcome === "REVIEW_REQUIRED") setStatusText(`Destination transfer verified, but invoice reconciliation needs business review. The invoice remains ${result.settlement.invoiceStatus ?? "unchanged"}.`);
+      else if (outcome === "REFUNDED" || outcome === "FAILED" || outcome === "INCOMPLETE_DEPOSIT" || outcome === "EXPIRED") setStatusText(`Payment attempt ended: ${outcome.toLowerCase().replaceAll("_", " ")}. The invoice was not marked paid.`);
+      else setStatusText(`1Click execution status: ${result.execution.status}. This status alone does not mean the invoice has been paid.`);
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Execution status unavailable."); }
     finally { setBusy(false); }
   }

@@ -32,3 +32,8 @@ yarn-error.log*
 # AI agents & skills
 .agents/
 
+# Test artifacts & temporary tool files
+.playwright-mcp/
+.snapshots/
+supabase/.temp/
+

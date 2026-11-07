@@ -8,16 +8,39 @@ import {
 
 const API_BASE = "https://1click.chaindefuser.com";
 const REQUEST_TIMEOUT_MS = 12_000;
+/**
+ * In-Memory Sliding-Window Rate Limiter.
+ *
+ * NOTE FOR DISTRIBUTED PRODUCTION DEPLOYMENTS:
+ * This in-process rate limiter enforces request throttling per Node process/container.
+ * For multi-instance horizontal scaling (e.g. Kubernetes, multi-region serverless),
+ * back this interface with a shared distributed KV store (e.g., Upstash Redis / Memcached).
+ */
+const MAX_RATE_LIMITER_ENTRIES = 5_000;
 const rateWindows = new Map<string, { startedAt: number; count: number }>();
 
-export function allowOneClickRequest(key: string, maximum: number, windowMs: number) {
+export function allowOneClickRequest(key: string, maximum: number, windowMs: number): boolean {
   const now = Date.now();
-  for (const [entryKey, value] of rateWindows) if (now - value.startedAt > windowMs * 2) rateWindows.delete(entryKey);
+
+  // Bounded cleanup: prune expired entries
+  for (const [entryKey, value] of rateWindows) {
+    if (now - value.startedAt >= windowMs) {
+      rateWindows.delete(entryKey);
+    }
+  }
+
+  // Safety hard-cap to protect against memory exhaustion under high-cardinality keys
+  if (rateWindows.size >= MAX_RATE_LIMITER_ENTRIES) {
+    const oldestKey = rateWindows.keys().next().value;
+    if (oldestKey) rateWindows.delete(oldestKey);
+  }
+
   const current = rateWindows.get(key);
   if (!current || now - current.startedAt >= windowMs) {
     rateWindows.set(key, { startedAt: now, count: 1 });
     return true;
   }
+
   if (current.count >= maximum) return false;
   current.count += 1;
   return true;
