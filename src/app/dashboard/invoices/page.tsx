@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getBusinessContext } from "@/lib/auth/business-context";
 import { effectiveStatus, formatMoney } from "@/lib/invoices";
+import { withTransitionDelay } from "@/lib/utils/timing";
 
 export default async function InvoicesPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
   const params = await searchParams;
@@ -10,7 +11,15 @@ export default async function InvoicesPage({ searchParams }: { searchParams: Pro
   const { supabase, user, business } = await getBusinessContext();
   if (!user) redirect("/login");
   if (!business) return <main className="dashboard-content"><h1>Business profile unavailable</h1><p>Apply the Supabase migration to finish setting up your business account.</p></main>;
-  const { data: invoices, count, error } = await supabase.from("invoices").select("id,invoice_number,customer_name,amount_minor,currency,status,due_date,created_at", { count: "exact" }).eq("business_id", business.id).order("created_at", { ascending: false }).range((page - 1) * pageSize, page * pageSize - 1);
+  const { data: invoices, count, error } = await withTransitionDelay(
+    supabase
+      .from("invoices")
+      .select("id,invoice_number,customer_name,amount_minor,currency,status,due_date,created_at", { count: "exact" })
+      .eq("business_id", business.id)
+      .order("created_at", { ascending: false })
+      .range((page - 1) * pageSize, page * pageSize - 1),
+    700
+  );
   return <main className="dashboard-content">
     <header className="dashboard-heading"><div><p className="eyebrow">BUSINESS MANAGEMENT</p><h1>Invoices</h1><p>{count ?? 0} invoice{count === 1 ? "" : "s"} in your account.</p></div><Link className="button button-dark" href="/dashboard/invoices/new">Create invoice <span aria-hidden="true">↗</span></Link></header>
     {error ? <p className="inline-error">Invoices could not be loaded. Refresh the page to try again.</p> : invoices?.length ? <><div className="invoice-table-wrap"><table className="invoice-table"><thead><tr><th>Invoice</th><th>Customer</th><th>Created</th><th>Due date</th><th>Amount</th><th>Status</th></tr></thead><tbody>{invoices.map((invoice) => {

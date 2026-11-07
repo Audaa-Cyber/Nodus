@@ -2,24 +2,28 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getBusinessContext } from "@/lib/auth/business-context";
 import { effectiveStatus, formatMoney } from "@/lib/invoices";
+import { withTransitionDelay } from "@/lib/utils/timing";
 
 export default async function DashboardPage() {
   const { supabase, user, business } = await getBusinessContext();
   if (!user) redirect("/login");
   if (!business) return <main className="dashboard-content"><h1>Business profile unavailable</h1><p>Apply the Supabase migration to finish setting up your business account.</p></main>;
   const today = new Date().toISOString().slice(0, 10);
-  const [allInvoicesResult, recent] = await Promise.all([
-    supabase
-      .from("invoices")
-      .select("status,due_date")
-      .eq("business_id", business.id),
-    supabase
-      .from("invoices")
-      .select("id,invoice_number,customer_name,amount_minor,currency,status,due_date,issue_date,created_at")
-      .eq("business_id", business.id)
-      .order("created_at", { ascending: false })
-      .limit(6),
-  ]);
+  const [allInvoicesResult, recent] = await withTransitionDelay(
+    Promise.all([
+      supabase
+        .from("invoices")
+        .select("status,due_date")
+        .eq("business_id", business.id),
+      supabase
+        .from("invoices")
+        .select("id,invoice_number,customer_name,amount_minor,currency,status,due_date,issue_date,created_at")
+        .eq("business_id", business.id)
+        .order("created_at", { ascending: false })
+        .limit(6),
+    ]),
+    700
+  );
 
   let totalCount = 0;
   let openCount = 0;

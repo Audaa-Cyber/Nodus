@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { AuthForm } from "@/components/auth-form";
-import { PageLoader } from "@/components/page-loader";
 
 export default function RegisterPage() {
   return (
@@ -14,7 +13,7 @@ export default function RegisterPage() {
         <p className="eyebrow">GET STARTED</p>
         <h1>Your business,<br />in clear view.</h1>
         <p className="auth-intro">Create an account to prepare and manage invoices.</p>
-        <Suspense fallback={<PageLoader variant="inline" label="Loading form" />}>
+        <Suspense fallback={<div className="auth-form-skeleton" style={{ minHeight: "220px" }} />}>
           <AuthForm mode="register" />
         </Suspense>
       </div>

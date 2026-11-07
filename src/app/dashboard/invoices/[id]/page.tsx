@@ -4,6 +4,7 @@ import CancelInvoiceForm from "@/components/cancel-invoice-form";
 import InvoiceSharePanel from "@/components/invoice-share-panel";
 import { getBusinessContext } from "@/lib/auth/business-context";
 import { effectiveStatus, formatMoney } from "@/lib/invoices";
+import { withTransitionDelay } from "@/lib/utils/timing";
 
 function formatUtcDate(dateString: string): string {
   try {
@@ -41,13 +42,18 @@ export default async function InvoiceDetailPage({ params, searchParams }: { para
   const { supabase, user, business } = await getBusinessContext();
   if (!user) redirect("/login");
   if (!business) notFound();
-  const { data: invoice, error } = await supabase.from("invoices").select("*").eq("id", id).eq("business_id", business.id).maybeSingle();
+  const [{ data: invoice, error }, { data: receipts }, { data: settlements }] = await withTransitionDelay(
+    Promise.all([
+      supabase.from("invoices").select("*").eq("id", id).eq("business_id", business.id).maybeSingle(),
+      supabase.from("payment_receipts").select("receipt_number,issued_at,payment_attempt_id")
+        .eq("invoice_id", id).eq("business_id", business.id).order("issued_at", { ascending: false }),
+      supabase.from("payment_settlements")
+        .select("payment_attempt_id,outcome,destination_asset_id,destination_network,received_amount_base_units,received_asset_decimals,destination_tx_hashes")
+        .eq("invoice_id", id).eq("business_id", business.id),
+    ]),
+    700
+  );
   if (error || !invoice) notFound();
-  const { data: receipts } = await supabase.from("payment_receipts").select("receipt_number,issued_at,payment_attempt_id")
-    .eq("invoice_id", id).eq("business_id", business.id).order("issued_at", { ascending: false });
-  const { data: settlements } = await supabase.from("payment_settlements")
-    .select("payment_attempt_id,outcome,destination_asset_id,destination_network,received_amount_base_units,received_asset_decimals,destination_tx_hashes")
-    .eq("invoice_id", id).eq("business_id", business.id);
   const status = effectiveStatus(invoice);
   const shareState = !invoice.share_token_hash
     ? "none"

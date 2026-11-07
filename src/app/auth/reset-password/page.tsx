@@ -2,7 +2,6 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { ResetPasswordForm } from "@/components/reset-password-form";
-import { PageLoader } from "@/components/page-loader";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export default async function ResetPasswordPage() {
@@ -29,7 +28,7 @@ export default async function ResetPasswordPage() {
         <p className="eyebrow">ACCOUNT SECURITY</p>
         <h1>Set new password.</h1>
         <p className="auth-intro">Choose a strong password with at least 8 characters for your account.</p>
-        <Suspense fallback={<PageLoader variant="inline" label="Loading form" />}>
+        <Suspense fallback={<div className="auth-form-skeleton" style={{ minHeight: "220px" }} />}>
           <ResetPasswordForm />
         </Suspense>
       </div>
