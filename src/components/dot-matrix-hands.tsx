@@ -23,7 +23,8 @@ export default function DotMatrixHands() {
     let fieldA = document.createElement("canvas"), fieldB = document.createElement("canvas");
     let aCtx = fieldA.getContext("2d", { willReadFrequently: true })!;
     let bCtx = fieldB.getContext("2d", { willReadFrequently: true })!;
-    let start = 0;
+    let start = 0, lastFrameTime = 0, inView = false;
+    const targetInterval = 1000 / 30; // Cap at 30fps for smooth performance without thread locking
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const rects = [[0, .06, .47, .40], [.53, .06, .47, .40], [0, .55, .47, .40], [.53, .55, .47, .40]];
 
@@ -68,6 +69,12 @@ export default function DotMatrixHands() {
 
     const render = (now: number) => {
       if (disposed || !image.complete || !image.naturalWidth) return;
+      if (!inView && !reduced) return;
+      if (now - lastFrameTime < targetInterval) {
+        if (!reduced && !document.hidden && inView) raf = requestAnimationFrame(render);
+        return;
+      }
+      lastFrameTime = now;
       if (!start) start = now;
       const elapsed = reduced ? 0 : (now - start) / 1000;
       const t = elapsed % 24;
@@ -153,16 +160,26 @@ export default function DotMatrixHands() {
           ctx.stroke();
         }
       }
-      if (!reduced && !document.hidden) raf = requestAnimationFrame(render);
+      if (!reduced && !document.hidden && inView) raf = requestAnimationFrame(render);
     };
     const portraitWidth = () => height > width;
-    const onVisibility = () => { if (document.hidden) cancelAnimationFrame(raf); else if (!reduced) raf = requestAnimationFrame(render); };
+    const intersectionObserver = new IntersectionObserver(([entry]) => {
+      inView = entry.isIntersecting;
+      if (inView && !reduced && !document.hidden) {
+        cancelAnimationFrame(raf);
+        raf = requestAnimationFrame(render);
+      } else {
+        cancelAnimationFrame(raf);
+      }
+    }, { rootMargin: "100px" });
+    intersectionObserver.observe(canvas);
+    const onVisibility = () => { if (document.hidden) cancelAnimationFrame(raf); else if (!reduced && inView) raf = requestAnimationFrame(render); };
     const onLoad = () => { resize(); if (reduced) render(0); else raf = requestAnimationFrame(render); };
     image.addEventListener("load", onLoad);
     const observer = new ResizeObserver(() => { resize(); if (image.complete && image.naturalWidth && reduced) render(0); });
     observer.observe(canvas);
     document.addEventListener("visibilitychange", onVisibility);
-    return () => { disposed = true; cancelAnimationFrame(raf); observer.disconnect(); image.removeEventListener("load", onLoad); document.removeEventListener("visibilitychange", onVisibility); };
+    return () => { disposed = true; cancelAnimationFrame(raf); observer.disconnect(); intersectionObserver.disconnect(); image.removeEventListener("load", onLoad); document.removeEventListener("visibilitychange", onVisibility); };
   }, []);
 
   return <canvas ref={ref} className="hands-canvas" />;

@@ -70,10 +70,14 @@ export default function Home() {
             <Link href="#checkout" onClick={closeMenu}>Checkout</Link>
             <Link href="#how-it-works" onClick={closeMenu}>How it works</Link>
             <Link href="#business" onClick={closeMenu}>For business</Link>
+            <Link href="/login" className="mobile-business-link" onClick={closeMenu}>Business login</Link>
+            <Link href="/register" className="mobile-business-link" onClick={closeMenu}>Create account</Link>
           </div>
 
           <div className="nav-right">
             <Link href="#checkout" className="nav-cta">View the demo <ArrowUpRight size={14} strokeWidth={1.7} aria-hidden="true" /></Link>
+            <Link href="/login" className="nav-login">Log in</Link>
+            <Link href="/register" className="nav-cta nav-register">Create account <ArrowUpRight size={14} strokeWidth={1.7} aria-hidden="true" /></Link>
             <button
               className="menu-toggle"
               type="button"
@@ -340,7 +344,8 @@ export default function Home() {
           </div>
           <div className="footer-contact">
             <span className="footer-label">GET STARTED</span>
-            <Link href="#checkout" className="footer-cta">View the checkout <ArrowUpRight size={15} strokeWidth={1.7} aria-hidden="true" /></Link>
+            <Link href="/register" className="footer-cta">Create a business account <ArrowUpRight size={15} strokeWidth={1.7} aria-hidden="true" /></Link>
+            <Link href="/login" className="footer-cta">Business login <ArrowUpRight size={15} strokeWidth={1.7} aria-hidden="true" /></Link>
           </div>
         </div>
         <div className="shell footer-bottom">
