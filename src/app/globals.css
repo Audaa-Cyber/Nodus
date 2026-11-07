@@ -378,18 +378,32 @@ p { text-wrap: pretty; }
 .profile-form .button { justify-self: start; }
 /* Kinetic morphing page-transition loader (glass capsule + isometric prism + wave bars + dot matrix) */
 .page-loader {
-  position: fixed;
-  inset: 0;
-  z-index: 50;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   overflow: hidden;
+}
+.page-loader--fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  width: 100vw;
+  height: 100vh;
   background: #ffffff;
   background-image:
     linear-gradient(to right, rgba(148, 163, 184, 0.05) 1px, transparent 1px),
     linear-gradient(to bottom, rgba(148, 163, 184, 0.05) 1px, transparent 1px);
   background-size: 32px 32px;
+}
+.page-loader--content {
+  position: relative;
+  inset: auto;
+  z-index: 10;
+  min-height: calc(100vh - 80px);
+  width: 100%;
+  background: transparent;
+  padding: 48px 24px;
 }
 .page-loader--inline {
   position: relative;
@@ -405,7 +419,31 @@ p { text-wrap: pretty; }
 .pl-orb { position: absolute; border-radius: 9999px; filter: blur(80px); pointer-events: none; z-index: 0; }
 .pl-orb-1 { width: 380px; height: 380px; background: rgba(203, 213, 225, 0.40); top: -100px; left: -80px; }
 .pl-orb-2 { width: 320px; height: 320px; background: rgba(148, 163, 184, 0.22); bottom: -90px; right: -60px; }
-.pl-stage { position: relative; z-index: 20; perspective: 1200px; }
+.pl-stage {
+  position: relative;
+  z-index: 20;
+  perspective: 1200px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.loader-caption {
+  margin: 18px 0 0;
+  font-family: var(--mono, monospace);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #64748b;
+  text-align: center;
+  animation: captionPulse 2.4s ease-in-out infinite;
+  user-select: none;
+}
+@keyframes captionPulse {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 0.95; }
+}
 
 .loader-capsule {
   position: relative;

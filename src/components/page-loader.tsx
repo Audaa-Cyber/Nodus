@@ -2,22 +2,23 @@
 
 import { useEffect, useRef } from "react";
 
-type PageLoaderVariant = "fullscreen" | "inline";
+export type PageLoaderVariant = "fullscreen" | "content" | "inline";
 
 interface PageLoaderProps {
   /**
-   * fullscreen: fixed, viewport-anchored overlay (used by loading.tsx boundaries).
-   * inline: fills its parent box and centers the capsule (used by Suspense fallbacks).
+   * fullscreen: fixed, viewport-anchored overlay (used for standalone routes like /pay/[token]/loading.tsx).
+   * content: fills the main content region of the dashboard, keeping the sidebar steady.
+   * inline: compact container centered in its parent box (used for Suspense fallbacks inside auth/checkout cards).
    */
   variant?: PageLoaderVariant;
-  /** Accessible announcement for screen readers, e.g. "Loading dashboard". */
+  /** Accessible announcement for screen readers and visible sub-caption, e.g. "Loading invoices". */
   label?: string;
 }
 
 /**
  * Kinetic morphing page-transition loader: glass capsule with a 3D isometric
  * morphing prism, kinetic wave bars, specular cursor tracking, and an
- * autonomous dot-matrix background (fullscreen variant only).
+ * optimized batch-rendered dot-matrix background (fullscreen variant only).
  *
  * Styles live in src/app/globals.css under the ".page-loader" scope.
  */
@@ -97,59 +98,63 @@ export function PageLoader({ variant = "fullscreen", label = "Loading" }: PageLo
     }
 
     // =========================================================================
-    // 2. AUTONOMOUS DOT-MATRIX BACKGROUND ANIMATION (fullscreen variant)
+    // 2. HIGH-PERFORMANCE BATCH-RENDERED DOT-MATRIX (fullscreen variant only)
     // =========================================================================
     let gridPoints: { x: number; y: number; c: number; r: number; radialDist: number; phase: number }[] = [];
     let canvasW = 0;
     let canvasH = 0;
-    const dotSpacing = 28;
+    const dotSpacing = 38; // Increased spacing for airy modern feel and minimal CPU
     let rebuildDotGrid: (() => void) | null = null;
+    let onVisibility: (() => void) | null = null;
 
-    const renderDotMatrix = (timestamp: number) => {
-      const context = canvas?.getContext("2d");
-      if (!context) return;
-      context.clearRect(0, 0, canvasW, canvasH);
+    if (canvas && !reduced) {
+      const renderDotMatrix = (timestamp: number) => {
+        const context = canvas.getContext("2d");
+        if (!context) return;
+        context.clearRect(0, 0, canvasW, canvasH);
 
-      const t = timestamp * 0.0028;
-      const baseRGB = "100, 116, 139";
-      const activeRGB = "15, 23, 42";
+        const t = timestamp * 0.0024;
+        const len = gridPoints.length;
 
-      const len = gridPoints.length;
-      for (let i = 0; i < len; i++) {
-        const pt = gridPoints[i];
+        // Path batching: 2 draw calls total per frame instead of thousands
+        const basePath = new Path2D();
+        const activePath = new Path2D();
 
-        const radialWave = Math.sin(pt.radialDist * 0.42 - t * 1.35);
-        const diagWave = Math.cos(pt.c * 0.25 + pt.r * 0.25 - t * 0.9);
-        const nodeTwinkle = Math.sin(t * 1.9 + pt.phase);
+        for (let i = 0; i < len; i++) {
+          const pt = gridPoints[i];
 
-        const combined = (radialWave * 0.45 + diagWave * 0.35 + nodeTwinkle * 0.2 + 1) * 0.5;
-        const highlight = Math.pow(combined, 2.4);
+          const radialWave = Math.sin(pt.radialDist * 0.42 - t * 1.35);
+          const diagWave = Math.cos(pt.c * 0.25 + pt.r * 0.25 - t * 0.9);
+          const nodeTwinkle = Math.sin(t * 1.9 + pt.phase);
 
-        const radius = 1.0 + highlight * 1.65;
-        const alpha = 0.11 + highlight * 0.44;
+          const combined = (radialWave * 0.45 + diagWave * 0.35 + nodeTwinkle * 0.2 + 1) * 0.5;
+          const isHigh = combined > 0.62;
+          const radius = isHigh ? 2.0 : 1.1;
 
-        context.beginPath();
-        context.arc(pt.x, pt.y, radius, 0, Math.PI * 2);
-        context.fillStyle = highlight > 0.52
-          ? "rgba(" + activeRGB + ", " + alpha.toFixed(3) + ")"
-          : "rgba(" + baseRGB + ", " + alpha.toFixed(3) + ")";
-        context.fill();
-      }
+          const target = isHigh ? activePath : basePath;
+          target.moveTo(pt.x + radius, pt.y);
+          target.arc(pt.x, pt.y, radius, 0, Math.PI * 2);
+        }
 
-      canvasRaf = requestAnimationFrame(renderDotMatrix);
-    };
+        context.fillStyle = "rgba(100, 116, 139, 0.16)";
+        context.fill(basePath);
 
-    const stopCanvasLoop = () => {
-      if (canvasRaf) cancelAnimationFrame(canvasRaf);
-      canvasRaf = 0;
-    };
+        context.fillStyle = "rgba(15, 23, 42, 0.50)";
+        context.fill(activePath);
 
-    const startCanvasLoop = () => {
-      stopCanvasLoop();
-      if (!reduced) canvasRaf = requestAnimationFrame(renderDotMatrix);
-    };
+        canvasRaf = requestAnimationFrame(renderDotMatrix);
+      };
 
-    if (canvas) {
+      const stopCanvasLoop = () => {
+        if (canvasRaf) cancelAnimationFrame(canvasRaf);
+        canvasRaf = 0;
+      };
+
+      const startCanvasLoop = () => {
+        stopCanvasLoop();
+        canvasRaf = requestAnimationFrame(renderDotMatrix);
+      };
+
       rebuildDotGrid = () => {
         const context = canvas.getContext("2d");
         if (!context) return;
@@ -181,20 +186,20 @@ export function PageLoader({ variant = "fullscreen", label = "Loading" }: PageLo
       rebuildDotGrid();
       startCanvasLoop();
       window.addEventListener("resize", rebuildDotGrid);
-    }
 
-    const onVisibility = () => {
-      if (document.hidden) stopCanvasLoop();
-      else startCanvasLoop();
-    };
-    document.addEventListener("visibilitychange", onVisibility);
+      onVisibility = () => {
+        if (document.hidden) stopCanvasLoop();
+        else startCanvasLoop();
+      };
+      document.addEventListener("visibilitychange", onVisibility);
+    }
 
     return () => {
       if (springRaf) cancelAnimationFrame(springRaf);
-      stopCanvasLoop();
+      if (canvasRaf) cancelAnimationFrame(canvasRaf);
       if (onMouseMove) window.removeEventListener("mousemove", onMouseMove);
       if (rebuildDotGrid) window.removeEventListener("resize", rebuildDotGrid);
-      document.removeEventListener("visibilitychange", onVisibility);
+      if (onVisibility) document.removeEventListener("visibilitychange", onVisibility);
     };
   }, []);
 
@@ -223,20 +228,37 @@ export function PageLoader({ variant = "fullscreen", label = "Loading" }: PageLo
     </div>
   );
 
+  const stage = (
+    <div className="pl-stage" aria-hidden="true">
+      {capsule}
+      {label && <p className="loader-caption">{label}…</p>}
+    </div>
+  );
+
   if (variant === "inline") {
     return (
       <div className="page-loader page-loader--inline" role="status" aria-label={label} aria-live="polite">
-        <div className="pl-stage" aria-hidden="true">{capsule}</div>
+        {stage}
+      </div>
+    );
+  }
+
+  if (variant === "content") {
+    return (
+      <div className="page-loader page-loader--content" role="status" aria-label={label} aria-live="polite">
+        <div className="pl-orb pl-orb-1" aria-hidden="true" />
+        <div className="pl-orb pl-orb-2" aria-hidden="true" />
+        {stage}
       </div>
     );
   }
 
   return (
-    <div className="page-loader" role="status" aria-label={label} aria-live="polite">
+    <div className="page-loader page-loader--fullscreen" role="status" aria-label={label} aria-live="polite">
       <canvas ref={dotsRef} className="pl-dots" aria-hidden="true" />
       <div className="pl-orb pl-orb-1" aria-hidden="true" />
       <div className="pl-orb pl-orb-2" aria-hidden="true" />
-      <div className="pl-stage" aria-hidden="true">{capsule}</div>
+      {stage}
     </div>
   );
 }
