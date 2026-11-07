@@ -4,10 +4,8 @@ import { getPaymentMode, getTidepoolConfiguration } from "../src/lib/server/tide
 
 const validTestEnv = {
   PAYMENT_MODE: "tidepool_testnet",
-  SUPABASE_ENVIRONMENT: "tidepool_testnet",
-  TIDEPOOL_TEST_PROJECT_REF: "nodustestprojectref123456",
-  SUPABASE_PRODUCTION_PROJECT_REF: "nodusproductionprojectref123456",
-  NEXT_PUBLIC_SUPABASE_URL: "https://nodustestprojectref123456.supabase.co",
+  SUPABASE_ENVIRONMENT: "tidepool_testnet_local",
+  NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:54321",
   TIDEPOOL_API_BASE_URL: "https://www.usetidepool.tech",
   TIDEPOOL_DEPOSITS_ENABLED: "false",
   TIDEPOOL_QUOTE_SIGNATURE_VERIFICATION: "unconfirmed",
@@ -26,18 +24,18 @@ test("unknown payment modes fail closed", () => {
   assert.throws(() => getPaymentMode({ PAYMENT_MODE: "typo" }), /unsupported_payment_mode/);
 });
 
-test("Tidepool config requires its explicit isolated Supabase project", () => {
+test("Tidepool config requires the explicit local environment and loopback Supabase API", () => {
   assert.throws(
-    () => getTidepoolConfiguration({ ...validTestEnv, SUPABASE_ENVIRONMENT: "production" }),
-    /tidepool_test_database_required/,
+    () => getTidepoolConfiguration({ ...validTestEnv, SUPABASE_ENVIRONMENT: "development" }),
+    /tidepool_local_database_required/,
   );
   assert.throws(
     () => getTidepoolConfiguration({ ...validTestEnv, NEXT_PUBLIC_SUPABASE_URL: "https://production.supabase.co" }),
-    /tidepool_test_database_project_mismatch/,
+    /tidepool_local_database_must_use_loopback/,
   );
   assert.throws(
-    () => getTidepoolConfiguration({ ...validTestEnv, TIDEPOOL_TEST_PROJECT_REF: validTestEnv.SUPABASE_PRODUCTION_PROJECT_REF }),
-    /tidepool_test_project_is_production/,
+    () => getTidepoolConfiguration({ ...validTestEnv, NEXT_PUBLIC_SUPABASE_URL: "http://192.168.0.5:54321" }),
+    /tidepool_local_database_must_use_loopback/,
   );
 });
 

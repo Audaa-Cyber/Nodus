@@ -1,25 +1,37 @@
 # Tidepool testnet environment
 
-Tidepool must run against a dedicated Supabase project. Do not point testnet mode at the existing production project.
+Tidepool records must use the repository's local Supabase stack. The hosted NODUS project remains production and must not receive testnet data or migrations.
 
-## Supabase project setup
+## Local Supabase readiness
 
-Create a new Supabase project named for NODUS Tidepool testing. Apply the current NODUS schema and migrations to that project only. In the project settings, copy its Project URL, anon/publishable key, and service-role/secret key into a local, untracked `.env.local` file. The service role key must remain server-side.
+The repository has `supabase/config.toml` configured for PostgreSQL 17, Auth, the Data API, Storage, Realtime, Studio, local email capture, Edge Runtime, and Analytics. The five existing MVP migrations are in `supabase/migrations/` and use `auth.users`, PostgreSQL extensions/functions, RLS, and application tables, which the local Supabase stack is designed to provide.
 
-Use the project URL's subdomain as `TIDEPOOL_TEST_PROJECT_REF`. The application-side guard checks that this reference matches the Supabase URL before it returns Tidepool configuration.
-Set `SUPABASE_PRODUCTION_PROJECT_REF` to the subdomain of the existing production Supabase URL; the guard rejects Tidepool mode if the two references match.
+The seed configuration previously referenced `supabase/seed.sql`, which does not exist. Seeding is now disabled so a local schema reset only replays migrations and does not fail on a missing seed file.
 
-Required variables:
+The Supabase CLI 3.0.0 is installed in the repo. **Docker is not installed or available in the current environment**, so I could not start the local stack or verify migration application. Supabase documents Docker Desktop as the recommended Windows runtime; compatible alternatives include Rancher Desktop and Podman. I have not installed anything.
+
+After a Docker-compatible runtime is available, use only local commands:
+
+```powershell
+$env:SUPABASE_TELEMETRY_DISABLED = '1'
+npx supabase start
+npx supabase db reset --local --no-seed
+npx supabase status
+```
+
+`db reset --local` recreates the **local** database and applies migrations in timestamp order. Do not add `--remote` or `--linked`, and do not use `supabase db push` for this work. This repository contains Supabase CLI link metadata for the hosted project; local test mode rejects hosted Supabase URLs, but the operator must still use the explicit `--local` command above. Supabase describes `db reset` as local by default and `--remote` as destructive against the linked target ([local/hosted command behavior](https://supabase.com/docs/guides/local-development/local-and-hosted-projects), [CLI reset reference](https://supabase.com/docs/reference/cli/supabase-db-reset)).
+
+## Local test environment variables
+
+Copy the local API URL and keys printed by `npx supabase status` into the untracked `.env.local` file. The CLI may print current publishable/secret keys as well as legacy anon/service-role keys; use a local publishable or anon key for the browser and a local secret or service-role key for server-only admin operations.
 
 ```dotenv
 PAYMENT_MODE=tidepool_testnet
-SUPABASE_ENVIRONMENT=tidepool_testnet
-TIDEPOOL_TEST_PROJECT_REF=<dedicated-test-project-ref>
-SUPABASE_PRODUCTION_PROJECT_REF=<existing-production-project-ref>
+SUPABASE_ENVIRONMENT=tidepool_testnet_local
 
-NEXT_PUBLIC_SUPABASE_URL=https://<dedicated-test-project-ref>.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon-or-publishable-key-from-that-test-project>
-SUPABASE_SERVICE_ROLE_KEY=<service-role-or-secret-key-from-that-test-project>
+NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<local-publishable-or-anon-key>
+SUPABASE_SERVICE_ROLE_KEY=<local-secret-or-service-role-key>
 
 TIDEPOOL_API_BASE_URL=https://www.usetidepool.tech
 TIDEPOOL_DEPOSITS_ENABLED=false
@@ -30,12 +42,10 @@ LIVE_PAYMENT_ENABLED=false
 ONE_CLICK_JWT=
 ```
 
-Never add `NEXT_PUBLIC_` to a service-role key, Tidepool credential, RPC credential, or any private key. Tidepool's documented quote endpoint does not require an API credential; do not invent one. `ONE_CLICK_JWT` remains exclusively for the existing production 1Click integration.
+The local API URL and keys must come from the local CLI output; do not copy hosted credentials. `SUPABASE_SERVICE_ROLE_KEY` stays server-side. The Tidepool config guard accepts only the explicit `tidepool_testnet_local` marker and the configured loopback API host/port. It rejects hosted URLs and refuses to enable production live payments. Tidepool deposits remain hard-disabled in code regardless of environment flags.
 
-The `tidepool-config` helper currently validates the selected mode, explicit test environment marker, project URL/ref match, and fixed Tidepool API origin. Deposit readiness is hard-disabled in code; environment toggles alone cannot enable it. No existing API route consumes this configuration, so this scaffolding does not create quotes or deposits.
+## Quote signature blocker
 
-## Current implementation boundary
+Tidepool's quote docs describe an `ed25519:` signature made by the maker over the quote body, but do not publish the quote-signing public key or exact signed-byte/canonicalization rules. The docs-linked public examples describe funding, NEP-413 authorization, and status polling; they do not establish a quote-signature verification contract. Tidepool's own FAQ says its server source is in a private repository, so there is no public implementation to inspect. A maker-account access key checked previously did not verify the sample quote. The 1Click verifier cannot be substituted for Tidepool's maker key.
 
-Mock remains the default. Production live mode and its configuration are unchanged. The Tidepool integration is not yet enabled: the maker public key and exact bytes/canonical serialization covered by its Ed25519 signature have not been published in the docs located so far. Do not set the signature confirmation or deposit flag until Tidepool's maintainer confirms those values. Testnet invoice/payment schema migrations must be applied to the dedicated test project only after the mode-specific schema design is ready; no migration has been applied by this scaffold.
-
-Tidepool documents its API at `https://www.usetidepool.tech/openapi.json`; this is an API specification, not the maker's signing implementation or a public quote-verification key. See the official [quote signature documentation](https://www.usetidepool.tech/docs/concepts/quotes), [quote API reference](https://www.usetidepool.tech/docs/api-reference/get-quote), [trust model](https://www.usetidepool.tech/docs/resources/trust-model), and the [public Tidepool examples](https://github.com/Watchmeecryt/tidepool-examples). The documented first-swap example signs a NEP-413 deposit intent; its published description does not establish the separate quote signature verification contract needed by NODUS.
+Before accepting a quote, Tidepool's maintainer must provide the public key and rotation/version rules, the precise fields and serialization/encoding covered by the signature, and a valid plus tampered quote test vector. See [quote signature documentation](https://www.usetidepool.tech/docs/concepts/quotes), [quote API reference](https://www.usetidepool.tech/docs/api-reference/get-quote), [OpenAPI spec](https://www.usetidepool.tech/openapi.json), the [public first-swap example](https://github.com/Watchmeecryt/tidepool-examples), and Tidepool's [FAQ](https://www.usetidepool.tech/docs/resources/faq).
