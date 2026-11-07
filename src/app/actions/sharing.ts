@@ -9,7 +9,9 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3
 const LINK_LIFETIME_MS = 365 * 24 * 60 * 60 * 1000;
 
 function getAppBaseUrl() {
-  const configured = process.env.NEXT_PUBLIC_APP_URL?.trim();
+  // Match the client-side development fallback; production still requires an explicit public origin.
+  const configured = process.env.NEXT_PUBLIC_APP_URL?.trim()
+    || (process.env.NODE_ENV === "development" ? "http://localhost:3000" : "");
   if (!configured) return null;
   try {
     const url = new URL(configured);

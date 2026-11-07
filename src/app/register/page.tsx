@@ -1,14 +1,8 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { Suspense } from "react";
 import { AuthForm } from "@/components/auth-form";
-import { getBusinessContext } from "@/lib/auth/business-context";
 
-export default async function RegisterPage() {
-  const { user } = await getBusinessContext();
-  if (user) {
-    redirect("/dashboard");
-  }
-
+export default function RegisterPage() {
   return (
     <main className="auth-page">
       <div className="auth-card">
@@ -19,7 +13,9 @@ export default async function RegisterPage() {
         <p className="eyebrow">GET STARTED</p>
         <h1>Your business,<br />in clear view.</h1>
         <p className="auth-intro">Create an account to prepare and manage invoices.</p>
-        <AuthForm mode="register" />
+        <Suspense fallback={<div className="form-skeleton" style={{ minHeight: "220px" }} />}>
+          <AuthForm mode="register" />
+        </Suspense>
       </div>
     </main>
   );

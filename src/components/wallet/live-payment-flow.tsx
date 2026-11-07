@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { encodeFunctionData, formatUnits, isAddress } from "viem";
 import { useSendTransaction } from "wagmi";
 import type { WalletAsset } from "@/lib/wallet/types";
@@ -40,6 +40,59 @@ export function LivePaymentFlow({ token, invoiceNumber, amountMinor, currency, a
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [authorizationUncertain, setAuthorizationUncertain] = useState(false);
+
+  // Automatically fetch live dry-run quote when compatible asset and wallet are connected
+  useEffect(() => {
+    if (!asset || asset.network.family !== "evm" || !asset.network.chainId || !walletAddress || walletNetwork !== asset.network.key) {
+      setPreview(null);
+      setAttempt(null);
+      return;
+    }
+
+    const controller = new AbortController();
+    let isCancelled = false;
+
+    async function autoFetchPreview() {
+      setBusy(true);
+      setError("");
+      setStatusText("");
+      setAttempt(null);
+      try {
+        const response = await fetch(`/api/pay/${encodeURIComponent(token)}/quote`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ sourceAssetId: asset!.assetId, refundAddress: walletAddress, commit: false }),
+          signal: controller.signal,
+        });
+        const result = await response.json();
+        if (!response.ok) {
+          throw new Error(result.error ?? "A live quote could not be retrieved for this asset.");
+        }
+        if (!isCancelled) {
+          setPreview(result as PreviewQuote);
+          setIdempotencyKey(crypto.randomUUID());
+          setPreviewRefundAddress(walletAddress!);
+        }
+      } catch (cause) {
+        if (!controller.signal.aborted && !isCancelled) {
+          const msg = cause instanceof Error ? cause.message : "Quote unavailable.";
+          setError(
+            msg.includes("route") || msg.includes("destination")
+              ? "No verified payment route exists for this token on the current network. Please select another asset."
+              : msg
+          );
+        }
+      } finally {
+        if (!isCancelled) setBusy(false);
+      }
+    }
+
+    void autoFetchPreview();
+    return () => {
+      isCancelled = true;
+      controller.abort();
+    };
+  }, [asset, walletAddress, walletNetwork, token]);
 
   async function requestPreview() {
     if (!asset || asset.network.family !== "evm" || !asset.network.chainId || !walletAddress || walletNetwork !== asset.network.key) return;

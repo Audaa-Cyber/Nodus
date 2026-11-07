@@ -5,6 +5,7 @@ import { QuoteRequest, verifyQuoteSignature, type TokenResponse } from "@defuse-
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getWalletNetwork } from "@/lib/wallet/networks";
+import { isMajorWalletAsset } from "@/lib/wallet/major-assets";
 import { allowOneClickRequest, assertLivePaymentsEnabled, getOneClickTokens, requestOneClickQuote } from "@/lib/server/one-click";
 
 export const dynamic = "force-dynamic";
@@ -55,7 +56,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
     const tokens = await getOneClickTokens() as TokenResponse[];
     const source = tokens.find((entry) => entry.assetId === body.sourceAssetId);
     const sourceNetwork = source && getWalletNetwork(source.blockchain);
-    if (!source || !sourceNetwork || !Number.isInteger(source.decimals) || source.decimals < 0 || source.decimals > 30) return jsonError("unsupported_source_asset", 422);
+    if (!source || !sourceNetwork || !isMajorWalletAsset(sourceNetwork.key, source.symbol)
+      || !Number.isInteger(source.decimals) || source.decimals < 0 || source.decimals > 30) return jsonError("unsupported_source_asset", 422);
     if (sourceNetwork.family !== "evm") return jsonError("wallet_execution_unverified", 422);
     if (!addressMatches(source.blockchain, body.refundAddress)) return jsonError("invalid_refund_address", 422);
 

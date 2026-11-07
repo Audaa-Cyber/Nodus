@@ -8,6 +8,7 @@ import type { Invoice } from "@/lib/invoices";
 export default function InvoiceForm({ invoice }: { invoice?: Invoice }) {
   const [state, action, pending] = useActionState<FormState, FormData>(saveInvoiceAction, {});
   const today = new Date().toISOString().slice(0, 10);
+  const issueButtonLabel = !invoice || invoice.status === "draft" ? "Issue invoice" : "Save changes";
   return (
     <form action={action} className="business-form">
       {invoice && <input type="hidden" name="invoiceId" value={invoice.id} />}
@@ -29,10 +30,10 @@ export default function InvoiceForm({ invoice }: { invoice?: Invoice }) {
         </button>
         <button className="button button-outline" type="submit" name="intent" value="issue" disabled={pending}>
           {pending && <span className="button-spinner" aria-hidden="true" />}
-          {pending ? "Saving…" : invoice?.status === "draft" ? "Issue invoice" : "Save changes"}
+          {pending ? "Saving…" : issueButtonLabel}
         </button>
       </div>
-      <p className="form-help">Invoice amounts use exact cents. Paid status can only be set by verified settlement in a later payment phase.</p>
+      <p className="form-help">Issuing makes the invoice active and available to customers. Paid status is recorded only after settlement is verified.</p>
     </form>
   );
 }

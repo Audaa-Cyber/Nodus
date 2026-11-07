@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { TokenResponse } from "@defuse-protocol/one-click-sdk-typescript";
 import { getWalletNetwork } from "@/lib/wallet/networks";
+import { isMajorWalletAsset } from "@/lib/wallet/major-assets";
 import { getOneClickTokens } from "@/lib/server/one-click";
 
 export const revalidate = 300;
@@ -38,6 +39,7 @@ export async function GET() {
 
       const network = getWalletNetwork(blockchain);
       if (!network) return [];
+      if (!isMajorWalletAsset(network.key, symbol)) return [];
       if (contractAddress !== undefined && contractAddress !== null &&
         (typeof contractAddress !== "string" || !ADDRESS_PATTERN.test(contractAddress))) return [];
       if (seen.has(assetId)) return [];

@@ -8,15 +8,41 @@ export default async function DashboardPage() {
   if (!user) redirect("/login");
   if (!business) return <main className="dashboard-content"><h1>Business profile unavailable</h1><p>Apply the Supabase migration to finish setting up your business account.</p></main>;
   const today = new Date().toISOString().slice(0, 10);
-  const [total, open, paid, overdue, recent] = await Promise.all([
-    supabase.from("invoices").select("id", { count: "exact", head: true }).eq("business_id", business.id),
-    supabase.from("invoices").select("id", { count: "exact", head: true }).eq("business_id", business.id).eq("status", "open").or(`due_date.is.null,due_date.gte.${today}`),
-    supabase.from("invoices").select("id", { count: "exact", head: true }).eq("business_id", business.id).eq("status", "paid"),
-    supabase.from("invoices").select("id", { count: "exact", head: true }).eq("business_id", business.id).or(`status.eq.overdue,and(status.eq.open,due_date.lt.${today})`),
-    supabase.from("invoices").select("id,invoice_number,customer_name,amount_minor,currency,status,due_date,issue_date,created_at").eq("business_id", business.id).order("created_at", { ascending: false }).limit(6),
+  const [allInvoicesResult, recent] = await Promise.all([
+    supabase
+      .from("invoices")
+      .select("status,due_date")
+      .eq("business_id", business.id),
+    supabase
+      .from("invoices")
+      .select("id,invoice_number,customer_name,amount_minor,currency,status,due_date,issue_date,created_at")
+      .eq("business_id", business.id)
+      .order("created_at", { ascending: false })
+      .limit(6),
   ]);
-  const statError = total.error || open.error || paid.error || overdue.error;
-  const stats = [ ["Total invoices", total.count], ["Open invoices", open.count], ["Paid invoices", paid.count], ["Overdue invoices", overdue.count] ] as const;
+
+  let totalCount = 0;
+  let openCount = 0;
+  let paidCount = 0;
+  let overdueCount = 0;
+
+  if (allInvoicesResult.data) {
+    totalCount = allInvoicesResult.data.length;
+    for (const inv of allInvoicesResult.data) {
+      const status = effectiveStatus(inv, today);
+      if (status === "open") openCount++;
+      else if (status === "paid") paidCount++;
+      else if (status === "overdue") overdueCount++;
+    }
+  }
+
+  const statError = Boolean(allInvoicesResult.error);
+  const stats = [
+    ["Total invoices", totalCount],
+    ["Open invoices", openCount],
+    ["Paid invoices", paidCount],
+    ["Overdue invoices", overdueCount],
+  ] as const;
   return <main className="dashboard-content">
     <header className="dashboard-heading"><div><p className="eyebrow">BUSINESS OVERVIEW</p><h1>{business.business_name}</h1><p>Keep your invoices and their status in one place.</p></div><Link className="button button-dark" href="/dashboard/invoices/new">Create invoice <span aria-hidden="true">↗</span></Link></header>
     {statError ? <p className="inline-error" role="alert">Invoice summary could not be loaded. Refresh the page to try again.</p> : <section className="stat-grid" aria-label="Invoice summary">{stats.map(([label, value]) => <div className="stat-item" key={label}><span>{label}</span><strong>{value ?? 0}</strong></div>)}</section>}

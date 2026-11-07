@@ -1,15 +1,8 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { Suspense } from "react";
 import { AuthForm } from "@/components/auth-form";
-import { getBusinessContext } from "@/lib/auth/business-context";
 
-export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string; error?: string }> }) {
-  const { user } = await getBusinessContext();
-  if (user) {
-    redirect("/dashboard");
-  }
-
-  const params = await searchParams;
+export default function LoginPage() {
   return (
     <main className="auth-page">
       <div className="auth-card">
@@ -20,12 +13,9 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         <p className="eyebrow">BUSINESS ACCOUNT</p>
         <h1>Welcome back.</h1>
         <p className="auth-intro">Log in to manage your business invoices.</p>
-        {params.error === "confirmation" && (
-          <p className="form-error" role="alert">
-            We couldn’t confirm that email link. Request a fresh one or log in.
-          </p>
-        )}
-        <AuthForm mode="login" next={params.next} />
+        <Suspense fallback={<div className="form-skeleton" style={{ minHeight: "220px" }} />}>
+          <AuthForm mode="login" />
+        </Suspense>
       </div>
     </main>
   );

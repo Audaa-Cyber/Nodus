@@ -86,3 +86,22 @@ export function getEvmWalletNetwork(chainId: number | undefined): WalletNetwork 
     (network) => network.family === "evm" && network.chainId === chainId,
   );
 }
+
+export const DEFAULT_RECOMMENDED_CHAIN_ID = base.id; // 8453 (Base)
+export const DEFAULT_RECOMMENDED_CHAIN_NAME = "Base";
+
+export function isSupportedEvmChain(chainId: number | undefined): boolean {
+  if (chainId === undefined) return false;
+  return evmWalletChains.some((chain) => chain.id === chainId);
+}
+
+export function getRecommendedEvmChain(preferredKey?: string | null): { id: number; name: string } {
+  if (preferredKey) {
+    const net = getWalletNetwork(preferredKey);
+    if (net?.family === "evm" && net.chainId) {
+      const match = evmWalletChains.find((c) => c.id === net.chainId);
+      if (match) return { id: match.id, name: match.name };
+    }
+  }
+  return { id: base.id, name: "Base" };
+}

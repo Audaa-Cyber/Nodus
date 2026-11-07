@@ -1,10 +1,15 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useActionState, useEffect } from "react";
 import { signInAction, signUpAction, type FormState } from "@/app/actions/auth";
 
-export function AuthForm({ mode, next = "/dashboard" }: { mode: "login" | "register"; next?: string }) {
+export function AuthForm({ mode, next: defaultNext }: { mode: "login" | "register"; next?: string }) {
+  const searchParams = useSearchParams();
+  const confirmationError = searchParams?.get("error") === "confirmation";
+  const next = defaultNext ?? searchParams?.get("next") ?? "/dashboard";
+
   const actionFn = mode === "login" ? signInAction : signUpAction;
   const [state, action, pending] = useActionState<FormState, FormData>(actionFn, {});
 
@@ -21,6 +26,11 @@ export function AuthForm({ mode, next = "/dashboard" }: { mode: "login" | "regis
 
   return (
     <form action={action} className="business-form auth-form">
+      {confirmationError && (
+        <p className="form-error" role="alert">
+          We couldn’t confirm that email link. Request a fresh one or log in.
+        </p>
+      )}
       {mode === "register" && (
         <label>
           Business name

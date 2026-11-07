@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect, RedirectType } from "next/navigation";
-import { getBusinessContext } from "@/lib/auth/business-context";
+import { getBusinessContext, invalidateBusinessProfileCache } from "@/lib/auth/business-context";
 import type { FormState } from "./auth";
 
 export async function updateBusinessProfileAction(_previous: FormState, formData: FormData): Promise<FormState> {
@@ -25,6 +25,7 @@ export async function updateBusinessProfileAction(_previous: FormState, formData
   }).eq("owner_user_id", user.id).select("id").maybeSingle();
 
   if (error || !data) return { error: "Business profile could not be updated. Try again." };
+  invalidateBusinessProfileCache(user.id);
   revalidatePath("/dashboard", "layout");
   return { success: "Business profile updated." };
 }

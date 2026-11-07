@@ -5,7 +5,13 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export default async function ResetPasswordPage() {
   const supabase = await createSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  let user = null;
+  try {
+    const { data } = await supabase.auth.getUser();
+    user = data?.user ?? null;
+  } catch {
+    user = null;
+  }
 
   if (!user) {
     redirect("/forgot-password?error=expired");

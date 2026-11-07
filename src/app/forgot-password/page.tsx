@@ -1,14 +1,7 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { ForgotPasswordForm } from "@/components/forgot-password-form";
-import { getBusinessContext } from "@/lib/auth/business-context";
 
-export default async function ForgotPasswordPage() {
-  const { user } = await getBusinessContext();
-  if (user) {
-    redirect("/dashboard");
-  }
-
+export default function ForgotPasswordPage() {
   return (
     <main className="auth-page">
       <div className="auth-card">

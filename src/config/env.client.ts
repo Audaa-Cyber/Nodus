@@ -34,10 +34,22 @@ function isValidHttpUrl(urlString: string | undefined): boolean {
 }
 
 /**
+ * Normalizes a Supabase URL by stripping accidental paths (such as `/rest/v1` or `/rest/v1/`)
+ * and trailing slashes so both PostgREST and GoTrue Auth resolve correctly.
+ */
+export function normalizeSupabaseUrl(url: string | undefined): string {
+  if (!url) return "";
+  let trimmed = url.trim();
+  trimmed = trimmed.replace(/\/+$/, "");
+  trimmed = trimmed.replace(/\/rest\/v1\/?$/, "");
+  return trimmed.replace(/\/+$/, "");
+}
+
+/**
  * Checks whether client-side Supabase credentials are configured with valid values.
  */
 export function isClientSupabaseConfigured(): boolean {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const url = normalizeSupabaseUrl(process.env.NEXT_PUBLIC_SUPABASE_URL);
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!url || !anonKey) return false;
@@ -50,7 +62,8 @@ export function isClientSupabaseConfigured(): boolean {
  * Logs actionable developer instructions in development if credentials are missing or placeholders.
  */
 export function getClientEnv(): ClientEnv {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+  const rawUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+  const url = normalizeSupabaseUrl(rawUrl);
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
