@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useDashboardLoader } from "./dashboard-shell-effects";
 
 interface NavItem {
   href: string;
@@ -17,9 +18,10 @@ const NAV_ITEMS: readonly NavItem[] = [
 
 export function DashboardNav() {
   const pathname = usePathname();
+  const { triggerLoader } = useDashboardLoader();
 
   return (
-    <nav aria-label="Dashboard navigation">
+    <nav className="space-y-1.5" aria-label="Sidebar Navigation">
       {NAV_ITEMS.map((item) => {
         const isActive = item.exact
           ? pathname === item.href
@@ -31,9 +33,14 @@ export function DashboardNav() {
             href={item.href}
             prefetch={false}
             aria-current={isActive ? "page" : undefined}
-            className={isActive ? "active" : undefined}
+            onClick={() => {
+              if (!isActive) {
+                triggerLoader(680);
+              }
+            }}
+            className={`sidebar-link ${isActive ? "active" : ""}`}
           >
-            {item.label}
+            <span>{item.label}</span>
           </Link>
         );
       })}

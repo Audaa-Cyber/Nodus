@@ -231,7 +231,7 @@ export function PageLoader({ variant = "fullscreen", label = "Loading" }: PageLo
   const stage = (
     <div className="pl-stage" aria-hidden="true">
       {capsule}
-      {label && <p className="loader-caption">{label}…</p>}
+      {label && <p className="sr-only">{label}…</p>}
     </div>
   );
 

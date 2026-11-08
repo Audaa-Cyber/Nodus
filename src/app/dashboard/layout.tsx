@@ -4,43 +4,94 @@ import { redirect } from "next/navigation";
 import { getBusinessContext, getVerifiedUser } from "@/lib/auth/business-context";
 import { LogoutButton } from "@/components/logout-button";
 import { DashboardNav } from "@/components/dashboard-nav";
+import { DashboardShellEffects } from "@/components/dashboard-shell-effects";
 
-// Streams the sidebar shell immediately and fills in the business name as soon as
-// the (60s-cached) business_profiles query resolves, so a cold profile fetch never
-// blocks the whole dashboard tree.
 async function SidebarBusiness() {
   const { business } = await getBusinessContext();
   return (
-    <div className="sidebar-business">
-      <span className="sidebar-label">BUSINESS</span>
-      <strong>{business?.business_name ?? "Business profile"}</strong>
+    <div className="flex items-center justify-between">
+      <span id="sidebarBusinessName" className="text-sm font-semibold text-slate-900 truncate">
+        {business?.business_name ?? "Cars"}
+      </span>
+      <span className="w-2 h-2 rounded-full bg-emerald-500" title="Active Workspace" />
     </div>
   );
 }
 
 function SidebarBusinessFallback() {
   return (
-    <div className="sidebar-business">
-      <span className="sidebar-label">BUSINESS</span>
-      <strong aria-hidden="true">&nbsp;</strong>
+    <div className="flex items-center justify-between">
+      <span className="text-sm font-semibold text-slate-400 truncate animate-pulse">
+        Loading...
+      </span>
+      <span className="w-2 h-2 rounded-full bg-slate-300" />
     </div>
   );
 }
 
 export default async function DashboardLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  // Gate on the fast, header-derived user (no profile query) so the shell and nav
-  // paint immediately; the profile is resolved lazily inside Suspense below.
   const user = await getVerifiedUser();
   if (!user) redirect("/login?next=/dashboard");
-  return <div className="dashboard-shell">
-    <aside className="dashboard-sidebar">
-      <Link href="/" className="brand"><span className="brand-mark">n</span><span>nodus<span className="brand-period">.</span></span></Link>
-      <Suspense fallback={<SidebarBusinessFallback />}>
-        <SidebarBusiness />
-      </Suspense>
-      <DashboardNav />
-      <div className="sidebar-bottom"><span className="sidebar-email">{user.email}</span><LogoutButton /></div>
-    </aside>
-    <div className="dashboard-main">{children}</div>
-  </div>;
+
+  return (
+    <div className="dashboard-executive bg-grid selection:bg-slate-800 selection:text-white min-h-screen relative overflow-x-hidden">
+      <DashboardShellEffects>
+        <div className="relative z-10 min-h-screen flex flex-col md:flex-row">
+          {/* Executive Left Sidebar */}
+          <aside className="nodus-sidebar w-full md:w-[236px] shrink-0 flex flex-col justify-between p-5 select-none">
+            <div>
+              {/* Brand Logo: (n) nodus. */}
+              <div className="flex items-center gap-2.5 mb-7 px-1">
+                <Link href="/" className="inline-flex items-center gap-2.5">
+                  <div className="w-7 h-7 rounded-full border border-slate-800 flex items-center justify-center font-semibold text-xs tracking-tight text-slate-900 shadow-xs bg-white/80">
+                    n
+                  </div>
+                  <span className="text-[17px] font-bold tracking-tight text-slate-900">
+                    nodus<span className="text-slate-400">.</span>
+                  </span>
+                </Link>
+              </div>
+
+              {/* Business Workspace Block */}
+              <div className="px-1 pb-5 mb-5 border-b" style={{ borderColor: "var(--card-border)" }}>
+                <span className="block text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: "var(--text-muted)" }}>
+                  BUSINESS
+                </span>
+                <Suspense fallback={<SidebarBusinessFallback />}>
+                  <SidebarBusiness />
+                </Suspense>
+              </div>
+
+              {/* Navigation Menu (Overview, Invoices, Business profile) */}
+              <DashboardNav />
+            </div>
+
+            {/* Bottom Account Footer (Email + Avatar + Log out) */}
+            <div className="pt-4 mt-6 border-t" style={{ borderColor: "var(--card-border)" }}>
+              <div className="px-1 mb-3">
+                <span className="block text-[11px] font-mono-code truncate" style={{ color: "var(--text-secondary)" }}>
+                  {user.email}
+                </span>
+              </div>
+              <div className="flex items-center justify-between px-1">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-7 h-7 rounded-full bg-slate-900 text-white flex items-center justify-center text-xs font-semibold shadow-sm">
+                    {user.email ? user.email.slice(0, 1).toUpperCase() : "N"}
+                  </div>
+                  <LogoutButton />
+                </div>
+              </div>
+            </div>
+          </aside>
+
+          {/* Main Stage */}
+          <main className="flex-1 flex flex-col items-center justify-start px-5 sm:px-10 py-8 sm:py-12 overflow-y-auto min-w-0">
+            <div className="w-full max-w-[760px]">
+              {children}
+            </div>
+          </main>
+        </div>
+      </DashboardShellEffects>
+    </div>
+  );
 }

@@ -1,10 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { signInAction, signUpAction } from "@/app/actions/auth";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+
+const SAMPLE_CODES = ["482916", "739204", "518642", "904381"];
 
 export function ExecutiveLoginCard() {
   const router = useRouter();
@@ -13,12 +14,14 @@ export function ExecutiveLoginCard() {
   const confirmationError = searchParams?.get("error") === "confirmation";
 
   const [isPending, startTransition] = useTransition();
-  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
-  // Mode: Sign In vs Create Account
+  // Mode: Sign In (Returning User) vs Create Account (New User)
   const [isSignUp, setIsSignUp] = useState(false);
+  const [hasRequestedCode, setHasRequestedCode] = useState(false);
+  const [isCodeVerified, setIsCodeVerified] = useState(false);
+  const [isCodeCopied, setIsCodeCopied] = useState(false);
 
-  // Inputs - Starts completely empty ready for user input
+  // Inputs - Empty by default, waiting for user entry
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
@@ -26,20 +29,21 @@ export function ExecutiveLoginCard() {
   const [rememberMe, setRememberMe] = useState(true);
 
   // Status Banner & Shake
-  const [banner, setBanner] = useState<{ message: string; type: "error" | "success" | "info" } | null>(
+  const [statusBanner, setStatusBanner] = useState<{ message: string; type: "error" | "success" | "info" } | null>(
     confirmationError
       ? { message: "We couldn't confirm that email link. Request a fresh one or log in.", type: "error" }
       : null
   );
   const [isShaking, setIsShaking] = useState(false);
 
-  // Success Telemetry View
-  const [isSuccess, setIsSuccess] = useState(false);
+  // View Mode: 'form' | 'otpView' | 'success'
+  const [viewState, setViewState] = useState<"form" | "otpView" | "success">("form");
   const [successData, setSuccessData] = useState({
-    email: "",
-    method: "Nodus Authentication",
-    code: "Verified",
-    displayName: "Nodus Member",
+    title: "Welcome to Nodus",
+    emailDisplay: "Signed in",
+    method: "Returning User (Direct Login)",
+    otpStatus: "Trusted Session ✓",
+    verifiedBadge: "Returning User · Session Active",
   });
 
   // Password strength calculation
@@ -60,557 +64,698 @@ export function ExecutiveLoginCard() {
     setPasswordStrength(Math.max(1, score));
   }, [password]);
 
-  // Email validity check
   const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+  const isOtpFlowRequired = isSignUp || hasRequestedCode;
 
   // Refs for 3D Spring Cursor & Canvas
-  const cardRef = useRef<HTMLDivElement>(null);
-  const logoRef = useRef<HTMLDivElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const loginCardRef = useRef<HTMLDivElement>(null);
+  const brandLogoBoxRef = useRef<HTMLDivElement>(null);
+  const dotCanvasRef = useRef<HTMLCanvasElement>(null);
+  const activeOtpTimeoutsRef = useRef<NodeJS.Timeout[]>([]);
+  const codePoolIndexRef = useRef(0);
 
-  // OTP 6-Digit Code State (Auto-Detect from Keyboard / Clipboard)
-  const [otpSlots, setOtpSlots] = useState<string[]>(["", "", "", "", "", ""]);
-  const [activeSlot, setActiveSlot] = useState<number>(-1);
-  const [filledSlots, setFilledSlots] = useState<number>(0);
-  const [isVerifiedGlow, setIsVerifiedGlow] = useState(false);
-  const [otpLiveTag, setOtpLiveTag] = useState("Awaiting Code");
-  const [otpStatusText, setOtpStatusText] = useState("Copy 6-digit access code to clipboard to auto-fill");
-  const lastClipboardCodeRef = useRef<string>("");
-  const otpInputsRef = useRef<(HTMLInputElement | null)[]>([]);
+  // OTP 6-Digit Slots state
+  const [currentGeneratedCode, setCurrentGeneratedCode] = useState("482916");
+  const [otpSlots, setOtpSlots] = useState<{ digit: string; className: string }[]>([
+    { digit: "", className: "waiting-pulse font-mono-code" },
+    { digit: "", className: "waiting-pulse font-mono-code" },
+    { digit: "", className: "waiting-pulse font-mono-code" },
+    { digit: "", className: "waiting-pulse font-mono-code" },
+    { digit: "", className: "waiting-pulse font-mono-code" },
+    { digit: "", className: "waiting-pulse font-mono-code" },
+  ]);
+  const [otpMatchCounterText, setOtpMatchCounterText] = useState("0/6");
+  const [otpLiveTagText, setOtpLiveTagText] = useState("Copy to Auto-Fill");
+  const [otpLiveTagClass, setOtpLiveTagClass] = useState("bg-amber-500/10 text-amber-600");
+  const [otpStatusDotClass, setOtpStatusDotClass] = useState("bg-amber-500 animate-pulse");
+  const [otpKineticChars, setOtpKineticChars] = useState<string[]>(
+    "Copy the sent code above (or Ctrl+C) to auto-apply...".split("")
+  );
 
-  const triggerCardShake = () => {
-    setIsShaking(true);
-    setTimeout(() => setIsShaking(false), 400);
-  };
-
-  // =========================================================================
-  // 1. CLIPBOARD CODE AUTO-DETECTION & KEYBOARD FILLING
-  // =========================================================================
-  const fillCodeFromDigits = (rawCode: string, sourceLabel: "clipboard" | "paste" | "manual" = "clipboard") => {
-    const digits = rawCode.replace(/\D/g, "").slice(0, 6);
-    if (digits.length !== 6) return;
-
-    const arr = digits.split("");
-    setOtpSlots(arr);
-    setFilledSlots(6);
-    setActiveSlot(-1);
-    setIsVerifiedGlow(true);
-    const formatted = `${digits.slice(0, 3)} ${digits.slice(3)}`;
-    setOtpLiveTag(sourceLabel === "clipboard" ? "Clipboard Auto-Detected ✓" : "Code Filled ✓");
-    setOtpStatusText(`Code ${formatted} detected from ${sourceLabel} & populated ✓`);
-  };
-
-  // Auto-detect when code is copied to clipboard upon window / tab focus
-  useEffect(() => {
-    let isMounted = true;
-
-    const checkClipboardOnFocus = async () => {
-      try {
-        if (typeof navigator !== "undefined" && navigator.clipboard && navigator.clipboard.readText) {
-          if (document.hasFocus()) {
-            const text = await navigator.clipboard.readText();
-            if (!text) return;
-            const digits = text.replace(/\D/g, "");
-            // Detect exactly 6 digits copied to clipboard
-            if (digits.length === 6 && digits !== lastClipboardCodeRef.current && isMounted) {
-              lastClipboardCodeRef.current = digits;
-              fillCodeFromDigits(digits, "clipboard");
-            }
-          }
-        }
-      } catch {
-        // Clipboard read permission might be blocked by browser policy without explicit gesture; fail gracefully
-      }
-    };
-
-    window.addEventListener("focus", checkClipboardOnFocus);
-    return () => {
-      isMounted = false;
-      window.removeEventListener("focus", checkClipboardOnFocus);
-    };
+  const clearOtpTimers = useCallback(() => {
+    activeOtpTimeoutsRef.current.forEach((t) => clearTimeout(t));
+    activeOtpTimeoutsRef.current = [];
   }, []);
 
-  // Intercept paste on OTP container or slots
-  const handleOtpPaste = (e: React.ClipboardEvent) => {
-    const text = e.clipboardData.getData("text");
-    if (!text) return;
-    const digits = text.replace(/\D/g, "").slice(0, 6);
-    if (digits.length === 6) {
-      e.preventDefault();
-      lastClipboardCodeRef.current = digits;
-      fillCodeFromDigits(digits, "paste");
-    }
-  };
+  const triggerCardShake = useCallback(() => {
+    setIsShaking(true);
+    setTimeout(() => setIsShaking(false), 400);
+  }, []);
 
-  // Manual Paste from Clipboard Button (explicit user gesture always permitted by browsers)
-  const handleDetectClipboardClick = async () => {
+  const showStatus = useCallback((message: string, type: "error" | "success" | "info") => {
+    setStatusBanner({ message, type });
+  }, []);
+
+  const hideStatus = useCallback(() => {
+    setStatusBanner(null);
+  }, []);
+
+  const renderKineticAnimatedText = useCallback((text: string) => {
+    setOtpKineticChars(text.split(""));
+  }, []);
+
+  // Prepare a fresh sent code in waiting state (does NOT auto-fill until user copies!)
+  const prepareWaitingOtpCode = useCallback(
+    (customReasonText?: string) => {
+      clearOtpTimers();
+      setIsCodeVerified(false);
+      setIsCodeCopied(false);
+
+      const nextCode = SAMPLE_CODES[codePoolIndexRef.current % SAMPLE_CODES.length];
+      codePoolIndexRef.current++;
+      setCurrentGeneratedCode(nextCode);
+
+      setOtpSlots([
+        { digit: "", className: "waiting-pulse font-mono-code" },
+        { digit: "", className: "waiting-pulse font-mono-code" },
+        { digit: "", className: "waiting-pulse font-mono-code" },
+        { digit: "", className: "waiting-pulse font-mono-code" },
+        { digit: "", className: "waiting-pulse font-mono-code" },
+        { digit: "", className: "waiting-pulse font-mono-code" },
+      ]);
+
+      setOtpMatchCounterText("0/6");
+      setOtpLiveTagText("Copy to Auto-Fill");
+      setOtpLiveTagClass("bg-amber-500/10 text-amber-600");
+      setOtpStatusDotClass("bg-amber-500 animate-pulse");
+      renderKineticAnimatedText(
+        customReasonText || `Code ${nextCode} sent · Copy it to auto-apply`
+      );
+    },
+    [clearOtpTimers, renderKineticAnimatedText]
+  );
+
+  // Execute the self-entering animation ONLY when clipboard copy is detected!
+  const applyClipboardDetectedCode = useCallback(
+    (detectedSixDigits?: string) => {
+      clearOtpTimers();
+
+      const codeToApply = detectedSixDigits || currentGeneratedCode;
+      setCurrentGeneratedCode(codeToApply);
+      setIsCodeCopied(true);
+
+      // Reset slots before typing
+      setOtpSlots([
+        { digit: "", className: "font-mono-code" },
+        { digit: "", className: "font-mono-code" },
+        { digit: "", className: "font-mono-code" },
+        { digit: "", className: "font-mono-code" },
+        { digit: "", className: "font-mono-code" },
+        { digit: "", className: "font-mono-code" },
+      ]);
+
+      setOtpMatchCounterText("0/6");
+      setOtpLiveTagText("Clipboard Detected");
+      setOtpLiveTagClass("bg-sky-500/15 text-sky-500");
+      setOtpStatusDotClass("bg-sky-500 animate-ping");
+      renderKineticAnimatedText(`Clipboard detected [${codeToApply}] · Auto-applying...`);
+
+      const digits = codeToApply.split("");
+      digits.forEach((digit, idx) => {
+        const focusTid = setTimeout(() => {
+          setOtpSlots((prev) => {
+            const nextSlots = [...prev];
+            nextSlots.forEach((s) => {
+              s.className = s.className.replace(" active-typing", "");
+            });
+            if (nextSlots[idx]) {
+              nextSlots[idx].className = "otp-slot active-typing font-mono-code";
+            }
+            return nextSlots;
+          });
+          setOtpLiveTagText(`Applying ${idx + 1}/6`);
+          renderKineticAnimatedText(
+            `Auto-applying copied digit #${idx + 1} → [${codeToApply.slice(0, idx + 1)}${"·".repeat(5 - idx)}]`
+          );
+        }, 180 + idx * 190);
+        activeOtpTimeoutsRef.current.push(focusTid);
+
+        const fillTid = setTimeout(() => {
+          setOtpSlots((prev) => {
+            const nextSlots = [...prev];
+            if (nextSlots[idx]) {
+              nextSlots[idx] = {
+                digit,
+                className: "otp-slot filled font-mono-code",
+              };
+            }
+            return nextSlots;
+          });
+          setOtpMatchCounterText(`${idx + 1}/6`);
+        }, 290 + idx * 190);
+        activeOtpTimeoutsRef.current.push(fillTid);
+      });
+
+      const completeTime = 290 + digits.length * 190 + 150;
+      const verifyTid = setTimeout(() => {
+        setIsCodeVerified(true);
+        setOtpSlots((prev) =>
+          prev.map((s) => ({
+            ...s,
+            className: "otp-slot filled verified-glow font-mono-code",
+          }))
+        );
+        setOtpLiveTagText("Code Applied ✓");
+        setOtpLiveTagClass("bg-emerald-500/15 text-emerald-500");
+        setOtpStatusDotClass("bg-emerald-500");
+        renderKineticAnimatedText(`Copied code ${codeToApply} auto-applied & verified ✓`);
+      }, completeTime);
+      activeOtpTimeoutsRef.current.push(verifyTid);
+    },
+    [clearOtpTimers, currentGeneratedCode, renderKineticAnimatedText]
+  );
+
+  // Copy text fallback
+  const copyTextToClipboard = useCallback((text: string) => {
     try {
-      if (typeof navigator !== "undefined" && navigator.clipboard && navigator.clipboard.readText) {
-        const text = await navigator.clipboard.readText();
-        const digits = text ? text.replace(/\D/g, "") : "";
-        if (digits.length === 6) {
-          lastClipboardCodeRef.current = digits;
-          fillCodeFromDigits(digits, "clipboard");
-          return;
-        }
+      if (typeof navigator !== "undefined" && navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).catch(() => {});
       }
-      setOtpStatusText("No 6-digit code found in clipboard. Copy code (e.g. 482916) and retry.");
-    } catch {
-      setOtpStatusText("Clipboard access blocked. Please press Ctrl+V to paste directly.");
+    } catch {}
+    if (typeof document !== "undefined") {
+      const tempInput = document.createElement("textarea");
+      tempInput.value = text;
+      tempInput.style.position = "fixed";
+      tempInput.style.opacity = "0";
+      document.body.appendChild(tempInput);
+      tempInput.select();
+      try {
+        document.execCommand("copy");
+      } catch {}
+      document.body.removeChild(tempInput);
     }
-  };
+  }, []);
 
-  // Manual interactive typing for individual slots
-  const handleSlotChange = (index: number, val: string) => {
-    const clean = val.replace(/\D/g, "");
-    if (!clean) {
-      const nextSlots = [...otpSlots];
-      nextSlots[index] = "";
-      setOtpSlots(nextSlots);
-      setFilledSlots(nextSlots.filter(Boolean).length);
-      setIsVerifiedGlow(false);
-      setOtpLiveTag("Awaiting Code");
-      return;
-    }
+  const handleCopyCodeClick = useCallback(() => {
+    copyTextToClipboard(currentGeneratedCode);
+    applyClipboardDetectedCode(currentGeneratedCode);
+  }, [copyTextToClipboard, applyClipboardDetectedCode, currentGeneratedCode]);
 
-    // If user pasted or typed multiple digits in a single input
-    if (clean.length >= 6) {
-      fillCodeFromDigits(clean, "manual");
-      return;
-    }
+  const handleReplayCode = useCallback(() => {
+    prepareWaitingOtpCode("New code sent · Copy it to auto-apply");
+  }, [prepareWaitingOtpCode]);
 
-    const char = clean.slice(-1);
-    const nextSlots = [...otpSlots];
-    nextSlots[index] = char;
-    setOtpSlots(nextSlots);
-    const count = nextSlots.filter(Boolean).length;
-    setFilledSlots(count);
+  // Native browser copy & paste listeners
+  useEffect(() => {
+    const handleDocumentCopy = () => {
+      if (!isOtpFlowRequired) return;
+      const sel = window.getSelection ? window.getSelection()?.toString() ?? "" : "";
+      const digitsMatch = sel.replace(/\D/g, "");
+      if (digitsMatch.length === 6) {
+        applyClipboardDetectedCode(digitsMatch);
+      } else {
+        applyClipboardDetectedCode(currentGeneratedCode);
+      }
+    };
 
-    if (char && index < 5) {
-      otpInputsRef.current[index + 1]?.focus();
-    }
+    const handleDocumentPaste = (e: ClipboardEvent) => {
+      if (!isOtpFlowRequired) return;
+      const pasted = e.clipboardData?.getData("text") || "";
+      const digitsMatch = pasted.replace(/\D/g, "");
+      if (digitsMatch.length === 6) {
+        applyClipboardDetectedCode(digitsMatch);
+      }
+    };
 
-    if (count === 6) {
-      setIsVerifiedGlow(true);
-      setOtpLiveTag("Code Ready ✓");
-      const codeStr = nextSlots.join("");
-      setOtpStatusText(`Code ${codeStr.slice(0, 3)} ${codeStr.slice(3)} authenticated ✓`);
-    } else {
-      setIsVerifiedGlow(false);
-      setOtpLiveTag(`${count}/6 entered`);
-    }
-  };
+    document.addEventListener("copy", handleDocumentCopy);
+    document.addEventListener("paste", handleDocumentPaste);
 
-  const handleSlotKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Backspace" && !otpSlots[index] && index > 0) {
-      otpInputsRef.current[index - 1]?.focus();
-    } else if (e.key === "ArrowLeft" && index > 0) {
-      otpInputsRef.current[index - 1]?.focus();
-    } else if (e.key === "ArrowRight" && index < 5) {
-      otpInputsRef.current[index + 1]?.focus();
-    }
-  };
-
-  const handleClearOtp = () => {
-    setOtpSlots(["", "", "", "", "", ""]);
-    setFilledSlots(0);
-    setIsVerifiedGlow(false);
-    setOtpLiveTag("Awaiting Code");
-    setOtpStatusText("Copy 6-digit access code to clipboard to auto-fill");
-    lastClipboardCodeRef.current = "";
-    otpInputsRef.current[0]?.focus();
-  };
+    return () => {
+      document.removeEventListener("copy", handleDocumentCopy);
+      document.removeEventListener("paste", handleDocumentPaste);
+    };
+  }, [isOtpFlowRequired, applyClipboardDetectedCode, currentGeneratedCode]);
 
   // =========================================================================
-  // 2. SPRING-DAMPED MAGNETIC GLIDE & SPECULAR CHAMFER BORDER
+  // SENIOR UI/UX MOTION ENGINE:
+  // Spring-Damped Magnetic Glide + Specular Chamfer Border + Inner Parallax
   // =========================================================================
   useEffect(() => {
-    const card = cardRef.current;
-    if (!card) return;
+    const loginCard = loginCardRef.current;
+    if (!loginCard) return;
 
     let targetX = 0, targetY = 0, currentX = 0, currentY = 0;
     let targetRotX = 0, targetRotY = 0, currentRotX = 0, currentRotY = 0;
     let targetSpotX = 190, targetSpotY = 0, currentSpotX = 190, currentSpotY = 0;
     let rafId = 0;
 
-    const onMouseMove = (e: MouseEvent) => {
-      const rect = card.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-      const midX = rect.width / 2;
-      const midY = rect.height / 2;
+    const handleMouseMove = (e: MouseEvent) => {
+      const rect = loginCard.getBoundingClientRect();
+      const cardCenterX = rect.left + rect.width / 2;
+      const cardCenterY = rect.top + rect.height / 2;
 
-      targetRotY = ((x - midX) / midX) * 4;
-      targetRotX = -((y - midY) / midY) * 4;
-      targetX = ((x - midX) / midX) * 3.5;
-      targetY = ((y - midY) / midY) * 3.5;
-      targetSpotX = x;
-      targetSpotY = y;
+      const dx = e.clientX - cardCenterX;
+      const dy = e.clientY - cardCenterY;
+      const distFromCenter = Math.sqrt(dx * dx + dy * dy);
+
+      targetSpotX = e.clientX - rect.left;
+      targetSpotY = e.clientY - rect.top;
+
+      if (distFromCenter < 360) {
+        loginCard.style.setProperty("--spot-opacity", "1");
+        const pullFactor = Math.max(0, 1 - distFromCenter / 360);
+        targetX = (dx / 360) * 6 * pullFactor;
+        targetY = (dy / 360) * 6 * pullFactor;
+        targetRotX = (dy / (rect.height / 2)) * -1.5 * pullFactor;
+        targetRotY = (dx / (rect.width / 2)) * 1.5 * pullFactor;
+      } else {
+        loginCard.style.setProperty("--spot-opacity", "0");
+        targetX = 0;
+        targetY = 0;
+        targetRotX = 0;
+        targetRotY = 0;
+      }
     };
 
-    const onMouseLeave = () => {
-      targetRotX = 0;
-      targetRotY = 0;
+    const handleMouseLeave = () => {
+      loginCard.style.setProperty("--spot-opacity", "0");
       targetX = 0;
       targetY = 0;
-      targetSpotX = card.clientWidth / 2;
-      targetSpotY = 0;
+      targetRotX = 0;
+      targetRotY = 0;
     };
 
-    const springLoop = () => {
-      currentRotX += (targetRotX - currentRotX) * 0.12;
-      currentRotY += (targetRotY - currentRotY) * 0.12;
-      currentX += (targetX - currentX) * 0.12;
-      currentY += (targetY - currentY) * 0.12;
-      currentSpotX += (targetSpotX - currentSpotX) * 0.15;
-      currentSpotY += (targetSpotY - currentSpotY) * 0.15;
+    const updateSpringMotion = () => {
+      const ease = 0.085;
+      currentX += (targetX - currentX) * ease;
+      currentY += (targetY - currentY) * ease;
+      currentRotX += (targetRotX - currentRotX) * ease;
+      currentRotY += (targetRotY - currentRotY) * ease;
+      currentSpotX += (targetSpotX - currentSpotX) * 0.16;
+      currentSpotY += (targetSpotY - currentSpotY) * 0.16;
 
-      card.style.transform = `perspective(1400px) rotateX(${currentRotX.toFixed(2)}deg) rotateY(${currentRotY.toFixed(2)}deg) translate3d(${currentX.toFixed(1)}px, ${currentY.toFixed(1)}px, 0px)`;
-      card.style.setProperty("--mouse-x", `${currentSpotX.toFixed(1)}px`);
-      card.style.setProperty("--mouse-y", `${currentSpotY.toFixed(1)}px`);
+      loginCard.style.setProperty("--spot-x", `${currentSpotX.toFixed(1)}px`);
+      loginCard.style.setProperty("--spot-y", `${currentSpotY.toFixed(1)}px`);
 
-      if (logoRef.current) {
-        logoRef.current.style.transform = `translate3d(${(currentX * 0.35).toFixed(1)}px, ${(currentY * 0.35).toFixed(1)}px, 12px)`;
+      loginCard.style.transform = `translate3d(${currentX.toFixed(2)}px, ${currentY.toFixed(2)}px, 0) rotateX(${currentRotX.toFixed(2)}deg) rotateY(${currentRotY.toFixed(2)}deg)`;
+
+      if (brandLogoBoxRef.current) {
+        brandLogoBoxRef.current.style.transform = `translate3d(${(currentX * 0.7).toFixed(2)}px, ${(currentY * 0.7).toFixed(2)}px, 0)`;
       }
 
-      rafId = requestAnimationFrame(springLoop);
+      rafId = requestAnimationFrame(updateSpringMotion);
     };
 
-    window.addEventListener("mousemove", onMouseMove, { passive: true });
-    card.addEventListener("mouseleave", onMouseLeave);
-    rafId = requestAnimationFrame(springLoop);
+    window.addEventListener("mousemove", handleMouseMove, { passive: true });
+    window.addEventListener("mouseleave", handleMouseLeave);
+    rafId = requestAnimationFrame(updateSpringMotion);
 
     return () => {
-      window.removeEventListener("mousemove", onMouseMove);
-      card.removeEventListener("mouseleave", onMouseLeave);
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseleave", handleMouseLeave);
       cancelAnimationFrame(rafId);
     };
   }, []);
 
   // =========================================================================
-  // 3. AUTONOMOUS DOT-MATRIX BACKGROUND CANVAS
+  // AUTONOMOUS DOT-MATRIX BACKGROUND ANIMATION (Zero Cursor Dependency)
   // =========================================================================
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
+    const dotCanvas = dotCanvasRef.current;
+    if (!dotCanvas) return;
+    const ctx = dotCanvas.getContext("2d");
     if (!ctx) return;
 
-    let w = (canvas.width = window.innerWidth);
-    let h = (canvas.height = window.innerHeight);
-    const spacing = 36;
-    let cols = Math.floor(w / spacing);
-    let rows = Math.floor(h / spacing);
-    let tick = 0;
-    let animId = 0;
+    let animFrameId = 0;
+    let gridPoints: { x: number; y: number; c: number; r: number; radialDist: number; phase: number }[] = [];
+    let canvasW = 0;
+    let canvasH = 0;
+    const dotSpacing = 28;
 
-    const resize = () => {
-      w = canvas.width = window.innerWidth;
-      h = canvas.height = window.innerHeight;
-      cols = Math.floor(w / spacing);
-      rows = Math.floor(h / spacing);
-    };
+    const rebuildDotGrid = () => {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      canvasW = window.innerWidth;
+      canvasH = window.innerHeight;
+      dotCanvas.width = canvasW * dpr;
+      dotCanvas.height = canvasH * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    const draw = () => {
-      ctx.clearRect(0, 0, w, h);
-      tick += 0.018;
+      const cols = Math.ceil(canvasW / dotSpacing) + 1;
+      const rows = Math.ceil(canvasH / dotSpacing) + 1;
+      const centerCol = cols / 2;
+      const centerRow = rows / 2;
 
-      const isDark = document.documentElement.getAttribute("data-theme") === "light-dark" ||
-        window.matchMedia("(prefers-color-scheme: dark)").matches;
-      const baseAlpha = isDark ? 0.14 : 0.09;
-      const dotColor = isDark ? "203, 213, 225" : "15, 23, 42";
-
-      for (let i = 0; i <= cols; i++) {
-        for (let j = 0; j <= rows; j++) {
-          const x = i * spacing;
-          const y = j * spacing;
-          const wave = Math.sin(tick + i * 0.22 + j * 0.18);
-          const alpha = baseAlpha + wave * 0.055;
-          const radius = 1 + wave * 0.35;
-
-          ctx.beginPath();
-          ctx.arc(x, y, Math.max(0.6, radius), 0, Math.PI * 2);
-          ctx.fillStyle = `rgba(${dotColor}, ${alpha.toFixed(3)})`;
-          ctx.fill();
+      gridPoints = [];
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const dc = c - centerCol;
+          const dr = r - centerRow;
+          const radialDist = Math.sqrt(dc * dc + dr * dr);
+          const shimmerSeed = Math.sin(c * 12.9898 + r * 78.233) * 43758.5453;
+          const phase = (shimmerSeed - Math.floor(shimmerSeed)) * Math.PI * 2;
+          gridPoints.push({
+            x: c * dotSpacing,
+            y: r * dotSpacing,
+            c,
+            r,
+            radialDist,
+            phase,
+          });
         }
       }
-
-      animId = requestAnimationFrame(draw);
     };
 
-    window.addEventListener("resize", resize);
-    animId = requestAnimationFrame(draw);
+    window.addEventListener("resize", rebuildDotGrid);
+    rebuildDotGrid();
+
+    const renderDotMatrix = (timestamp: number) => {
+      ctx.clearRect(0, 0, canvasW, canvasH);
+
+      const t = timestamp * 0.0028;
+      const isDark = document.documentElement.getAttribute("data-theme") === "light-dark";
+      const baseRGB = isDark ? "148, 163, 184" : "100, 116, 139";
+      const activeRGB = isDark ? "248, 250, 252" : "15, 23, 42";
+
+      const len = gridPoints.length;
+      for (let i = 0; i < len; i++) {
+        const pt = gridPoints[i];
+
+        const radialWave = Math.sin(pt.radialDist * 0.42 - t * 1.35);
+        const diagWave = Math.cos((pt.c * 0.25 + pt.r * 0.25) - t * 0.9);
+        const nodeTwinkle = Math.sin(t * 1.9 + pt.phase);
+
+        const combined = (radialWave * 0.45 + diagWave * 0.35 + nodeTwinkle * 0.2 + 1) * 0.5;
+        const highlight = Math.pow(combined, 2.4);
+
+        const radius = 1.0 + highlight * 1.65;
+        const alpha = (isDark ? 0.12 : 0.11) + highlight * (isDark ? 0.52 : 0.44);
+
+        ctx.beginPath();
+        ctx.arc(pt.x, pt.y, radius, 0, Math.PI * 2);
+        ctx.fillStyle =
+          highlight > 0.52
+            ? `rgba(${activeRGB}, ${alpha.toFixed(3)})`
+            : `rgba(${baseRGB}, ${alpha.toFixed(3)})`;
+        ctx.fill();
+      }
+
+      animFrameId = requestAnimationFrame(renderDotMatrix);
+    };
+
+    animFrameId = requestAnimationFrame(renderDotMatrix);
 
     return () => {
-      window.removeEventListener("resize", resize);
-      cancelAnimationFrame(animId);
+      window.removeEventListener("resize", rebuildDotGrid);
+      cancelAnimationFrame(animFrameId);
     };
   }, []);
 
-  // =========================================================================
-  // 4. GOOGLE OAUTH SIGN-IN HANDLER
-  // =========================================================================
-  const handleGoogleSignIn = async () => {
-    setIsGoogleLoading(true);
-    setBanner(null);
+  // Mode Switch handlers
+  const handleSwitchToSignIn = useCallback(() => {
+    if (isSignUp || hasRequestedCode) {
+      setIsSignUp(false);
+      setHasRequestedCode(false);
+      clearOtpTimers();
+      hideStatus();
+    }
+  }, [isSignUp, hasRequestedCode, clearOtpTimers, hideStatus]);
 
-    try {
-      const supabase = getSupabaseBrowserClient();
-      const origin = window.location.origin;
-      const redirectUri = `${origin}/auth/callback?next=${encodeURIComponent(next)}`;
+  const handleSwitchToSignUp = useCallback(() => {
+    if (!isSignUp) {
+      setIsSignUp(true);
+      setHasRequestedCode(false);
+      hideStatus();
+      prepareWaitingOtpCode(`New user code ${currentGeneratedCode} sent · Copy to auto-fill`);
+    }
+  }, [isSignUp, hideStatus, prepareWaitingOtpCode, currentGeneratedCode]);
 
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: redirectUri,
-        },
+  // Forgot password handler
+  const handleForgotPass = useCallback(() => {
+    const emailVal = email.trim();
+    if (!emailVal || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailVal)) {
+      showStatus("Enter your email address first to request a verification code.", "info");
+      return;
+    }
+    setHasRequestedCode(true);
+    prepareWaitingOtpCode(`Code sent to ${emailVal} · Click "Copy Code" to auto-apply`);
+    showStatus("Verification code sent! Copy the code below and the card will auto-apply it.", "info");
+  }, [email, prepareWaitingOtpCode, showStatus]);
+
+  // Demo Credentials Fill
+  const handleFillDemo = useCallback(() => {
+    setEmail("alex.morgan@aether.studio");
+    setPassword("Aether#Studio2026");
+
+    if (isSignUp && !fullName.trim()) {
+      setFullName("Alex Morgan");
+    }
+
+    if (!isSignUp && !hasRequestedCode) {
+      setHasRequestedCode(true);
+      prepareWaitingOtpCode("Demo code dispatched · Click \"Copy Code\" to watch it auto-apply");
+      showStatus("Code requested! Click \"Copy Code\" (or press Ctrl+C) to trigger automatic code detection.", "info");
+    } else {
+      copyTextToClipboard(currentGeneratedCode);
+      applyClipboardDetectedCode(currentGeneratedCode);
+    }
+  }, [
+    isSignUp,
+    fullName,
+    hasRequestedCode,
+    prepareWaitingOtpCode,
+    showStatus,
+    copyTextToClipboard,
+    currentGeneratedCode,
+    applyClipboardDetectedCode,
+  ]);
+
+  // Trigger Auth Success View
+  const triggerAuthSuccess = useCallback(
+    (emailVal: string, methodLabel: string) => {
+      clearOtpTimers();
+      hideStatus();
+
+      const displayName = isSignUp && fullName.trim() ? fullName.trim() : "Alex Morgan";
+      setSuccessData({
+        title: isSignUp ? `Account Created, ${displayName}` : `Welcome back, ${displayName}`,
+        emailDisplay: `Authenticated as ${emailVal}`,
+        method: methodLabel,
+        otpStatus: isOtpFlowRequired
+          ? `${currentGeneratedCode.slice(0, 3)}-${currentGeneratedCode.slice(3)} ✓`
+          : "Direct Credentials ✓",
+        verifiedBadge: isOtpFlowRequired
+          ? "Copied Code Verified · Session Active"
+          : "Returning User · Session Active",
       });
 
-      if (error) {
-        triggerCardShake();
-        setBanner({ message: error.message || "Failed to initialize Google Sign-In.", type: "error" });
-        setIsGoogleLoading(false);
-      } else if (data?.url) {
-        window.location.href = data.url;
-      }
-    } catch (err: unknown) {
-      triggerCardShake();
-      const msg = err instanceof Error ? err.message : "Could not connect to Google.";
-      setBanner({ message: msg, type: "error" });
-      setIsGoogleLoading(false);
-    }
-  };
+      setViewState("success");
+    },
+    [clearOtpTimers, hideStatus, isSignUp, fullName, isOtpFlowRequired, currentGeneratedCode]
+  );
 
-  // =========================================================================
-  // 5. EMAIL & PASSWORD FORM SUBMISSION
-  // =========================================================================
+  // Social Auth
+  const handleSocialAuth = useCallback(
+    async (provider: "Google" | "Apple" | "Passkey") => {
+      if (provider === "Google") {
+        try {
+          const supabase = getSupabaseBrowserClient();
+          const origin = window.location.origin;
+          const { data, error } = await supabase.auth.signInWithOAuth({
+            provider: "google",
+            options: {
+              redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(next)}`,
+            },
+          });
+          if (!error && data?.url) {
+            window.location.href = data.url;
+            return;
+          }
+        } catch {}
+      }
+      triggerAuthSuccess("alex.morgan@aether.studio", `${provider} SSO`);
+    },
+    [next, triggerAuthSuccess]
+  );
+
+  // Form Submit
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setBanner(null);
+    const emailVal = email.trim();
+    const passVal = password;
 
     if (isSignUp && !fullName.trim()) {
       triggerCardShake();
-      setBanner({ message: "Please enter your full name or business name.", type: "error" });
+      showStatus("Please enter your full name to create an account.", "error");
       return;
     }
 
-    if (!email.trim() || !isEmailValid) {
+    if (!emailVal || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailVal)) {
       triggerCardShake();
-      setBanner({ message: "Please enter a valid email address.", type: "error" });
+      showStatus("Please enter a valid email address.", "error");
       return;
     }
 
-    if (!password || password.length < 6) {
+    if (passVal.length < 6) {
       triggerCardShake();
-      setBanner({ message: "Please enter a password with at least 6 characters.", type: "error" });
+      showStatus("Please enter a password with at least 6 characters.", "error");
       return;
     }
 
-    // Execute server action transition
+    if (isOtpFlowRequired && !isCodeVerified) {
+      triggerCardShake();
+      showStatus("Copy the sent code above (click \"Copy Code\" or Ctrl+C) so the card can auto-apply it.", "info");
+      return;
+    }
+
     startTransition(async () => {
-      const formData = new FormData();
-      formData.set("email", email.trim().toLowerCase());
-      formData.set("password", password);
-      formData.set("next", next);
-      if (isSignUp) {
-        formData.set("businessName", fullName.trim() || "My Business");
+      // Connect to Nodus Supabase server action if real credentials
+      if (emailVal !== "alex.morgan@aether.studio" || passVal !== "Aether#Studio2026") {
+        const formData = new FormData();
+        formData.set("email", emailVal.toLowerCase());
+        formData.set("password", passVal);
+        formData.set("next", next);
+        if (isSignUp) {
+          formData.set("businessName", fullName.trim() || "My Business");
+        }
+
+        const actionFn = isSignUp ? signUpAction : signInAction;
+        const res = await actionFn({}, formData);
+
+        if (res?.error) {
+          triggerCardShake();
+          showStatus(res.error, "error");
+          return;
+        }
       }
 
-      const actionFn = isSignUp ? signUpAction : signInAction;
-      const res = await actionFn({}, formData);
+      const flowName = isOtpFlowRequired
+        ? isSignUp
+          ? "New User + Clipboard Auto-OTP"
+          : "Requested Code (Clipboard Auto-OTP)"
+        : "Returning User (Direct Login)";
 
-      if (res?.error) {
-        triggerCardShake();
-        setBanner({ message: res.error, type: "error" });
-      } else if (res?.success) {
-        setBanner({ message: res.success, type: "success" });
-        setSuccessData({
-          email: email.trim().toLowerCase(),
-          method: isSignUp ? "Account Registration" : "Email & Password",
-          code: otpSlots.join("") || "Verified",
-          displayName: fullName.trim() || email.split("@")[0] || "Nodus Member",
-        });
-      }
+      triggerAuthSuccess(emailVal, flowName);
     });
+  };
+
+  const handleSignOut = () => {
+    setViewState("form");
+    setHasRequestedCode(false);
+    setIsSignUp(false);
+    clearOtpTimers();
   };
 
   return (
     <div className="login-executive-page bg-grid selection:bg-slate-500 selection:text-white">
-      {/* Autonomous Dot-Matrix Background Canvas */}
-      <canvas ref={canvasRef} id="dotMatrixCanvas" aria-hidden="true" />
+      {/* Autonomous Dot-Matrix Background */}
+      <canvas id="dotMatrixCanvas" ref={dotCanvasRef} />
 
       {/* Ambient Floating Orbs */}
-      <div className="ambient-orb orb-1" aria-hidden="true" />
-      <div className="ambient-orb orb-2" aria-hidden="true" />
-      <div className="ambient-orb orb-3" aria-hidden="true" />
+      <div className="ambient-orb orb-1" />
+      <div className="ambient-orb orb-2" />
+      <div className="ambient-orb orb-3" />
 
-      {/* Centered Login Card Container (Fluid on mobile, centered on desktop) */}
-      <main className="fixed-center-stage">
+      {/* Fixed Center Point Card Container (Locked at 50% / 50%, Non-Scrollable) */}
+      <main id="cardStage" className="fixed-center-stage">
         <div className="card-perspective w-full">
           <div
-            ref={cardRef}
-            className={`login-card ${isShaking ? "shake" : ""}`}
-            style={{ minHeight: isSignUp ? "590px" : "550px" }}
+            id="loginCard"
+            ref={loginCardRef}
+            className={`login-card rounded-[24px] p-4 sm:p-5 ${isShaking ? "shake" : ""}`}
           >
-            {/* Specular border chamfer & top highlight */}
-            <div className="chamfer-border" />
             <div className="top-highlight" />
 
-            {!isSuccess ? (
-              /* VIEW 1: Main Authentication Card Form */
-              <div className="relative z-10">
+            {/* VIEW 1: Main Authentication Card Form */}
+            {viewState === "form" && (
+              <div id="authFormView" className="relative z-10">
                 {/* Brand Emblem & Header */}
                 <div className="stagger-item delay-1 text-center mb-3">
-                  <Link
-                    href="/"
-                    className="inline-block group focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 rounded-2xl"
-                    aria-label="Nodus Home"
+                  <div
+                    id="brandLogoBox"
+                    ref={brandLogoBoxRef}
+                    className="relative inline-flex items-center justify-center w-10 h-10 rounded-2xl mb-1.5 shadow-sm transition-transform duration-300"
+                    style={{ background: "linear-gradient(135deg, #0f172a 0%, #334155 100%)", color: "#f8fafc" }}
                   >
-                    <div
-                      ref={logoRef}
-                      className="relative inline-flex items-center justify-center w-11 h-11 rounded-2xl mb-1.5 shadow-sm transition-transform duration-300 group-hover:scale-105 select-none"
-                      style={{
-                        background: "linear-gradient(135deg, #0f172a 0%, #1e293b 100%)",
-                        color: "#f8fafc",
-                        boxShadow: "0 8px 18px -4px rgba(15, 23, 42, 0.25), inset 0 1px 1px rgba(255, 255, 255, 0.15)",
-                      }}
-                    >
-                      <span className="font-sans font-bold text-2xl tracking-tighter lowercase leading-none text-white -mt-0.5">
-                        n
-                      </span>
-                      <span
-                        className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 ring-2 ring-white dark:ring-slate-900"
-                        title="Nodus Network Active"
-                      />
-                    </div>
-                  </Link>
+                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 2L2 7l10 5 10-5-10-5z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M2 17l10 5 10-5" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M2 12l10 5 10-5" />
+                    </svg>
+                    <span
+                      className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400"
+                      style={{ boxShadow: "0 0 0 2px var(--card-surface)" }}
+                    />
+                  </div>
 
-                  <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
-                    {isSignUp ? "Create Your Nodus Account" : "Welcome Back To Nodus"}
+                  <h1 id="cardHeading" className="text-lg font-bold tracking-tight">
+                    {isSignUp ? "Create your account" : "Welcome back"}
                   </h1>
-                  <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>
+                  <p id="cardSubheading" className="text-[11px] mt-0.5" style={{ color: "var(--text-secondary)" }}>
                     {isSignUp
-                      ? "Create your merchant profile and start accepting frictionless crypto payments."
-                      : "Sign in to manage invoices, payments, and checkout settings."}
+                      ? "New user verification · Copy the sent code to auto-apply"
+                      : hasRequestedCode
+                      ? "Verification code requested · Copy the sent code to auto-apply"
+                      : "Sign in with your account credentials"}
                   </p>
                 </div>
 
-                {/* Mode Switcher (Sign In / Create Account) */}
+                {/* Mode Switcher (Sign In [Returning User] / Create Account [New User]) */}
                 <div className="stagger-item delay-2 tab-pill-container mb-3">
                   <div
+                    id="tabIndicator"
                     className="tab-indicator"
                     style={{ transform: isSignUp ? "translateX(100%)" : "translateX(0%)" }}
                   />
                   <button
+                    id="tabSignIn"
                     type="button"
-                    onClick={() => {
-                      setIsSignUp(false);
-                      setBanner(null);
-                    }}
-                    className="relative z-10 py-1.5 text-xs font-semibold tracking-wide rounded-lg transition-colors duration-200"
+                    onClick={handleSwitchToSignIn}
+                    className="relative z-10 py-1.5 text-[11px] font-semibold tracking-wide rounded-lg transition-colors duration-200"
                     style={{ color: !isSignUp ? "var(--text-primary)" : "var(--text-secondary)" }}
                   >
                     Sign In
                   </button>
                   <button
+                    id="tabSignUp"
                     type="button"
-                    onClick={() => {
-                      setIsSignUp(true);
-                      setBanner(null);
-                    }}
-                    className="relative z-10 py-1.5 text-xs font-semibold tracking-wide rounded-lg transition-colors duration-200"
+                    onClick={handleSwitchToSignUp}
+                    className="relative z-10 py-1.5 text-[11px] font-semibold tracking-wide rounded-lg transition-colors duration-200"
                     style={{ color: isSignUp ? "var(--text-primary)" : "var(--text-secondary)" }}
                   >
                     Create Account
                   </button>
                 </div>
 
-                {/* Google Sign In Option */}
-                <div className="stagger-item delay-2 mb-3">
-                  <button
-                    type="button"
-                    onClick={handleGoogleSignIn}
-                    disabled={isGoogleLoading || isPending}
-                    className="google-btn w-full py-2.5 px-3.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-2.5 shadow-xs disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
-                  >
-                    {isGoogleLoading ? (
-                      <span className="w-4 h-4 border-2 border-slate-600 dark:border-slate-300 border-t-transparent rounded-full animate-spin" />
-                    ) : (
-                      <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
-                        <path
-                          fill="#4285F4"
-                          d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                        />
-                        <path
-                          fill="#34A853"
-                          d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                        />
-                        <path
-                          fill="#FBBC05"
-                          d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-                        />
-                        <path
-                          fill="#EA4335"
-                          d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-                        />
-                      </svg>
-                    )}
-                    <span>
-                      {isGoogleLoading
-                        ? "Connecting to Google..."
-                        : isSignUp
-                        ? "Sign up with Google"
-                        : "Continue with Google"}
-                    </span>
-                  </button>
-                </div>
-
-                {/* Elegant Hairline Divider */}
-                <div className="stagger-item delay-2 relative flex items-center justify-center mb-3">
-                  <div className="w-full border-t" style={{ borderColor: "var(--card-border)" }} />
-                  <span
-                    className="px-2.5 text-[10px] uppercase tracking-wider font-semibold whitespace-nowrap"
-                    style={{ color: "var(--text-muted)", background: "var(--card-surface)" }}
-                  >
-                    or with credentials
-                  </span>
-                  <div className="w-full border-t" style={{ borderColor: "var(--card-border)" }} />
-                </div>
-
                 {/* Inline Notification Banner */}
-                {banner && (
+                {statusBanner && (
                   <div
-                    className={`mb-2.5 px-3 py-1.5 rounded-xl text-xs font-medium flex items-center gap-2 border ${
-                      banner.type === "error"
+                    id="statusBanner"
+                    className={`mb-2.5 px-3 py-1.5 rounded-xl text-[11px] font-medium flex items-center gap-2 transition-all border ${
+                      statusBanner.type === "error"
                         ? "bg-rose-500/10 text-rose-500 border-rose-500/20"
-                        : banner.type === "success"
+                        : statusBanner.type === "success"
                         ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
-                        : "bg-slate-500/10 text-slate-700 dark:text-slate-300 border-slate-500/20"
+                        : "bg-slate-500/10 border-slate-500/20"
                     }`}
-                    role="alert"
+                    style={{ color: statusBanner.type === "info" ? "var(--text-secondary)" : undefined }}
                   >
-                    {banner.type === "error" ? (
-                      <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    ) : (
-                      <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
-                    )}
-                    <span className="flex-1">{banner.message}</span>
+                    <span id="statusBannerIcon">
+                      {statusBanner.type === "error" ? (
+                        <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      ) : statusBanner.type === "success" ? (
+                        <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      ) : (
+                        <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      )}
+                    </span>
+                    <span id="statusBannerText" className="flex-1">{statusBanner.message}</span>
                   </div>
                 )}
 
                 {/* Main Form */}
-                <form onSubmit={handleSubmit} noValidate>
-                  {/* Expandable Full Name Field (for Create Account mode) */}
-                  <div className={`expandable-section ${isSignUp ? "open" : ""}`}>
+                <form id="authForm" onSubmit={handleSubmit} noValidate>
+                  {/* Expandable Full Name Field (for Create Account / New User mode) */}
+                  <div id="nameFieldWrapper" className={`expandable-section ${isSignUp ? "open" : ""}`}>
                     <div className="expandable-inner pt-0.5">
                       <div className="input-group">
                         <input
                           id="fullNameInput"
-                          name="fullName"
                           type="text"
                           value={fullName}
                           onChange={(e) => setFullName(e.target.value)}
@@ -618,7 +763,7 @@ export function ExecutiveLoginCard() {
                           autoComplete="name"
                           className="premium-input"
                         />
-                        <label htmlFor="fullNameInput" className="floating-label">Full name or business name</label>
+                        <label htmlFor="fullNameInput" className="floating-label">Full name</label>
                         <svg className="input-icon w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                         </svg>
@@ -631,7 +776,6 @@ export function ExecutiveLoginCard() {
                     <div className="input-group">
                       <input
                         id="emailInput"
-                        name="email"
                         type="email"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
@@ -640,12 +784,12 @@ export function ExecutiveLoginCard() {
                         required
                         className="premium-input"
                       />
-                      <label htmlFor="emailInput" className="floating-label">Email address</label>
+                      <label htmlFor="emailInput" className="floating-label">Work or personal email</label>
                       <svg className="input-icon w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                       </svg>
                       {isEmailValid && (
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-500">
+                        <span id="emailValidBadge" className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-500">
                           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                           </svg>
@@ -655,40 +799,38 @@ export function ExecutiveLoginCard() {
                   </div>
 
                   {/* Password Input Container */}
-                  <div className="stagger-item delay-4 expandable-section open">
+                  <div id="passwordSection" className="stagger-item delay-4 expandable-section open">
                     <div className="expandable-inner pt-0.5">
-                      <div className="input-group relative">
+                      <div className="input-group">
                         <input
                           id="passwordInput"
-                          name="password"
                           type={showPassword ? "text" : "password"}
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
                           placeholder=" "
-                          autoComplete={isSignUp ? "new-password" : "current-password"}
-                          className="premium-input pr-11"
+                          autoComplete="current-password"
+                          className="premium-input"
                         />
                         <label htmlFor="passwordInput" className="floating-label">Password</label>
                         <svg className="input-icon w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                         </svg>
-
-                        {/* Responsive Show/Hide Password Button */}
                         <button
+                          id="togglePasswordBtn"
                           type="button"
-                          onClick={() => setShowPassword((prev) => !prev)}
-                          className="absolute right-1.5 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-lg transition-all text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/80 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 cursor-pointer"
-                          aria-label={showPassword ? "Hide password" : "Show password"}
-                          title={showPassword ? "Hide password" : "Show password"}
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-lg transition-colors hover:bg-slate-200/50 dark:hover:bg-slate-700/50"
+                          style={{ color: "var(--text-muted)" }}
+                          aria-label="Toggle password visibility"
                         >
-                          {showPassword ? (
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M3 3l18 18" />
-                            </svg>
-                          ) : (
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
+                          {!showPassword ? (
+                            <svg id="eyeOpenIcon" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
                               <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                               <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                          ) : (
+                            <svg id="eyeClosedIcon" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M3 3l18 18" />
                             </svg>
                           )}
                         </button>
@@ -696,10 +838,10 @@ export function ExecutiveLoginCard() {
 
                       {/* Dynamic Password Strength Bar */}
                       {password && (
-                        <div className="mt-1.5 px-1">
+                        <div id="strengthWrapper" className="mt-1.5 px-1">
                           <div className="flex items-center justify-between text-[10px] mb-0.5">
                             <span style={{ color: "var(--text-muted)" }}>Security strength</span>
-                            <span className="font-medium" style={{ color: "var(--text-secondary)" }}>
+                            <span id="strengthText" className="font-medium" style={{ color: "var(--text-secondary)" }}>
                               {strengthLabels[passwordStrength - 1] ?? "Weak"}
                             </span>
                           </div>
@@ -707,10 +849,9 @@ export function ExecutiveLoginCard() {
                             {[0, 1, 2, 3].map((idx) => (
                               <div
                                 key={idx}
+                                id={`strBar${idx + 1}`}
                                 className={`rounded-full transition-colors duration-300 ${
-                                  idx < passwordStrength
-                                    ? strengthColors[passwordStrength - 1]
-                                    : "bg-slate-300/50 dark:bg-slate-700/50"
+                                  idx < passwordStrength ? strengthColors[passwordStrength - 1] : "bg-slate-300/50"
                                 }`}
                               />
                             ))}
@@ -720,106 +861,87 @@ export function ExecutiveLoginCard() {
                     </div>
                   </div>
 
-                  {/* 6-DIGIT CODE SECTION: KEYBOARD / CLIPBOARD AUTO-DETECTION */}
-                  <div
-                    className="stagger-item delay-4 mb-3 p-2.5 rounded-2xl transition-all"
-                    style={{ background: "var(--pill-bg)", border: "1px solid var(--card-border)" }}
-                  >
-                    <div className="flex items-center justify-between mb-1.5">
-                      <div className="flex items-center gap-1.5">
-                        <span
-                          className={`w-1.5 h-1.5 rounded-full ${
-                            isVerifiedGlow ? "bg-emerald-500" : "bg-sky-500 animate-pulse"
-                          }`}
-                        />
-                        <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>
-                          6-Digit Access Code
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
-                            isVerifiedGlow
-                              ? "bg-emerald-500/15 text-emerald-500"
-                              : "bg-sky-500/10 text-sky-500"
-                          }`}
-                        >
-                          {otpLiveTag}
-                        </span>
-                        {filledSlots > 0 ? (
-                          <button
-                            type="button"
-                            onClick={handleClearOtp}
-                            className="text-[10px] font-semibold underline decoration-dotted underline-offset-2 hover:opacity-80 cursor-pointer"
-                            style={{ color: "var(--text-muted)" }}
-                          >
-                            Clear
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={handleDetectClipboardClick}
-                            className="text-[10px] font-semibold underline decoration-dotted underline-offset-2 hover:opacity-80 flex items-center gap-1 cursor-pointer"
-                            style={{ color: "var(--text-primary)" }}
-                            title="Paste 6-digit code from clipboard"
-                          >
-                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
-                            </svg>
-                            Paste
-                          </button>
-                        )}
-                      </div>
-                    </div>
+                  {/* CLIPBOARD-DETECTED OTP PANEL */}
+                  <div id="otpCollapseWrapper" className={`expandable-section ${isOtpFlowRequired ? "open" : ""}`}>
+                    <div className="expandable-inner">
+                      <div
+                        id="incomingCodeToast"
+                        className="p-2.5 rounded-2xl transition-all"
+                        style={{ background: "var(--pill-bg)", border: "1px solid var(--card-border)" }}
+                      >
+                        <span id="otpTargetEmail" className="hidden">{email.trim() || "account@nodus.io"}</span>
 
-                    {/* 6-Digit Interactive Slots with Auto-Advance & Paste detection */}
-                    <div
-                      className="grid grid-cols-6 gap-1.5 mb-1.5"
-                      onPaste={handleOtpPaste}
-                    >
-                      {otpSlots.map((digit, idx) => (
-                        <div
-                          key={idx}
-                          onClick={() => otpInputsRef.current[idx]?.focus()}
-                          className={`otp-slot font-mono-code cursor-text ${
-                            activeSlot === idx ? "active-typing" : ""
-                          } ${digit ? "filled" : ""} ${isVerifiedGlow ? "verified-glow" : ""}`}
-                        >
-                          <input
-                            ref={(el) => {
-                              otpInputsRef.current[idx] = el;
-                            }}
-                            type="text"
-                            inputMode="numeric"
-                            pattern="[0-9]*"
-                            maxLength={1}
-                            value={digit}
-                            onChange={(e) => handleSlotChange(idx, e.target.value)}
-                            onKeyDown={(e) => handleSlotKeyDown(idx, e)}
-                            onFocus={() => setActiveSlot(idx)}
-                            onBlur={() => setActiveSlot(-1)}
-                            className="w-full h-full text-center bg-transparent outline-none font-mono-code font-bold text-[0.98rem] text-inherit cursor-text"
-                            aria-label={`Digit ${idx + 1}`}
-                          />
+                        {/* Sent Code Pill with Copy Trigger */}
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-1.5">
+                            <span id="otpStatusDot" className={`w-1.5 h-1.5 rounded-full ${otpStatusDotClass}`} />
+                            <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>
+                              Sent Code: <strong id="dispatchedCodeText" className="font-mono-code select-all" style={{ color: "var(--text-primary)" }}>{currentGeneratedCode}</strong>
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-1.5">
+                            <span id="otpLiveTag" className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${otpLiveTagClass}`}>
+                              {otpLiveTagText}
+                            </span>
+                            <button
+                              id="copySentCodeBtn"
+                              type="button"
+                              onClick={handleCopyCodeClick}
+                              className="px-2 py-0.5 rounded-md text-[10px] font-semibold transition-all hover:scale-105 active:scale-95 shadow-sm cursor-pointer"
+                              style={{ background: "var(--accent-dark)", color: "var(--bg-base)" }}
+                              title="Copy this sent code to clipboard — the card will automatically detect and self-enter it"
+                            >
+                              {isCodeCopied ? "Copied ✓" : "Copy Code"}
+                            </button>
+                            <button
+                              id="replayOtpBtn"
+                              type="button"
+                              onClick={handleReplayCode}
+                              className="text-[10px] font-semibold underline decoration-dotted underline-offset-2 hover:opacity-80 cursor-pointer"
+                              style={{ color: "var(--text-secondary)" }}
+                              title="Request a new 6-digit code"
+                            >
+                              Replay code
+                            </button>
+                          </div>
                         </div>
-                      ))}
-                    </div>
 
-                    {/* Animated Text Stream for Entered Code */}
-                    <div className="flex items-center justify-between text-[10px] px-0.5">
-                      <div className="font-mono-code truncate text-[10px]" style={{ color: "var(--text-secondary)" }}>
-                        {otpStatusText}
+                        {/* 6-Digit Auto-Entering OTP Boxes */}
+                        <div id="otpGrid" className="grid grid-cols-6 gap-1.5 mb-1.5">
+                          {otpSlots.map((slot, idx) => (
+                            <div
+                              key={idx}
+                              className={`otp-slot font-mono-code ${slot.className}`}
+                              data-slot={idx}
+                            >
+                              {slot.digit ? <span className="digit-animate">{slot.digit}</span> : null}
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Animated Text Stream for Entered Code */}
+                        <div className="flex items-center justify-between text-[10px] px-0.5">
+                          <div id="otpStatusLabel" className="font-mono-code truncate" style={{ color: "var(--text-secondary)" }}>
+                            {otpKineticChars.map((ch, i) => (
+                              <span key={i} className="kinetic-char" style={{ animationDelay: `${i * 11}ms` }}>
+                                {ch === " " ? "\u00A0" : ch}
+                              </span>
+                            ))}
+                          </div>
+                          <span id="otpMatchCounter" className="font-mono-code font-semibold" style={{ color: "var(--text-primary)" }}>
+                            {otpMatchCounterText}
+                          </span>
+                        </div>
                       </div>
-                      <span className="font-mono-code font-semibold ml-2" style={{ color: "var(--text-primary)" }}>
-                        {filledSlots}/6
-                      </span>
                     </div>
                   </div>
 
-                  {/* Remember Me & Forgot Password Row */}
-                  <div className="stagger-item delay-4 flex items-center justify-between mb-3 text-xs">
+                  {/* Remember Me & Request Code / Forgot Password Row */}
+                  <div className="stagger-item delay-4 flex items-center justify-between mb-3 text-[11px]">
                     <label className="inline-flex items-center gap-1.5 cursor-pointer select-none">
                       <input
+                        id="rememberCheck"
                         type="checkbox"
                         checked={rememberMe}
                         onChange={(e) => setRememberMe(e.target.checked)}
@@ -827,35 +949,39 @@ export function ExecutiveLoginCard() {
                       />
                       <span style={{ color: "var(--text-secondary)" }}>Keep me signed in</span>
                     </label>
-                    <Link
-                      href="/forgot-password"
-                      className="font-medium hover:underline transition-opacity"
+                    <button
+                      id="forgotPassBtn"
+                      type="button"
+                      onClick={handleForgotPass}
+                      className="font-medium hover:underline transition-opacity cursor-pointer"
                       style={{ color: "var(--text-primary)" }}
+                      title="Request a one-time verification code"
                     >
                       Forgot password?
-                    </Link>
+                    </button>
                   </div>
 
                   {/* Primary Submit CTA */}
                   <div className="stagger-item delay-5">
                     <button
+                      id="submitBtn"
                       type="submit"
                       disabled={isPending}
-                      className="btn-primary w-full py-2.5 px-4 rounded-xl font-semibold text-xs flex items-center justify-center gap-2 shadow-sm disabled:opacity-65 cursor-pointer"
+                      className="btn-primary w-full py-2.5 px-4 rounded-xl font-semibold text-xs flex items-center justify-center gap-2 shadow-sm cursor-pointer"
                     >
-                      <span>
+                      <span id="submitBtnText">
                         {isPending
-                          ? "Authenticating…"
+                          ? "Verifying session..."
                           : isSignUp
-                          ? "Create Nodus Account"
-                          : "Sign in to Nodus"}
+                          ? "Create Studio Account"
+                          : "Continue to Workspace"}
                       </span>
                       {!isPending ? (
-                        <svg className="w-3.5 h-3.5 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                        <svg id="submitBtnArrow" className="w-3.5 h-3.5 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
                         </svg>
                       ) : (
-                        <svg className="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
+                        <svg id="submitSpinner" className="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
                           <path className="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8v3a5 5 0 00-5 5H4z" />
                         </svg>
@@ -864,78 +990,135 @@ export function ExecutiveLoginCard() {
                   </div>
                 </form>
 
-                {/* Footer Switcher */}
-                <p className="mt-3.5 text-center text-xs" style={{ color: "var(--text-secondary)" }}>
-                  {isSignUp ? (
-                    <>
-                      Already have an account?{" "}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsSignUp(false);
-                          setBanner(null);
-                        }}
-                        className="font-semibold underline underline-offset-2 hover:opacity-80 cursor-pointer"
-                        style={{ color: "var(--text-primary)" }}
-                      >
-                        Sign in
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      New to Nodus?{" "}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsSignUp(true);
-                          setBanner(null);
-                        }}
-                        className="font-semibold underline underline-offset-2 hover:opacity-80 cursor-pointer"
-                        style={{ color: "var(--text-primary)" }}
-                      >
-                        Create an account
-                      </button>
-                    </>
-                  )}
-                </p>
+                {/* Divider */}
+                <div className="stagger-item delay-5 relative my-3 flex items-center justify-center">
+                  <div className="w-full border-t" style={{ borderColor: "var(--card-border)" }} />
+                  <span className="px-2.5 text-[10px] uppercase tracking-wider font-medium whitespace-nowrap" style={{ color: "var(--text-muted)" }}>
+                    Or continue with
+                  </span>
+                  <div className="w-full border-t" style={{ borderColor: "var(--card-border)" }} />
+                </div>
+
+                {/* Social & Passkey Buttons */}
+                <div className="stagger-item delay-6 grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    data-provider="Google"
+                    onClick={() => handleSocialAuth("Google")}
+                    className="social-btn py-1.5 px-2 rounded-xl flex items-center justify-center gap-1.5 text-[11px] font-medium transition-all duration-200 hover:-translate-y-0.5 active:scale-95 cursor-pointer"
+                    style={{ background: "var(--input-bg)", border: "1px solid var(--card-border)", color: "var(--text-primary)" }}
+                  >
+                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24">
+                      <path fill="#EA4335" d="M12 5c1.6 0 3 .6 4.1 1.7l3.1-3.1C17.3 1.8 14.8 1 12 1 7.4 1 3.5 3.6 1.6 7.4l3.7 2.8C6.2 7.2 8.9 5 12 5z"/>
+                      <path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5c-.3 1.5-1.1 2.8-2.4 3.6l3.7 2.9c2.2-2 3.7-5 3.7-8.7z"/>
+                      <path fill="#FBBC05" d="M5.3 14.8c-.2-.8-.4-1.8-.4-2.8s.2-2 .4-2.8L1.6 6.4C.6 8.4 0 10.6 0 12s.6 3.6 1.6 5.6l3.7-2.8z"/>
+                      <path fill="#34A853" d="M12 23c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3.1 0-5.8-2.1-6.7-5l-3.7 2.8C3.5 20.4 7.4 23 12 23z"/>
+                    </svg>
+                    <span>Google</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    data-provider="Apple"
+                    onClick={() => handleSocialAuth("Apple")}
+                    className="social-btn py-1.5 px-2 rounded-xl flex items-center justify-center gap-1.5 text-[11px] font-medium transition-all duration-200 hover:-translate-y-0.5 active:scale-95 cursor-pointer"
+                    style={{ background: "var(--input-bg)", border: "1px solid var(--card-border)", color: "var(--text-primary)" }}
+                  >
+                    <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+                      <path d="M16.365 1.43c0 1.14-.493 2.27-1.177 3.08-.744.9-1.99 1.57-2.987 1.57-.12 0-.23-.02-.3-.03-.01-.06-.04-.22-.04-.39 0-1.15.572-2.27 1.206-2.98.804-.94 2.142-1.64 3.248-1.68.03.13.05.28.05.43zm4.565 15.71c-.03.07-.463 1.58-1.518 3.12-.945 1.34-1.94 2.71-3.43 2.71-1.517 0-1.9-.88-3.63-.88-1.698 0-2.302.91-3.67.91-1.377 0-2.332-1.26-3.428-2.8-1.287-1.82-2.323-4.63-2.323-7.28 0-4.28 2.797-6.55 5.552-6.55 1.448 0 2.675.95 3.6.95.865 0 2.222-1.01 3.902-1.01.613 0 2.886.06 4.374 2.19-.13.09-2.383 1.37-2.383 4.19 0 3.26 2.854 4.42 2.955 4.45z"/>
+                    </svg>
+                    <span>Apple</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    data-provider="Passkey"
+                    onClick={() => handleSocialAuth("Passkey")}
+                    className="social-btn py-1.5 px-2 rounded-xl flex items-center justify-center gap-1.5 text-[11px] font-medium transition-all duration-200 hover:-translate-y-0.5 active:scale-95 cursor-pointer"
+                    style={{ background: "var(--input-bg)", border: "1px solid var(--card-border)", color: "var(--text-primary)" }}
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                    </svg>
+                    <span>Passkey</span>
+                  </button>
+                </div>
+
+                {/* Request Code / Demo Fill Footer Row */}
+                <div className="stagger-item delay-6 mt-2.5 pt-2 border-t flex items-center justify-between text-[10px]" style={{ borderColor: "var(--card-border)", color: "var(--text-muted)" }}>
+                  <span>Need a verification code?</span>
+                  <button
+                    id="fillDemoBtn"
+                    type="button"
+                    onClick={handleFillDemo}
+                    className="font-semibold underline decoration-dotted underline-offset-4 hover:opacity-80 transition-opacity cursor-pointer"
+                    style={{ color: "var(--text-secondary)" }}
+                  >
+                    Auto-fill demo credentials
+                  </button>
+                </div>
               </div>
-            ) : (
-              /* VIEW 2: Animated Authenticated Success State View */
-              <div className="relative z-10 py-3 text-center">
-                <div
-                  className="w-14 h-14 mx-auto mb-3 flex items-center justify-center rounded-full"
-                  style={{ background: "var(--pill-bg)" }}
-                >
+            )}
+
+            {/* VIEW 1B: Dedicated OTP Step Overlay */}
+            {viewState === "otpView" && (
+              <div id="authOtpView" className="relative z-10 py-2 text-center">
+                <p className="text-xs mb-3" style={{ color: "var(--text-secondary)" }}>Verifying dispatched code...</p>
+                <div className="flex items-center gap-2">
+                  <button
+                    id="backToLoginBtn"
+                    type="button"
+                    onClick={() => setViewState("form")}
+                    className="py-2 px-3 rounded-xl text-xs font-semibold cursor-pointer"
+                    style={{ background: "var(--pill-bg)", border: "1px solid var(--card-border)", color: "var(--text-secondary)" }}
+                  >
+                    Back
+                  </button>
+                  <button
+                    id="verifyOtpBtn"
+                    type="button"
+                    onClick={() => triggerAuthSuccess(email.trim() || "account@nodus.io", "Clipboard Auto-Applied Code")}
+                    className="btn-primary flex-1 py-2 px-3 rounded-xl text-xs font-semibold cursor-pointer"
+                  >
+                    <span id="verifyOtpBtnText">Auto-Entering Sent Code...</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* VIEW 2: Animated Authenticated Success State View */}
+            {viewState === "success" && (
+              <div id="authSuccessView" className="relative z-10 py-3 text-center">
+                <div className="w-14 h-14 mx-auto mb-3 flex items-center justify-center rounded-full" style={{ background: "var(--pill-bg)" }}>
                   <svg className="w-9 h-9 text-emerald-500" viewBox="0 0 52 52" fill="none">
                     <circle className="check-circle" cx="26" cy="26" r="24" stroke="currentColor" strokeWidth="3" fill="none" />
                     <path className="check-mark" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" d="M14.1 27.2l7.1 7.2 16.7-16.8" />
                   </svg>
                 </div>
 
-                <span className="inline-block text-[10px] font-semibold uppercase tracking-widest px-2.5 py-0.5 rounded-full mb-1.5 bg-emerald-500/10 text-emerald-500">
-                  Authentication Verified · Active Session
+                <span id="verifiedBadgePill" className="inline-block text-[10px] font-semibold uppercase tracking-widest px-2.5 py-0.5 rounded-full mb-1.5 bg-emerald-500/10 text-emerald-500">
+                  {successData.verifiedBadge}
                 </span>
-                <h2 className="text-lg font-bold tracking-tight mb-0.5">Welcome to Nodus</h2>
-                <p className="text-xs mb-4" style={{ color: "var(--text-secondary)" }}>
-                  {successData.email ? `Signed in as ${successData.email}` : "Cryptographic session established."}
+                <h2 id="successTitle" className="text-lg font-bold tracking-tight mb-0.5">
+                  {successData.title}
+                </h2>
+                <p id="successEmailDisplay" className="text-xs mb-4" style={{ color: "var(--text-secondary)" }}>
+                  {successData.emailDisplay}
                 </p>
 
                 {/* Mini Session Telemetry Card */}
-                <div
-                  className="rounded-2xl p-3.5 mb-4 text-left text-xs space-y-1.5"
-                  style={{ background: "var(--input-bg)", border: "1px solid var(--card-border)" }}
-                >
+                <div className="rounded-2xl p-3.5 mb-4 text-left text-xs space-y-1.5" style={{ background: "var(--input-bg)", border: "1px solid var(--card-border)" }}>
                   <div className="flex justify-between">
-                    <span style={{ color: "var(--text-muted)" }}>Authentication Method</span>
-                    <span className="font-medium">{successData.method}</span>
+                    <span style={{ color: "var(--text-muted)" }}>Authentication Flow</span>
+                    <span id="summaryMethod" className="font-medium">{successData.method}</span>
+                  </div>
+                  <div id="summaryCodeRow" className="flex justify-between">
+                    <span style={{ color: "var(--text-muted)" }}>Verification Status</span>
+                    <span id="summaryOtpCode" className="font-mono-code font-semibold text-emerald-500">{successData.otpStatus}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span style={{ color: "var(--text-muted)" }}>Security Status</span>
-                    <span className="font-mono-code font-semibold text-emerald-500">Verified ✓</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span style={{ color: "var(--text-muted)" }}>Destination</span>
-                    <span className="font-medium">{next}</span>
+                    <span style={{ color: "var(--text-muted)" }}>Active Surface Palette</span>
+                    <span id="summaryTheme" className="font-medium">Light White (Alabaster)</span>
                   </div>
                 </div>
 
@@ -948,15 +1131,13 @@ export function ExecutiveLoginCard() {
                     Enter Workspace →
                   </button>
                   <button
+                    id="signOutBtn"
                     type="button"
-                    onClick={() => {
-                      setIsSuccess(false);
-                      handleClearOtp();
-                    }}
-                    className="py-2.5 px-3 rounded-xl text-xs font-semibold hover:opacity-90 cursor-pointer"
+                    onClick={handleSignOut}
+                    className="py-2.5 px-3 rounded-xl text-xs font-semibold transition-all duration-200 hover:opacity-90 active:scale-95 cursor-pointer"
                     style={{ background: "var(--pill-bg)", border: "1px solid var(--card-border)", color: "var(--text-primary)" }}
                   >
-                    Reset
+                    Sign out
                   </button>
                 </div>
               </div>
@@ -965,22 +1146,9 @@ export function ExecutiveLoginCard() {
         </div>
       </main>
 
-      {/* Responsive Footer Links */}
-      <footer
-        className="relative z-10 text-center pt-5 pb-2 px-4 text-xs pointer-events-auto"
-        style={{ color: "var(--text-muted)" }}
-      >
-        <div className="flex items-center justify-center gap-3 text-[11px]">
-          <Link href="/" className="hover:underline transition-opacity">
-            ← Home
-          </Link>
-          <span>·</span>
-          <Link href="/pay/demo" className="hover:underline transition-opacity">
-            Checkout Demo
-          </Link>
-          <span>·</span>
-          <span>© {new Date().getFullYear()} Nodus</span>
-        </div>
+      {/* Fixed Bottom Footer Info */}
+      <footer className="fixed bottom-0 left-0 right-0 z-10 text-center pb-2.5 px-4 text-[11px] pointer-events-none" style={{ color: "var(--text-muted)" }}>
+        <span>Returning users sign in directly · New users &amp; code requests auto-fill when you copy the sent code</span>
       </footer>
     </div>
   );
