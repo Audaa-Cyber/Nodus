@@ -2,7 +2,6 @@
 
 import { useState, useTransition, useCallback } from "react";
 import { updateBusinessProfileAction } from "@/app/actions/profile";
-import { useDashboardLoader } from "./dashboard-shell-effects";
 
 interface ProfileFormProps {
   businessName: string;
@@ -38,34 +37,33 @@ export default function ProfileForm({
   const [lastUpdatedDisplay, setLastUpdatedDisplay] = useState(formatDate(updatedAt));
 
   const [isPending, startTransition] = useTransition();
-  const { triggerLoader } = useDashboardLoader();
 
   const isEvmValid = /^0x[a-fA-F0-9]{40}$/.test(receivingAddress.trim());
   const isDestinationConfigured = Boolean(receivingAddress.trim());
 
   // Copy address to clipboard
-  const handleCopyWallet = useCallback(() => {
+  const handleCopyWallet = useCallback(async () => {
     const addr = receivingAddress.trim();
     if (!addr) return;
     try {
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(addr).catch(() => {});
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(addr);
+      } else {
+        throw new Error("Clipboard API unavailable");
       }
     } catch {
-      // fallback
+      const temp = document.createElement("textarea");
+      temp.value = addr;
+      temp.style.position = "fixed";
+      temp.style.opacity = "0";
+      document.body.appendChild(temp);
+      temp.select();
+      try {
+        document.execCommand("copy");
+      } finally {
+        document.body.removeChild(temp);
+      }
     }
-    const temp = document.createElement("textarea");
-    temp.value = addr;
-    temp.style.position = "fixed";
-    temp.style.opacity = "0";
-    document.body.appendChild(temp);
-    temp.select();
-    try {
-      document.execCommand("copy");
-    } catch {
-      // ignore
-    }
-    document.body.removeChild(temp);
 
     setCopyFeedback("Copied ✓");
     setTimeout(() => {
@@ -78,8 +76,6 @@ export default function ProfileForm({
     e.preventDefault();
     setErrorMessage(null);
     setKineticStatus(null);
-    triggerLoader(560);
-
     const formData = new FormData();
     formData.set("businessName", businessName.trim());
     formData.set("receivingNetwork", receivingNetwork.trim());

@@ -65,21 +65,16 @@ export default async function DashboardPage() {
   return (
     <div className="w-full max-w-[760px] mx-auto space-y-6">
       {/* Section Header */}
-      <div className="stagger-item delay-1 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
-        <div>
-          <span className="block text-[11px] font-semibold uppercase tracking-widest mb-1.5" style={{ color: "var(--text-muted)" }}>
-            BUSINESS
-          </span>
-          <h1 className="text-3xl sm:text-[34px] font-bold tracking-tight text-slate-900 mb-1.5">
-            Overview
-          </h1>
-          <p className="text-xs sm:text-sm" style={{ color: "var(--text-secondary)" }}>
-            Settlement summary and receiving route status for {business.business_name}.
-          </p>
-        </div>
-        <Link href="/dashboard/invoices/new" className="btn-save-pill self-start sm:self-auto">
-          <span>Create invoice ↗</span>
-        </Link>
+      <div className="stagger-item delay-1">
+        <span className="block text-[11px] font-semibold uppercase tracking-widest mb-1.5" style={{ color: "var(--text-muted)" }}>
+          BUSINESS
+        </span>
+        <h1 className="text-3xl sm:text-[34px] font-bold tracking-tight text-slate-900 mb-1.5">
+          Overview
+        </h1>
+        <p className="text-xs sm:text-sm" style={{ color: "var(--text-secondary)" }}>
+          Settlement summary and receiving route status for {business.business_name}.
+        </p>
       </div>
 
       {/* Active Destination Card (Matches Executive View 2) */}
@@ -104,19 +99,16 @@ export default async function DashboardPage() {
                 {isConfigured ? "Quote Ready" : "Pending Setup"}
               </span>
             </div>
-            <p className="text-xs leading-relaxed mb-4" style={{ color: "var(--text-secondary)" }}>
+            <p className="text-xs leading-relaxed" style={{ color: "var(--text-secondary)" }}>
               {isConfigured ? (
                 <>
                   Your settlement destination is configured on <strong className="text-slate-900">{business.receiving_network || "base"}</strong> for{" "}
                   <span className="font-mono-code text-slate-800 break-all">{business.receiving_address}</span>.
                 </>
               ) : (
-                <>No receiving wallet address configured yet. Set up a destination to generate instant cross-chain quotes.</>
+                <>No receiving wallet address configured yet. Set up a destination in Business profile to generate instant cross-chain quotes.</>
               )}
             </p>
-            <Link href="/dashboard/settings" className="btn-save-pill inline-flex">
-              <span>Edit business profile</span>
-            </Link>
           </div>
         </div>
       </div>
@@ -132,8 +124,7 @@ export default async function DashboardPage() {
             {stats.map(([label, value]) => (
               <div
                 key={label}
-                className="aether-card p-4 flex flex-col justify-between"
-                style={{ borderRadius: "18px" }}
+                className="aether-card p-4 flex flex-col justify-between rounded-[18px]"
               >
                 <span className="text-[11px] font-medium block mb-2" style={{ color: "var(--text-muted)" }}>
                   {label}
@@ -213,13 +204,13 @@ export default async function DashboardPage() {
                 </table>
               </div>
             ) : (
-              <div className="p-8 text-center space-y-2">
-                <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
-                  No invoices yet.
+              <div className="p-8 text-center space-y-1">
+                <p className="text-xs font-medium text-slate-600">
+                  No invoices recorded yet.
                 </p>
-                <Link href="/dashboard/invoices/new" className="text-xs font-semibold hover:underline inline-block text-slate-900">
-                  Create your first invoice →
-                </Link>
+                <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+                  Invoices and customer settlement activity will display here as they occur.
+                </p>
               </div>
             )}
           </div>

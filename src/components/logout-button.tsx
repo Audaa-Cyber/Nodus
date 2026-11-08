@@ -2,16 +2,13 @@
 
 import { useTransition } from "react";
 import { signOutAction } from "@/app/actions/auth";
-import { useDashboardLoader } from "./dashboard-shell-effects";
 
 export function LogoutButton() {
   const [isPending, startTransition] = useTransition();
-  const { triggerLoader } = useDashboardLoader();
 
   return (
     <form
       action={() => {
-        triggerLoader(800);
         startTransition(async () => {
           await signOutAction();
         });

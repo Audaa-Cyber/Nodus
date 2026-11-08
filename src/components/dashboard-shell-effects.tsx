@@ -1,70 +1,80 @@
 "use client";
 
-import { createContext, useContext, useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
-
-interface DashboardLoaderContextType {
-  triggerLoader: (durationMs?: number) => void;
-  isLoaderActive: boolean;
-}
-
-const DashboardLoaderContext = createContext<DashboardLoaderContextType>({
-  triggerLoader: () => {},
-  isLoaderActive: false,
-});
-
-export function useDashboardLoader() {
-  return useContext(DashboardLoaderContext);
-}
 
 export function DashboardShellEffects({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const [isLoaderActive, setIsLoaderActive] = useState(false);
-  const loaderTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const dotCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  // Trigger loader with a duration (defaults to 700ms within the 0.6s - 1.0s window)
-  const triggerLoader = useCallback((durationMs = 700) => {
-    if (loaderTimeoutRef.current) clearTimeout(loaderTimeoutRef.current);
-    setIsLoaderActive(true);
-    loaderTimeoutRef.current = setTimeout(() => {
-      setIsLoaderActive(false);
-    }, durationMs);
-  }, []);
-
-  // Automatically trigger smooth transition loader when route pathname changes
-  const prevPathnameRef = useRef(pathname);
-  useEffect(() => {
-    if (prevPathnameRef.current !== pathname) {
-      prevPathnameRef.current = pathname;
-      triggerLoader(680);
-    }
-  }, [pathname, triggerLoader]);
-
-  // Clean up on unmount
-  useEffect(() => {
-    return () => {
-      if (loaderTimeoutRef.current) clearTimeout(loaderTimeoutRef.current);
-    };
-  }, []);
-
   // 1. Spring-damped cursor glide & specular chamfer border for all .aether-card elements
+  // Only begins updating styles AFTER user interaction, preventing SSR hydration mismatches.
   useEffect(() => {
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (reduced) return;
 
     let animFrameId = 0;
-    const cards = Array.from(document.querySelectorAll<HTMLElement>(".aether-card"));
-    if (cards.length === 0) return;
+    let isLoopRunning = false;
+    let cardStates: {
+      el: HTMLElement;
+      tx: number; ty: number; cx: number; cy: number;
+      trx: number; try_: number; crx: number; cry: number;
+      tsx: number; tsy: number; csx: number; csy: number;
+      isActive: boolean;
+    }[] = [];
 
-    const cardStates = cards.map((el) => ({
-      el,
-      tx: 0, ty: 0, cx: 0, cy: 0,
-      trx: 0, try_: 0, crx: 0, cry: 0,
-      tsx: 260, tsy: 0, csx: 260, csy: 0,
-    }));
+    const initCards = () => {
+      const cards = Array.from(document.querySelectorAll<HTMLElement>(".aether-card"));
+      cardStates = cards.map((el) => ({
+        el,
+        tx: 0, ty: 0, cx: 0, cy: 0,
+        trx: 0, try_: 0, crx: 0, cry: 0,
+        tsx: 260, tsy: 0, csx: 260, csy: 0,
+        isActive: false,
+      }));
+    };
+
+    const animateCardsSpring = () => {
+      const ease = 0.088;
+      let anyActive = false;
+
+      cardStates.forEach((st) => {
+        const atRest = Math.abs(st.cx) < 0.02 && Math.abs(st.cy) < 0.02 && Math.abs(st.crx) < 0.02 && Math.abs(st.cry) < 0.02;
+
+        if (!st.isActive && atRest) {
+          return;
+        }
+
+        anyActive = true;
+        st.cx += (st.tx - st.cx) * ease;
+        st.cy += (st.ty - st.cy) * ease;
+        st.crx += (st.trx - st.crx) * ease;
+        st.cry += (st.try_ - st.cry) * ease;
+        st.csx += (st.tsx - st.csx) * 0.16;
+        st.csy += (st.tsy - st.csy) * 0.16;
+
+        st.el.style.setProperty("--spot-x", st.csx.toFixed(1) + "px");
+        st.el.style.setProperty("--spot-y", st.csy.toFixed(1) + "px");
+        st.el.style.transform =
+          "translate3d(" + st.cx.toFixed(2) + "px, " + st.cy.toFixed(2) + "px, 0) " +
+          "rotateX(" + st.crx.toFixed(2) + "deg) rotateY(" + st.cry.toFixed(2) + "deg)";
+      });
+
+      if (anyActive) {
+        animFrameId = requestAnimationFrame(animateCardsSpring);
+      } else {
+        isLoopRunning = false;
+      }
+    };
+
+    let hasInitializedCards = false;
 
     const onMouseMove = (e: MouseEvent) => {
+      if (!hasInitializedCards) {
+        initCards();
+        hasInitializedCards = true;
+      }
+
       cardStates.forEach((st) => {
         const rect = st.el.getBoundingClientRect();
         if (rect.width === 0 || rect.height === 0) return;
@@ -79,6 +89,7 @@ export function DashboardShellEffects({ children }: { children: React.ReactNode 
         st.tsy = e.clientY - rect.top;
 
         if (dist < 440) {
+          st.isActive = true;
           st.el.style.setProperty("--spot-opacity", "1");
           const pull = Math.max(0, 1 - dist / 440);
           st.tx = (dx / 440) * 5 * pull;
@@ -86,33 +97,19 @@ export function DashboardShellEffects({ children }: { children: React.ReactNode 
           st.trx = (dy / (rect.height / 2)) * -1.15 * pull;
           st.try_ = (dx / (rect.width / 2)) * 1.15 * pull;
         } else {
+          st.isActive = false;
           st.el.style.setProperty("--spot-opacity", "0");
           st.tx = 0; st.ty = 0; st.trx = 0; st.try_ = 0;
         }
       });
-    };
 
-    const animateCardsSpring = () => {
-      const ease = 0.088;
-      cardStates.forEach((st) => {
-        st.cx += (st.tx - st.cx) * ease;
-        st.cy += (st.ty - st.cy) * ease;
-        st.crx += (st.trx - st.crx) * ease;
-        st.cry += (st.try_ - st.cry) * ease;
-        st.csx += (st.tsx - st.csx) * 0.16;
-        st.csy += (st.tsy - st.csy) * 0.16;
-
-        st.el.style.setProperty("--spot-x", st.csx.toFixed(1) + "px");
-        st.el.style.setProperty("--spot-y", st.csy.toFixed(1) + "px");
-        st.el.style.transform =
-          "translate3d(" + st.cx.toFixed(2) + "px, " + st.cy.toFixed(2) + "px, 0) " +
-          "rotateX(" + st.crx.toFixed(2) + "deg) rotateY(" + st.cry.toFixed(2) + "deg)";
-      });
-      animFrameId = requestAnimationFrame(animateCardsSpring);
+      if (!isLoopRunning) {
+        isLoopRunning = true;
+        animFrameId = requestAnimationFrame(animateCardsSpring);
+      }
     };
 
     window.addEventListener("mousemove", onMouseMove, { passive: true });
-    animFrameId = requestAnimationFrame(animateCardsSpring);
 
     return () => {
       window.removeEventListener("mousemove", onMouseMove);
@@ -120,7 +117,7 @@ export function DashboardShellEffects({ children }: { children: React.ReactNode 
     };
   }, [pathname]);
 
-  // 2. Autonomous Dot-Matrix Background Canvas Animation
+  // 2. Static Dot-Matrix Background Texture
   useEffect(() => {
     const canvas = dotCanvasRef.current;
     if (!canvas) return;
@@ -128,7 +125,6 @@ export function DashboardShellEffects({ children }: { children: React.ReactNode 
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    let animFrameId = 0;
     let gridPoints: { x: number; y: number; c: number; r: number; radialDist: number; phase: number }[] = [];
     let canvasW = 0;
     let canvasH = 0;
@@ -167,13 +163,10 @@ export function DashboardShellEffects({ children }: { children: React.ReactNode 
       }
     };
 
-    window.addEventListener("resize", rebuildDotGrid, { passive: true });
-    rebuildDotGrid();
-
-    const renderDotMatrix = (timestamp: number) => {
+    const renderDotMatrix = () => {
       ctx.clearRect(0, 0, canvasW, canvasH);
 
-      const t = timestamp * 0.0028;
+      const t = 0;
       const baseRGB = "100, 116, 139";
       const activeRGB = "15, 23, 42";
 
@@ -188,31 +181,35 @@ export function DashboardShellEffects({ children }: { children: React.ReactNode 
         const combined = (radialWave * 0.45 + diagWave * 0.35 + nodeTwinkle * 0.2 + 1) * 0.5;
         const highlight = Math.pow(combined, 2.4);
 
-        const radius = 1.0 + highlight * 1.65;
-        const alpha = 0.11 + highlight * 0.44;
+        const radius = 0.8 + highlight * 0.65;
+        const alpha = 0.035 + highlight * 0.075;
 
         ctx.beginPath();
         ctx.arc(pt.x, pt.y, radius, 0, Math.PI * 2);
         ctx.fillStyle =
-          highlight > 0.52
+          highlight > 0.72
             ? "rgba(" + activeRGB + ", " + alpha.toFixed(3) + ")"
             : "rgba(" + baseRGB + ", " + alpha.toFixed(3) + ")";
         ctx.fill();
       }
 
-      animFrameId = requestAnimationFrame(renderDotMatrix);
     };
 
-    animFrameId = requestAnimationFrame(renderDotMatrix);
+    const redrawDotMatrix = () => {
+      rebuildDotGrid();
+      renderDotMatrix();
+    };
+
+    window.addEventListener("resize", redrawDotMatrix, { passive: true });
+    redrawDotMatrix();
 
     return () => {
-      window.removeEventListener("resize", rebuildDotGrid);
-      if (animFrameId) cancelAnimationFrame(animFrameId);
+      window.removeEventListener("resize", redrawDotMatrix);
     };
   }, []);
 
   return (
-    <DashboardLoaderContext.Provider value={{ triggerLoader, isLoaderActive }}>
+    <>
       {/* Autonomous Dot-Matrix Background Canvas */}
       <canvas id="dotMatrixCanvas" ref={dotCanvasRef} aria-hidden="true" />
 
@@ -221,32 +218,7 @@ export function DashboardShellEffects({ children }: { children: React.ReactNode 
       <div className="ambient-orb orb-2" aria-hidden="true" />
       <div className="ambient-orb orb-3" aria-hidden="true" />
 
-      {/* Matching Zero-Text Floating Glass Capsule Loader (Appears on Nav / Save) */}
-      <div
-        id="sectionLoaderOverlay"
-        className={isLoaderActive ? "active" : ""}
-        aria-hidden="true"
-      >
-        <div className="loader-capsule">
-          <div className="capsule-shimmer" />
-          <div className="iso-stack">
-            <div className="iso-layer iso-top" />
-            <div className="iso-layer iso-mid" />
-            <div className="iso-layer iso-bot" />
-          </div>
-          <div className="pulse-node" />
-          <div className="wave-bars">
-            <span className="wave-pill" />
-            <span className="wave-pill" />
-            <span className="wave-pill" />
-            <span className="wave-pill" />
-            <span className="wave-pill" />
-          </div>
-        </div>
-      </div>
-
       {children}
-    </DashboardLoaderContext.Provider>
+    </>
   );
 }
-

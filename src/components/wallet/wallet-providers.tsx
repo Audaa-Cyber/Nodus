@@ -4,7 +4,20 @@ import { useState, type ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createConfig, http, WagmiProvider } from "wagmi";
 import { injected } from "wagmi/connectors/injected";
-import { arbitrum, avalanche, base, bsc, evmWalletChains, mainnet, optimism, polygon } from "@/lib/wallet/networks";
+import {
+  arbitrum,
+  arbitrumSepoliaChain,
+  avalanche,
+  base,
+  baseSepoliaChain,
+  bsc,
+  evmWalletChains,
+  mainnet,
+  optimism,
+  optimismSepoliaChain,
+  polygon,
+  sepoliaChain,
+} from "@/lib/wallet/networks";
 import { createClient } from "@solana/kit";
 import { solanaRpc } from "@solana/kit-plugin-rpc";
 import { walletSigner } from "@solana/kit-plugin-wallet";
@@ -21,6 +34,10 @@ const evmConfig = createConfig({
     [polygon.id]: http(),
     [bsc.id]: http(),
     [avalanche.id]: http(),
+    [sepoliaChain.id]: http(),
+    [baseSepoliaChain.id]: http(),
+    [arbitrumSepoliaChain.id]: http(),
+    [optimismSepoliaChain.id]: http(),
   },
   ssr: true,
 });

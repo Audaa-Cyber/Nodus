@@ -14,6 +14,7 @@ import type { WalletAsset, WalletConnectionSnapshot } from "@/lib/wallet/types";
 import { EvmWalletCard } from "./evm-wallet-card";
 import { SolanaWalletCard } from "./solana-wallet-card";
 import { WalletProviders } from "./wallet-providers";
+import { LivePaymentFlow } from "./live-payment-flow";
 
 type InvoiceWalletCheckoutProps = {
   shareToken: string;
@@ -60,6 +61,7 @@ function InvoiceWalletCheckoutContent({
   const [loadingAssets, setLoadingAssets] = useState(true);
   const [assetError, setAssetError] = useState(false);
   const [liveQuotesEnabled, setLiveQuotesEnabled] = useState(false);
+  const [activeMode, setActiveMode] = useState<"live" | "mock">("live");
 
   const [evmConnection, setEvmConnection] = useState<WalletConnectionSnapshot>({ address: null, network: null });
   const [solanaConnection, setSolanaConnection] = useState<WalletConnectionSnapshot>({ address: null, network: null });
@@ -393,7 +395,36 @@ function InvoiceWalletCheckoutContent({
           )}
 
           {/* 5. PAYMENT EXECUTION / PREPARATION FLOW */}
-          <div className="wallet-preparation" aria-live="polite">
+          {liveQuotesEnabled && (
+            <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
+              <button
+                type="button"
+                className={`asset-choice-pill ${activeMode === "live" ? "is-selected" : ""}`}
+                onClick={() => setActiveMode("live")}
+              >
+                Live Route Execution
+              </button>
+              <button
+                type="button"
+                className={`asset-choice-pill ${activeMode === "mock" ? "is-selected" : ""}`}
+                onClick={() => setActiveMode("mock")}
+              >
+                Simulated Demonstration
+              </button>
+            </div>
+          )}
+
+          {liveQuotesEnabled && activeMode === "live" && activeConnection.address ? (
+            <LivePaymentFlow
+              shareToken={shareToken}
+              invoiceNumber={invoiceNumber}
+              amountMinor={amountMinor}
+              currency={currency}
+              selectedAsset={selectedAsset}
+              activeAddress={activeConnection.address}
+            />
+          ) : (
+            <div className="wallet-preparation" aria-live="polite">
               <p className="wallet-eyebrow">SIMULATED DEMONSTRATION</p>
               <h3>
                 {mockStage === "idle"
@@ -502,6 +533,7 @@ function InvoiceWalletCheckoutContent({
                 </p>
               )}
             </div>
+          )}
         </>
       )}
     </section>

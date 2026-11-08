@@ -62,7 +62,7 @@ export default async function InvoiceDetailPage({ params, searchParams }: { para
       : "expired";
   const canEdit = status === "draft" || status === "open" || status === "overdue";
   const canCancel = canEdit;
-  return <main className="dashboard-content narrow-content">
+  return <div className="dashboard-content narrow-content">
     <Link className="back-link" href="/dashboard/invoices">← Back to invoices</Link>
     <header className="detail-heading"><div><p className="eyebrow">INVOICE · {invoice.invoice_number}</p><h1>{invoice.customer_name}</h1><span className={`status status-${status}`}>{status}</span></div><div className="detail-actions">{canEdit && <Link className="button button-outline" href={`/dashboard/invoices/${id}/edit`}>Edit invoice</Link>}</div></header>
     {query.cancelled && <p className="form-success" role="status">Invoice cancelled. It can no longer be payable.</p>}{query.error && <p className="form-error" role="alert">Invoice could not be cancelled.</p>}
@@ -75,5 +75,5 @@ export default async function InvoiceDetailPage({ params, searchParams }: { para
     })}</ul></section>}
     {canCancel && <section className="cancel-panel"><div><h2>Cancel invoice</h2><p>Cancelled invoices cannot be reopened and will not be payable.</p></div><CancelInvoiceForm invoiceId={id} /></section>}
     {invoice.status === "paid" && <p className="form-help">Paid status is recorded only after verified settlement.</p>}
-  </main>;
+  </div>;
 }

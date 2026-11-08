@@ -6,6 +6,7 @@ const nextConfig: NextConfig = {
     "@near-js/accounts",
     "@near-js/crypto",
     "@near-js/providers",
+    "@superbridge/sdk",
     "bufferutil",
     "utf-8-validate",
   ],

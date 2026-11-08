@@ -15,6 +15,7 @@ export interface ServerEnv {
   NEXT_PUBLIC_SUPABASE_URL: string;
   NEXT_PUBLIC_SUPABASE_ANON_KEY: string;
   SUPABASE_SERVICE_ROLE_KEY: string;
+  SUPERBRIDGE_API_KEY?: string;
 }
 
 const PLACEHOLDER_INDICATORS = [
@@ -55,6 +56,7 @@ export function getServerEnv(): ServerEnv {
     NEXT_PUBLIC_SUPABASE_URL: url,
     NEXT_PUBLIC_SUPABASE_ANON_KEY: anonKey,
     SUPABASE_SERVICE_ROLE_KEY: serviceRoleKey,
+    SUPERBRIDGE_API_KEY: process.env.SUPERBRIDGE_API_KEY,
   };
 }
 

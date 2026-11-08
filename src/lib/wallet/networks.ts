@@ -49,8 +49,48 @@ export const avalanche = defineChain({
   rpcUrls: { default: { http: ["https://api.avax.network/ext/bc/C/rpc"] } },
   blockExplorers: { default: { name: "SnowTrace", url: "https://snowtrace.io" } },
 });
+export const sepoliaChain = defineChain({
+  id: 11155111,
+  name: "Sepolia",
+  nativeCurrency: { name: "Sepolia Ether", symbol: "ETH", decimals: 18 },
+  rpcUrls: { default: { http: ["https://rpc.sepolia.org"] } },
+  blockExplorers: { default: { name: "Etherscan", url: "https://sepolia.etherscan.io" } },
+});
+export const baseSepoliaChain = defineChain({
+  id: 84532,
+  name: "Base Sepolia",
+  nativeCurrency: { name: "Sepolia Ether", symbol: "ETH", decimals: 18 },
+  rpcUrls: { default: { http: ["https://sepolia.base.org"] } },
+  blockExplorers: { default: { name: "Basescan", url: "https://sepolia.basescan.org" } },
+});
+export const arbitrumSepoliaChain = defineChain({
+  id: 421614,
+  name: "Arbitrum Sepolia",
+  nativeCurrency: { name: "Sepolia Ether", symbol: "ETH", decimals: 18 },
+  rpcUrls: { default: { http: ["https://sepolia-rollup.arbitrum.io/rpc"] } },
+  blockExplorers: { default: { name: "Arbiscan", url: "https://sepolia.arbiscan.io" } },
+});
+export const optimismSepoliaChain = defineChain({
+  id: 11155420,
+  name: "Optimism Sepolia",
+  nativeCurrency: { name: "Sepolia Ether", symbol: "ETH", decimals: 18 },
+  rpcUrls: { default: { http: ["https://sepolia.optimism.io"] } },
+  blockExplorers: { default: { name: "Etherscan", url: "https://sepolia-optimism.etherscan.io" } },
+});
 
-export const evmWalletChains = [mainnet, arbitrum, base, optimism, polygon, bsc, avalanche] as const;
+export const evmWalletChains = [
+  mainnet,
+  arbitrum,
+  base,
+  optimism,
+  polygon,
+  bsc,
+  avalanche,
+  sepoliaChain,
+  baseSepoliaChain,
+  arbitrumSepoliaChain,
+  optimismSepoliaChain,
+] as const;
 
 export type WalletNetwork = {
   key: string;
@@ -74,6 +114,10 @@ const walletNetworkMap: Record<string, WalletNetwork> = {
   avalanche: { key: "avalanche", label: "Avalanche", family: "evm", chainId: avalanche.id },
   sol: { key: "solana", label: "Solana", family: "solana" },
   solana: { key: "solana", label: "Solana", family: "solana" },
+  sepolia: { key: "sepolia", label: "Sepolia", family: "evm", chainId: sepoliaChain.id },
+  "base-sepolia": { key: "base-sepolia", label: "Base Sepolia", family: "evm", chainId: baseSepoliaChain.id },
+  "arbitrum-sepolia": { key: "arbitrum-sepolia", label: "Arbitrum Sepolia", family: "evm", chainId: arbitrumSepoliaChain.id },
+  "optimism-sepolia": { key: "optimism-sepolia", label: "Optimism Sepolia", family: "evm", chainId: optimismSepoliaChain.id },
 };
 
 export function getWalletNetwork(blockchain: string): WalletNetwork | undefined {

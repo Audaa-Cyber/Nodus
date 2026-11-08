@@ -246,8 +246,6 @@ export function PageLoader({ variant = "fullscreen", label = "Loading" }: PageLo
   if (variant === "content") {
     return (
       <div className="page-loader page-loader--content" role="status" aria-label={label} aria-live="polite">
-        <div className="pl-orb pl-orb-1" aria-hidden="true" />
-        <div className="pl-orb pl-orb-2" aria-hidden="true" />
         {stage}
       </div>
     );

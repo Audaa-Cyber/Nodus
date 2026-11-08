@@ -44,6 +44,12 @@ const SUPPORTED_ASSETS: WalletAsset[] = [
   { assetId: "solana:usdc", symbol: "USDC", decimals: 6, network: getWalletNetwork("solana")!, contractAddress: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" },
   { assetId: "solana:usdt", symbol: "USDT", decimals: 6, network: getWalletNetwork("solana")!, contractAddress: "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB" },
   { assetId: "solana:sol", symbol: "SOL", decimals: 9, network: getWalletNetwork("solana")!, contractAddress: null },
+
+  // Testnets (Sepolia & L2s)
+  { assetId: "base-sepolia:usdc", symbol: "USDC", decimals: 6, network: getWalletNetwork("base-sepolia")!, contractAddress: "0x036CbD53842c5426634e7929541eC2318f3dCF7e" },
+  { assetId: "sepolia:usdc", symbol: "USDC", decimals: 6, network: getWalletNetwork("sepolia")!, contractAddress: "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238" },
+  { assetId: "arbitrum-sepolia:usdc", symbol: "USDC", decimals: 6, network: getWalletNetwork("arbitrum-sepolia")!, contractAddress: "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d" },
+  { assetId: "optimism-sepolia:usdc", symbol: "USDC", decimals: 6, network: getWalletNetwork("optimism-sepolia")!, contractAddress: "0x5fd84259d66Cd46123540766Be93DFE6D43130D7" },
 ];
 
 export async function GET() {

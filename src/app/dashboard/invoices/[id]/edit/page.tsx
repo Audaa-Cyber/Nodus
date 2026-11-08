@@ -16,5 +16,5 @@ export default async function EditInvoicePage({ params }: { params: Promise<{ id
   );
   if (!invoice) notFound();
   if (invoice.status === "cancelled" || invoice.status === "paid") redirect(`/dashboard/invoices/${id}`);
-  return <main className="dashboard-content narrow-content"><Link className="back-link" href={`/dashboard/invoices/${id}`}>← Back to invoice</Link><header className="page-title"><p className="eyebrow">INVOICE · {invoice.invoice_number}</p><h1>Edit invoice</h1><p>Update invoice details or issue this draft.</p></header><InvoiceForm invoice={invoice} /></main>;
+  return <div className="dashboard-content narrow-content"><Link className="back-link" href={`/dashboard/invoices/${id}`}>← Back to invoice</Link><header className="page-title"><p className="eyebrow">INVOICE · {invoice.invoice_number}</p><h1>Edit invoice</h1><p>Update invoice details or issue this draft.</p></header><InvoiceForm invoice={invoice} /></div>;
 }

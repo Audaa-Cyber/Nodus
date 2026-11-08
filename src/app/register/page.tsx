@@ -1,22 +1,10 @@
-import Link from "next/link";
 import { Suspense } from "react";
-import { AuthForm } from "@/components/auth-form";
+import { ExecutiveLoginCard } from "@/components/executive-login-card";
 
 export default function RegisterPage() {
   return (
-    <main className="auth-page">
-      <div className="auth-card">
-        <Link href="/" className="brand">
-          <span className="brand-mark">n</span>
-          <span>nodus<span className="brand-period">.</span></span>
-        </Link>
-        <p className="eyebrow">GET STARTED</p>
-        <h1>Your business,<br />in clear view.</h1>
-        <p className="auth-intro">Create an account to prepare and manage invoices.</p>
-        <Suspense fallback={<div className="auth-form-skeleton" style={{ minHeight: "220px" }} />}>
-          <AuthForm mode="register" />
-        </Suspense>
-      </div>
-    </main>
+    <Suspense fallback={<div className="login-executive-page bg-grid" />}>
+      <ExecutiveLoginCard initialMode="signup" />
+    </Suspense>
   );
 }
