@@ -1,0 +1,56 @@
+# =============================================================================
+# NODUS — .gitattributes
+# Enforces consistent line endings and prevents sensitive files from leaking
+# through git operations like `git archive`, `git diff`, and GitHub web UI.
+# =============================================================================
+
+# Default: normalize line endings on commit
+* text=auto
+
+# Lock down env files: treat as binary so git won't diff or export them
+.env         binary export-ignore
+.env.*       binary export-ignore
+.env.local   binary export-ignore
+*.pem        binary export-ignore
+*.key        binary export-ignore
+*.pfx        binary export-ignore
+*.p12        binary export-ignore
+
+# Allow .env.example (safe template only) to be diffed and exported
+.env.example text eol=lf
+
+# Husky hooks
+.husky/* text eol=lf
+
+# TypeScript / JS source: Unix line endings
+*.ts   text eol=lf
+*.tsx  text eol=lf
+*.js   text eol=lf
+*.jsx  text eol=lf
+*.mjs  text eol=lf
+*.cjs  text eol=lf
+
+# Config files: Unix line endings
+*.json    text eol=lf
+*.yaml    text eol=lf
+*.yml     text eol=lf
+*.toml    text eol=lf
+*.md      text eol=lf
+*.css     text eol=lf
+*.html    text eol=lf
+
+# Shell scripts
+*.sh  text eol=lf
+
+# Binary assets: never mangle
+*.png    binary
+*.jpg    binary
+*.jpeg   binary
+*.gif    binary
+*.ico    binary
+*.svg    text eol=lf
+*.woff   binary
+*.woff2  binary
+*.ttf    binary
+*.otf    binary
+
