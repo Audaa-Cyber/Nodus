@@ -1,4 +1,51 @@
-import type { GetExecutionStatusResponse, TokenResponse } from "@defuse-protocol/one-click-sdk-typescript";
+export type ProviderExecutionStatus =
+  | "PENDING_DEPOSIT"
+  | "KNOWN_DEPOSIT_TX"
+  | "PROCESSING"
+  | "SUCCESS"
+  | "FAILED"
+  | "REFUNDED"
+  | "INCOMPLETE_DEPOSIT";
+
+export type ProviderExecutionResponse = {
+  status: ProviderExecutionStatus;
+  correlationId?: string;
+  updatedAt?: string;
+  quoteResponse?: {
+    quoteRequest?: {
+      dry?: boolean;
+      swapType?: string;
+      depositType?: string;
+      recipientType?: string;
+      originAsset?: string;
+      destinationAsset?: string;
+      amount?: string;
+      recipient?: string;
+      [key: string]: unknown;
+    };
+    quote?: {
+      depositAddress?: string;
+      amountOut?: string;
+      [key: string]: unknown;
+    };
+    [key: string]: unknown;
+  };
+  swapDetails?: {
+    amountOut?: string;
+    depositedAmount?: string | null;
+    destinationChainTxHashes?: Array<{ hash: string; explorerUrl?: string }>;
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+};
+
+export type DestinationAssetInfo = {
+  assetId: string;
+  symbol: string;
+  decimals: number;
+  blockchain: string;
+  contractAddress?: string | null;
+};
 
 export type AttemptForSettlement = {
   id: string;
@@ -47,8 +94,8 @@ export type SettlementDecision =
 type ClassificationInput = {
   attempt: AttemptForSettlement;
   invoice: InvoiceForSettlement;
-  execution: GetExecutionStatusResponse;
-  destinationAsset: TokenResponse;
+  execution: ProviderExecutionResponse;
+  destinationAsset: DestinationAssetInfo;
   transferProof: DestinationTransferProof | null;
   quoteSignatureValid: boolean;
   now?: Date;
@@ -137,7 +184,7 @@ export function classifySettlement(input: ClassificationInput): SettlementDecisi
     if (execution.status === "PENDING_DEPOSIT" && !attempt.transaction_hash && Number.isFinite(expiresAt) && expiresAt <= now.getTime()) {
       return { kind: "expired" };
     }
-    return { kind: "processing", providerStatus: execution.status };
+    return { kind: "processing", providerStatus: execution.status as "PENDING_DEPOSIT" | "KNOWN_DEPOSIT_TX" | "PROCESSING" };
   }
 
   if (invoice.currency !== "USD" || destinationAsset.symbol.toUpperCase() !== "USDC") return manualReview("unsupported_invoice_asset_pair");

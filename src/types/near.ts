@@ -14,18 +14,6 @@ export type SupportedCurrency = "USDC" | "USDT";
 export type SupportedChain = "near" | "ethereum" | "solana" | "arbitrum" | "polygon";
 
 /**
- * Server-side configuration boundary for future NEAR Intents integration.
- * Privileged fields (such as private keys) MUST remain server-only.
- */
-export interface NearServerConfig {
-  networkId: NearNetworkId;
-  nodeUrl: string;
-  contractId: string;
-  signerAccountId: string;
-  signerPrivateKey: string;
-}
-
-/**
  * Public client-safe representation of supported payment settlement routes.
  */
 export interface PaymentRouteOption {

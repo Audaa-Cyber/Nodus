@@ -59,7 +59,7 @@ export type WalletNetwork = {
   chainId?: number;
 };
 
-const oneClickNetworkMap: Record<string, WalletNetwork> = {
+const walletNetworkMap: Record<string, WalletNetwork> = {
   eth: { key: "ethereum", label: "Ethereum", family: "evm", chainId: mainnet.id },
   ethereum: { key: "ethereum", label: "Ethereum", family: "evm", chainId: mainnet.id },
   arb: { key: "arbitrum", label: "Arbitrum", family: "evm", chainId: arbitrum.id },
@@ -77,12 +77,12 @@ const oneClickNetworkMap: Record<string, WalletNetwork> = {
 };
 
 export function getWalletNetwork(blockchain: string): WalletNetwork | undefined {
-  return oneClickNetworkMap[blockchain.trim().toLowerCase()];
+  return walletNetworkMap[blockchain.trim().toLowerCase()];
 }
 
 export function getEvmWalletNetwork(chainId: number | undefined): WalletNetwork | undefined {
   if (chainId === undefined) return undefined;
-  return Object.values(oneClickNetworkMap).find(
+  return Object.values(walletNetworkMap).find(
     (network) => network.family === "evm" && network.chainId === chainId,
   );
 }

@@ -3,7 +3,7 @@
  */
 export const APP_CONFIG = {
   name: "Nodus",
-  tagline: "Cross-chain business payments powered by NEAR Intents",
+  tagline: "Cross-chain business payments",
   version: "0.1.0",
   defaultCurrency: "USD",
   supportedCurrencies: ["USDC", "USDT"] as const,

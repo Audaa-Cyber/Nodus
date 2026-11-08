@@ -44,7 +44,6 @@ Contact the maintainer directly at the address listed in `package.json`.
 | `NEXT_PUBLIC_APP_URL` | Browser + Server | ✅ Phase 1 |
 | `NEAR_NETWORK_ID` | **Server only** | Phase 2+ |
 | `NEAR_RPC_URL` | **Server only** | Phase 2+ |
-| `NEAR_INTENTS_CONTRACT_ID` | **Server only** | Phase 2+ |
 | `NEAR_SIGNER_ACCOUNT_ID` | **Server only** | Phase 2+ |
 | `NEAR_SIGNER_PRIVATE_KEY` | **Server only** | Phase 2+ |
 

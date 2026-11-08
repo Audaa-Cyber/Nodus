@@ -11,7 +11,6 @@
     "prepare": "husky"
   },
   "dependencies": {
-    "@defuse-protocol/one-click-sdk-typescript": "^0.1.26",
     "@near-js/accounts": "^2.5.1",
     "@near-js/crypto": "^2.5.1",
     "@solana/kit": "^8.6.0",

@@ -1,7 +1,7 @@
 /**
  * NEAR Settlement Service Contracts (Scaffolded for Phase 2).
  *
- * NOTE: Payment processing and NEAR Intent execution are strictly forbidden in Phase 1.
+ * NOTE: Payment processing execution is strictly forbidden in Phase 1.
  * This file specifies the architectural contract and interface boundaries only.
  */
 

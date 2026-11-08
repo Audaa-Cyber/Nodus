@@ -14,7 +14,6 @@ import type { WalletAsset, WalletConnectionSnapshot } from "@/lib/wallet/types";
 import { EvmWalletCard } from "./evm-wallet-card";
 import { SolanaWalletCard } from "./solana-wallet-card";
 import { WalletProviders } from "./wallet-providers";
-import { LivePaymentFlow } from "./live-payment-flow";
 
 type InvoiceWalletCheckoutProps = {
   shareToken: string;
@@ -394,8 +393,7 @@ function InvoiceWalletCheckoutContent({
           )}
 
           {/* 5. PAYMENT EXECUTION / PREPARATION FLOW */}
-          {!liveQuotesEnabled ? (
-            <div className="wallet-preparation" aria-live="polite">
+          <div className="wallet-preparation" aria-live="polite">
               <p className="wallet-eyebrow">SIMULATED DEMONSTRATION</p>
               <h3>
                 {mockStage === "idle"
@@ -441,7 +439,7 @@ function InvoiceWalletCheckoutContent({
                 </div>
               </dl>
               <p className="wallet-notice">
-                Simulation mode only. This demonstration does not call 1Click, request transaction signatures, move funds, or mark the invoice paid.
+                Simulation mode only. This demonstration does not request transaction signatures, move funds, or mark the invoice paid.
               </p>
               {mockStage === "idle" && (
                 <button
@@ -504,17 +502,6 @@ function InvoiceWalletCheckoutContent({
                 </p>
               )}
             </div>
-          ) : (
-            <LivePaymentFlow
-              token={shareToken}
-              invoiceNumber={invoiceNumber}
-              amountMinor={amountMinor}
-              currency={currency}
-              asset={selectedAsset}
-              walletAddress={activeConnection.address}
-              walletNetwork={activeConnection.network?.key ?? null}
-            />
-          )}
         </>
       )}
     </section>
