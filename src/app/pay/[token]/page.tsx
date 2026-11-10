@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { formatMoney } from "@/lib/invoices";
+import { getWalletNetwork } from "@/lib/wallet/networks";
 import { LazyInvoiceWalletCheckout } from "@/components/wallet/lazy-wallet-checkout";
 import { withTransitionDelay } from "@/lib/utils/timing";
 
@@ -36,6 +37,21 @@ function safeFormatMoney(amountMinor: number, currency: string) {
   }
 }
 
+function formatNetworkLabel(networkKey: string | null): string {
+  if (!networkKey) return "Arbitrum Sepolia";
+  const known = getWalletNetwork(networkKey);
+  if (known) return known.label;
+  const lower = networkKey.trim().toLowerCase();
+  if (lower.includes("arbitrum")) return "Arbitrum Sepolia";
+  if (lower.includes("base")) return "Base Sepolia";
+  return networkKey;
+}
+
+function shortAddress(address: string | null): string {
+  if (!address) return "Unavailable";
+  return address.length > 18 ? `${address.slice(0, 8)}…${address.slice(-6)}` : address;
+}
+
 function formatBaseUnits(amount: string | null, decimals: number | null) {
   if (!amount || !/^\d+$/.test(amount) || !Number.isInteger(decimals) || decimals === null || decimals < 0 || decimals > 30) return "Amount unavailable";
   if (decimals === 0) return amount;
@@ -51,9 +67,10 @@ export default async function PublicInvoicePage({ params }: { params: Promise<{ 
 
   const tokenHash = createHash("sha256").update(token, "utf8").digest("hex");
   const supabase = await createSupabaseServerClient();
-  const [{ data, error }] = await withTransitionDelay(
+  const [{ data, error }, contextResult] = await withTransitionDelay(
     Promise.all([
       supabase.rpc("lookup_shared_invoice", { p_token_hash: tokenHash }),
+      supabase.rpc("lookup_shared_payment_context", { p_token_hash: tokenHash }),
     ]),
     700
   );
@@ -64,6 +81,10 @@ export default async function PublicInvoicePage({ params }: { params: Promise<{ 
   if (!invoice.business_name || !invoice.invoice_number || !invoice.description || invoice.amount_minor === null || !invoice.currency || !invoice.issue_date || !invoice.status) {
     return unavailablePage("Invoice details are temporarily unavailable", "We couldn't load this invoice right now.", "error");
   }
+
+  const paymentContext = contextResult?.data?.[0] ?? null;
+  const destinationNetwork = paymentContext?.receiving_network ?? null;
+  const recipientAddress = paymentContext?.receiving_address ?? null;
   const { data: receipts } = await supabase.rpc("lookup_shared_payment_receipts", { p_token_hash: tokenHash });
 
   const status = invoice.status;
@@ -84,7 +105,24 @@ export default async function PublicInvoicePage({ params }: { params: Promise<{ 
     <p className="public-invoice-business">{invoice.business_name}</p>
     <div className="public-invoice-amount"><span>INVOICE TOTAL</span><strong>{safeFormatMoney(invoice.amount_minor, invoice.currency)}</strong></div>
     <section className="public-invoice-description" aria-label="Invoice description"><h2>Description</h2><p>{invoice.description}</p></section>
-    <dl className="public-invoice-dates"><div><dt>Issued</dt><dd>{displayDate(invoice.issue_date)}</dd></div>{invoice.due_date && <div><dt>Due</dt><dd>{displayDate(invoice.due_date)}</dd></div>}</dl>
+    <dl className="public-invoice-dates">
+      <div><dt>Issued</dt><dd>{displayDate(invoice.issue_date)}</dd></div>
+      {invoice.due_date && <div><dt>Due</dt><dd>{displayDate(invoice.due_date)}</dd></div>}
+      {destinationNetwork && (
+        <div>
+          <dt>Settlement network</dt>
+          <dd>{formatNetworkLabel(destinationNetwork)}</dd>
+        </div>
+      )}
+      {recipientAddress && (
+        <div>
+          <dt>Merchant recipient</dt>
+          <dd title={recipientAddress}>
+            <code>{shortAddress(recipientAddress)}</code>
+          </dd>
+        </div>
+      )}
+    </dl>
     <p className={`public-invoice-status public-status-${status}`} role="status">{statusMessage}</p>
     {receipts && receipts.length > 0 && <section className="public-invoice-description" aria-labelledby="payment-receipt-title"><h2 id="payment-receipt-title">Payment receipt</h2><ul>{receipts.map((receipt) => {
       const outcome = receipt.outcome === "VERIFIED" ? "Verified settlement"
@@ -101,6 +139,8 @@ export default async function PublicInvoicePage({ params }: { params: Promise<{ 
         amountMinor={invoice.amount_minor}
         currency={invoice.currency}
         status={status}
+        destinationNetwork={destinationNetwork}
+        recipientAddress={recipientAddress}
       />
     ) : (
       <p className="public-invoice-note">Wallet setup is unavailable for this invoice. No payment can be prepared.</p>

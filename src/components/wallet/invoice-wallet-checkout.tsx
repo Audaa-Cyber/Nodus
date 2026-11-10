@@ -12,7 +12,6 @@ import {
 } from "@/lib/wallet/networks";
 import type { WalletAsset, WalletConnectionSnapshot } from "@/lib/wallet/types";
 import { EvmWalletCard } from "./evm-wallet-card";
-import { SolanaWalletCard } from "./solana-wallet-card";
 import { WalletProviders } from "./wallet-providers";
 import { LivePaymentFlow } from "./live-payment-flow";
 
@@ -22,12 +21,24 @@ type InvoiceWalletCheckoutProps = {
   amountMinor: number;
   currency: string;
   status: string;
+  destinationNetwork?: string | null;
+  recipientAddress?: string | null;
 };
 
 type AssetResponse = { assets: WalletAsset[] };
 
 function shortAddress(address: string) {
   return address.length > 18 ? `${address.slice(0, 10)}…${address.slice(-6)}` : address;
+}
+
+function formatNetworkLabel(networkKey: string | null): string {
+  if (!networkKey) return "Arbitrum Sepolia";
+  const known = getWalletNetwork(networkKey);
+  if (known) return known.label;
+  const lower = networkKey.trim().toLowerCase();
+  if (lower.includes("arbitrum")) return "Arbitrum Sepolia";
+  if (lower.includes("base")) return "Base Sepolia";
+  return networkKey;
 }
 
 const mockTerminalMessages: Record<string, string> = {
@@ -38,7 +49,7 @@ const mockTerminalMessages: Record<string, string> = {
   QUOTE_EXPIRED: "The simulated quote expired. No funds moved, and the invoice remains unpaid.",
 };
 
-const POPULAR_SYMBOLS = ["USDC", "USDT", "ETH", "SOL"] as const;
+const POPULAR_SYMBOLS = ["USDC", "USDT", "ETH"] as const;
 
 function InvoiceWalletCheckoutContent({
   shareToken,
@@ -46,6 +57,8 @@ function InvoiceWalletCheckoutContent({
   amountMinor,
   currency,
   status,
+  destinationNetwork,
+  recipientAddress,
 }: InvoiceWalletCheckoutProps) {
   const { chainId: evmChainId, isConnected: isEvmConnected } = useAccount();
   const { switchChainAsync, isPending: isSwitchingChain } = useSwitchChain();
@@ -63,12 +76,55 @@ function InvoiceWalletCheckoutContent({
   const [liveQuotesEnabled, setLiveQuotesEnabled] = useState(false);
   const [activeMode, setActiveMode] = useState<"live" | "mock">("live");
 
+  const [storedAttemptId, setStoredAttemptId] = useState<string | null>(null);
+  const [storedAttemptSettled, setStoredAttemptSettled] = useState(false);
+  const [storedReceipts, setStoredReceipts] = useState<Array<{ receipt_number: string; issued_at: string }>>([]);
+
   const [evmConnection, setEvmConnection] = useState<WalletConnectionSnapshot>({ address: null, network: null });
-  const [solanaConnection, setSolanaConnection] = useState<WalletConnectionSnapshot>({ address: null, network: null });
 
   const payable = status === "open" || status === "overdue";
   const updateEvmConnection = useCallback((connection: WalletConnectionSnapshot) => setEvmConnection(connection), []);
-  const updateSolanaConnection = useCallback((connection: WalletConnectionSnapshot) => setSolanaConnection(connection), []);
+
+  // Safe internal feature gate: only allow simulation in non-production when explicitly enabled
+  const allowSimulation = process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_ENABLE_PAYMENT_SIMULATION === "true";
+
+  // Authoritative page refresh recovery check
+  useEffect(() => {
+    let active = true;
+    try {
+      const saved = typeof window !== "undefined"
+        ? window.localStorage.getItem(`nodus:live-attempt:${shareToken}`)
+        : null;
+      if (saved && /^[0-9a-f-]{36}$/i.test(saved)) {
+        setStoredAttemptId(saved);
+        void fetch(`/api/pay/${encodeURIComponent(shareToken)}/attempt/${encodeURIComponent(saved)}/status`, {
+          cache: "no-store",
+        })
+          .then((res) => (res.ok ? res.json() : null))
+          .then((data) => {
+            if (!active || !data) return;
+            if (data.settled || data.attempt?.status === "SUCCESS") {
+              setStoredAttemptSettled(true);
+              if (Array.isArray(data.receipts)) {
+                setStoredReceipts(data.receipts);
+              }
+              window.localStorage.removeItem(`nodus:live-attempt:${shareToken}`);
+            } else if (data.attempt?.status === "FAILED" || data.expired) {
+              window.localStorage.removeItem(`nodus:live-attempt:${shareToken}`);
+              setStoredAttemptId(null);
+            }
+          })
+          .catch(() => {
+            // Keep storedAttemptId to let LivePaymentFlow continue polling
+          });
+      }
+    } catch {
+      // Ignore local storage read errors
+    }
+    return () => {
+      active = false;
+    };
+  }, [shareToken]);
 
   // Detect active network reactively
   const detectedEvmNetwork = useMemo(() => {
@@ -76,9 +132,11 @@ function InvoiceWalletCheckoutContent({
     return getEvmWalletNetwork(evmChainId) ?? null;
   }, [isEvmConnected, evmChainId]);
 
-  const isUnsupportedEvmNetwork = Boolean(isEvmConnected && evmChainId !== undefined && !detectedEvmNetwork);
+  // Active route requires Base Sepolia (84532). Flag if outside supported set or not on recommended chain.
+  const isWrongChainForRoute = Boolean(isEvmConnected && evmChainId !== undefined && evmChainId !== DEFAULT_RECOMMENDED_CHAIN_ID);
+  const isUnsupportedEvmNetwork = Boolean(isEvmConnected && evmChainId !== undefined && (!detectedEvmNetwork || isWrongChainForRoute));
 
-  // Load available assets inventory
+  // Load available assets inventory (EVM only for Circle route)
   const loadAssets = useCallback(async (signal?: AbortSignal) => {
     setLoadingAssets(true);
     setAssetError(false);
@@ -87,7 +145,8 @@ function InvoiceWalletCheckoutContent({
       if (!response.ok) throw new Error("Asset inventory unavailable");
       const payload = (await response.json()) as AssetResponse;
       if (!Array.isArray(payload.assets)) throw new Error("Invalid asset inventory");
-      const orderedAssets = [...payload.assets].sort(
+      const evmOnly = payload.assets.filter((a) => a.network.family === "evm");
+      const orderedAssets = [...evmOnly].sort(
         (left, right) => left.network.label.localeCompare(right.network.label) || left.symbol.localeCompare(right.symbol),
       );
       setAssets(orderedAssets);
@@ -117,15 +176,11 @@ function InvoiceWalletCheckoutContent({
     return () => controller.abort();
   }, [shareToken]);
 
-  // Active wallet connection selection
+  // Active wallet connection selection (EVM only)
   const activeConnection = useMemo(() => {
-    if (selectedSymbol === "SOL" || manualNetworkKey === "solana") {
-      if (solanaConnection.address) return solanaConnection;
-    }
     if (evmConnection.address) return evmConnection;
-    if (solanaConnection.address) return solanaConnection;
     return { address: null, network: null };
-  }, [evmConnection, solanaConnection, selectedSymbol, manualNetworkKey]);
+  }, [evmConnection]);
 
   // The effectively resolved network: detected wallet network takes precedence over manual selection
   const effectiveNetwork = useMemo(() => {
@@ -147,7 +202,6 @@ function InvoiceWalletCheckoutContent({
   const distinctSymbols = useMemo(() => {
     const sourceList = effectiveNetwork ? availableAssetsOnNetwork : assets;
     const symbols = Array.from(new Set(sourceList.map((a) => a.symbol.toUpperCase())));
-    // Order by popular symbols first
     return symbols.sort((a, b) => {
       const aIdx = POPULAR_SYMBOLS.indexOf(a as (typeof POPULAR_SYMBOLS)[number]);
       const bIdx = POPULAR_SYMBOLS.indexOf(b as (typeof POPULAR_SYMBOLS)[number]);
@@ -158,12 +212,21 @@ function InvoiceWalletCheckoutContent({
     });
   }, [availableAssetsOnNetwork, assets, effectiveNetwork]);
 
-  // Resolved selected asset
+  // Resolved selected asset: prioritizes Base Sepolia for active Circle testnet route
   const selectedAsset = useMemo(() => {
     if (availableAssetsOnNetwork.length === 0) return null;
-    const match = availableAssetsOnNetwork.find((a) => a.symbol.toUpperCase() === selectedSymbol.toUpperCase());
-    return match ?? availableAssetsOnNetwork[0] ?? null;
-  }, [availableAssetsOnNetwork, selectedSymbol]);
+    if (effectiveNetwork) {
+      const match = availableAssetsOnNetwork.find((a) => a.symbol.toUpperCase() === selectedSymbol.toUpperCase());
+      return match ?? availableAssetsOnNetwork[0] ?? null;
+    }
+    const recommendedMatch = availableAssetsOnNetwork.find(
+      (a) => a.symbol.toUpperCase() === selectedSymbol.toUpperCase() && a.network.chainId === DEFAULT_RECOMMENDED_CHAIN_ID
+    );
+    if (recommendedMatch) return recommendedMatch;
+
+    const symbolMatch = availableAssetsOnNetwork.find((a) => a.symbol.toUpperCase() === selectedSymbol.toUpperCase());
+    return symbolMatch ?? availableAssetsOnNetwork[0] ?? null;
+  }, [availableAssetsOnNetwork, selectedSymbol, effectiveNetwork]);
 
   // Handle guided network switch
   async function handleSwitchToNetwork(targetChainId: number) {
@@ -197,9 +260,9 @@ function InvoiceWalletCheckoutContent({
     };
   }, [amountMinor, currency, invoiceNumber, payable, selectedAsset, activeConnection.address, selectedWalletMatches]);
 
-  // Mock simulation methods
+  // Mock simulation methods (preserved only under internal feature gate)
   async function createMockQuote() {
-    if (!selectedAsset) return;
+    if (!selectedAsset || !allowSimulation) return;
     setBusy(true);
     setFlowError("");
     try {
@@ -222,15 +285,15 @@ function InvoiceWalletCheckoutContent({
     }
   }
 
-  async function advanceMock(status: string) {
-    if (!attempt) return;
+  async function advanceMock(mockStatus: string) {
+    if (!attempt || !allowSimulation) return;
     setBusy(true);
     setFlowError("");
     try {
       const response = await fetch(`/api/pay/${encodeURIComponent(shareToken)}/mock-attempt/${attempt.id}`, {
         method: "PATCH",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({ status: mockStatus }),
       });
       const payload = await response.json();
       if (!response.ok || !payload.attempt) throw new Error("The simulated status transition was rejected.");
@@ -252,7 +315,7 @@ function InvoiceWalletCheckoutContent({
           <h2 id="invoice-wallet-title">Pay with crypto</h2>
         </div>
         <span className="wallet-phase-label">
-          {liveQuotesEnabled ? "Guarded live route" : "Simulated demonstration"}
+          {liveQuotesEnabled ? "Guarded live route" : "Checkout"}
         </span>
       </div>
 
@@ -321,13 +384,15 @@ function InvoiceWalletCheckoutContent({
             )}
           </div>
 
-          {/* 2. GUIDED UNSUPPORTED NETWORK SWITCH BANNER */}
+          {/* 2. GUIDED NETWORK SWITCH BANNER (RECOMMENDS BASE SEPOLIA) */}
           {isUnsupportedEvmNetwork && (
             <div className="wallet-switch-alert" role="alert">
               <div>
-                <p className="wallet-eyebrow" style={{ color: "#8c2f22" }}>UNSUPPORTED NETWORK DETECTED</p>
+                <p className="wallet-eyebrow" style={{ color: "#8c2f22" }}>
+                  {detectedEvmNetwork ? "SWITCH TO PAYMENT NETWORK" : "UNSUPPORTED NETWORK DETECTED"}
+                </p>
                 <p className="wallet-inline-status" style={{ color: "#54211b" }}>
-                  Your wallet is connected to an unsupported chain (ID: <code>{evmChainId ?? "unknown"}</code>). Please switch to a supported network to pay this invoice.
+                  This payment route settles through Circle CCTP from {DEFAULT_RECOMMENDED_CHAIN_NAME}. Please switch your wallet to {DEFAULT_RECOMMENDED_CHAIN_NAME} to continue.
                 </p>
               </div>
               <button
@@ -342,15 +407,11 @@ function InvoiceWalletCheckoutContent({
             </div>
           )}
 
-          {/* 3. WALLET CONNECTION CARDS */}
-          <div className="wallet-card-grid">
+          {/* 3. EVM WALLET CONNECTION (SOLANA NOT EXPOSED FOR CIRCLE ROUTE) */}
+          <div className="wallet-card-grid" style={{ gridTemplateColumns: "1fr" }}>
             <EvmWalletCard
-              selectedChainId={selectedAsset?.network.family === "evm" ? selectedAsset.network.chainId : undefined}
+              selectedChainId={selectedAsset?.network.chainId ?? DEFAULT_RECOMMENDED_CHAIN_ID}
               onConnectionChange={updateEvmConnection}
-            />
-            <SolanaWalletCard
-              selected={selectedAsset?.network.family === "solana"}
-              onConnectionChange={updateSolanaConnection}
             />
           </div>
 
@@ -369,7 +430,7 @@ function InvoiceWalletCheckoutContent({
               {showAdvancedNetworks && (
                 <div className="network-disclosure-panel">
                   <p className="wallet-description">
-                    Choose another network where you hold funds. Your wallet will prompt you to approve the network switch.
+                    The active Circle CCTP route requires {DEFAULT_RECOMMENDED_CHAIN_NAME}. You can switch to any supported testnet or network below.
                   </p>
                   <div className="network-switch-pills">
                     {evmWalletChains.map((chain) => {
@@ -394,8 +455,8 @@ function InvoiceWalletCheckoutContent({
             </div>
           )}
 
-          {/* 5. PAYMENT EXECUTION / PREPARATION FLOW */}
-          {liveQuotesEnabled && (
+          {/* 5. INTERNAL SIMULATION TOGGLE (ONLY WHEN PERMITTED BY DEV FEATURE GATE) */}
+          {allowSimulation && liveQuotesEnabled && (
             <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
               <button
                 type="button"
@@ -409,12 +470,32 @@ function InvoiceWalletCheckoutContent({
                 className={`asset-choice-pill ${activeMode === "mock" ? "is-selected" : ""}`}
                 onClick={() => setActiveMode("mock")}
               >
-                Simulated Demonstration
+                Simulated Demonstration (Dev Only)
               </button>
             </div>
           )}
 
-          {liveQuotesEnabled && activeMode === "live" && activeConnection.address ? (
+          {/* 6. SETTLED STATE FROM AUTHORITATIVE SERVER STATUS */}
+          {storedAttemptSettled && (
+            <div className="wallet-preparation" aria-live="polite">
+              <p className="wallet-eyebrow">PAYMENT SETTLED</p>
+              <h3 style={{ color: "#166534" }}>Payment complete &amp; verified</h3>
+              <div style={{ marginTop: "0.75rem", padding: "0.75rem", background: "#f0fdf4", borderRadius: "6px", border: "1px solid #bbf7d0" }}>
+                <p style={{ margin: 0, fontWeight: 600, color: "#166534", fontSize: "0.875rem" }}>
+                  ✓ Official Receipt Issued: #{storedReceipts[0]?.receipt_number ?? "Confirmed"}
+                </p>
+                <p style={{ margin: "0.25rem 0 0 0", color: "#15803d", fontSize: "0.75rem" }}>
+                  Settlement independently verified on destination chain.
+                </p>
+              </div>
+              <p className="wallet-description" style={{ marginTop: "0.75rem" }}>
+                This invoice has been verified as settled. No further payment action is needed.
+              </p>
+            </div>
+          )}
+
+          {/* 7. LIVE ROUTE EXECUTION OR VERIFICATION RESTORATION (NO MOCK DEMO ON REFRESH) */}
+          {!storedAttemptSettled && (storedAttemptId || (liveQuotesEnabled && activeMode === "live" && activeConnection.address)) ? (
             <LivePaymentFlow
               shareToken={shareToken}
               invoiceNumber={invoiceNumber}
@@ -422,10 +503,14 @@ function InvoiceWalletCheckoutContent({
               currency={currency}
               selectedAsset={selectedAsset}
               activeAddress={activeConnection.address}
+              onPaymentSuccess={() => {
+                setStoredAttemptSettled(true);
+              }}
             />
-          ) : (
+          ) : !storedAttemptSettled && allowSimulation && activeMode === "mock" ? (
+            /* DEV-ONLY SIMULATED DEMONSTRATION */
             <div className="wallet-preparation" aria-live="polite">
-              <p className="wallet-eyebrow">SIMULATED DEMONSTRATION</p>
+              <p className="wallet-eyebrow">INTERNAL SIMULATION (DEV ONLY)</p>
               <h3>
                 {mockStage === "idle"
                   ? preparation
@@ -466,11 +551,19 @@ function InvoiceWalletCheckoutContent({
                 </div>
                 <div>
                   <dt>Destination</dt>
-                  <dd>USDC · Base</dd>
+                  <dd>USDC on {formatNetworkLabel(destinationNetwork ?? null)}</dd>
                 </div>
+                {recipientAddress && (
+                  <div>
+                    <dt>Merchant recipient</dt>
+                    <dd>
+                      <span title={recipientAddress}>{shortAddress(recipientAddress)}</span>
+                    </dd>
+                  </div>
+                )}
               </dl>
               <p className="wallet-notice">
-                Simulation mode only. This demonstration does not request transaction signatures, move funds, or mark the invoice paid.
+                Internal test simulation only. This demonstration does not request transaction signatures, move funds, or mark the invoice paid.
               </p>
               {mockStage === "idle" && (
                 <button
@@ -532,6 +625,41 @@ function InvoiceWalletCheckoutContent({
                   {flowError}
                 </p>
               )}
+            </div>
+          ) : !storedAttemptSettled && (
+            /* DEFAULT CUSTOMER CHECKOUT PREPARATION (NO WALLET YET) */
+            <div className="wallet-preparation" aria-live="polite">
+              <p className="wallet-eyebrow">CHECKOUT PREPARATION</p>
+              <h3>Connect your wallet to pay</h3>
+              <dl>
+                <div>
+                  <dt>Invoice reference</dt>
+                  <dd>{invoiceNumber}</dd>
+                </div>
+                <div>
+                  <dt>Invoice amount</dt>
+                  <dd>{formatMoney(amountMinor, currency)}</dd>
+                </div>
+                <div>
+                  <dt>Payment token</dt>
+                  <dd>{selectedAsset ? `${selectedAsset.symbol} on ${selectedAsset.network.label}` : `USDC on ${DEFAULT_RECOMMENDED_CHAIN_NAME}`}</dd>
+                </div>
+                <div>
+                  <dt>Destination network</dt>
+                  <dd>{formatNetworkLabel(destinationNetwork ?? null)}</dd>
+                </div>
+                {recipientAddress && (
+                  <div>
+                    <dt>Merchant recipient</dt>
+                    <dd>
+                      <span title={recipientAddress}>{shortAddress(recipientAddress)}</span>
+                    </dd>
+                  </div>
+                )}
+              </dl>
+              <p className="wallet-description" style={{ marginTop: "1rem" }}>
+                Connect an Ethereum-compatible wallet above to review real-time Circle CCTP quote parameters and authorize payment.
+              </p>
             </div>
           )}
         </>

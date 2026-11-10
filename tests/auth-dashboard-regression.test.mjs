@@ -58,3 +58,20 @@ test("dashboard dot matrix is a static texture with no animation loop", async ()
   assert.match(backgroundEffect, /const t = 0/, "dot pattern uses a stable phase");
   assert.match(backgroundEffect, /renderDotMatrix\(\)/, "pattern redraws when its canvas is initialized or resized");
 });
+
+test("login page dot matrix has an autonomous animation loop with canvas ref", async () => {
+  const login = await read("../src/components/executive-login-card.tsx");
+
+  assert.match(login, /<canvas id="dotMatrixCanvas" ref=\{dotCanvasRef\}/, "login page renders the dot-matrix canvas");
+  assert.match(login, /requestAnimationFrame\(renderDotMatrix\)/, "login page runs an autonomous animation loop");
+  assert.match(login, /cancelAnimationFrame\(animFrameId\)/, "login page cleans up animation frame on unmount");
+});
+
+test("auth callback route sets cookies directly on redirect response and wraps exchange in try/catch", async () => {
+  const callbackRoute = await read("../src/app/auth/callback/route.ts");
+
+  assert.match(callbackRoute, /redirectResponse\.cookies\.set\(/, "auth tokens are set directly on the outgoing redirect response");
+  assert.match(callbackRoute, /try\s*\{[\s\S]*exchangeCodeForSession[\s\S]*\}\s*catch/, "code exchange is wrapped in a try/catch block");
+  assert.match(callbackRoute, /error=expired/, "gracefully handles expired or already consumed PKCE codes");
+});
+

@@ -15,6 +15,12 @@ export const dynamic = "force-dynamic";
 const TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+function isPendingOrTransientError(error: unknown): boolean {
+  if (!error) return false;
+  const detail = error instanceof Error ? `${error.name} ${error.message}` : String(error);
+  return /transactionreceiptnotfound|transactionnotfound|blocknotfound|receipt.*(?:not found|could not be found)|could not be found|fetch failed|http request failed|timeout|timed out|network|connection|rate limit|too many requests|econnreset|etimedout|socket/i.test(detail);
+}
+
 function publicAttempt<T extends Record<string, unknown>>(attempt: T): Omit<T, "quote_snapshot"> {
   const safe = { ...attempt } as Record<string, unknown>;
   delete safe.quote_snapshot;
@@ -107,7 +113,7 @@ export async function GET(
       return NextResponse.json({ attempt: publicAttempt(attempt), receipts: receipts ?? [], settled: status === "SUCCESS" });
     }
 
-    if (status === "PENDING_DEPOSIT" && !attempt.transaction_hash) {
+    if (status === "PENDING_DEPOSIT" && !attempt.transaction_hash && !attempt.circle_execution_reserved_at) {
       const expiresAt = attempt.quote_expires_at ? Date.parse(attempt.quote_expires_at) : Number.NaN;
       if (Number.isFinite(expiresAt) && expiresAt <= Date.now()) {
         await supabaseAdmin.rpc("update_live_attempt_status", {
@@ -132,41 +138,76 @@ export async function GET(
         sourceTransactionReferenceMissing: true,
       });
     }
-    if (!sourceTxHash || attempt.destination_network !== "arbitrum-sepolia"
-      || attempt.source_network !== "base-sepolia") {
+    if (!sourceTxHash) {
       return NextResponse.json({ attempt: publicAttempt(attempt), pending: true });
     }
 
     if (snapshot.type === "circle_direct") {
-      const circleInfo = getCircleChain(attempt.destination_network, true);
-      if (!circleInfo) return NextResponse.json({ attempt: publicAttempt(attempt), pending: true });
-      const proof = await verifyEvmDestinationTransfers({
-        network: attempt.destination_network,
-        contractAddress: circleInfo.usdcAddress,
-        recipient: attempt.recipient_address,
-        amount: attempt.expected_received_amount,
-        transactionHashes: [sourceTxHash],
-        assetId: attempt.destination_asset_id,
-      });
-      if (!proof.verified || !proof.finalityConfirmed) {
+      const isSameChain = attempt.source_network === attempt.destination_network;
+      const circleInfo = getCircleChain(attempt.destination_network, true)
+        ?? getCircleChain(attempt.destination_network, false);
+      if (!circleInfo || !isSameChain) {
         return NextResponse.json({ attempt: publicAttempt(attempt), pending: true });
       }
-      const receivedMinor = assetUnitsToInvoiceMinor(proof.amount, 6);
-      if (receivedMinor === null) return NextResponse.json({ attempt: publicAttempt(attempt), pending: true });
-      const { data: recResult, error: recError } = await supabaseAdmin.rpc("record_payment_reconciliation", {
-        p_attempt_id: id, p_provider_status: "SUCCESS", p_provider_signature_verified: true,
-        p_chain_transfer_verified: true, p_destination_asset_id: attempt.destination_asset_id,
-        p_destination_network: attempt.destination_network, p_recipient_address: attempt.recipient_address,
-        p_received_amount_base_units: proof.amount, p_received_asset_decimals: 6,
-        p_received_value_invoice_minor: receivedMinor, p_destination_tx_hashes: [sourceTxHash],
-        p_evidence: { proof, verifiedAt: new Date().toISOString() },
-      });
-      if (recError || !recResult) return NextResponse.json({ attempt: publicAttempt(attempt), pending: true });
-      const { data: receipts } = await supabaseAdmin.rpc("lookup_shared_payment_receipts", { p_token_hash: tokenHash });
-      return NextResponse.json({ attempt: publicAttempt({ ...attempt, status: "SUCCESS" }), settled: true, reconciliation: recResult, receipts: receipts ?? [] });
+      try {
+        const proof = await verifyEvmDestinationTransfers({
+          network: attempt.destination_network,
+          contractAddress: circleInfo.usdcAddress,
+          recipient: attempt.recipient_address,
+          amount: attempt.expected_received_amount,
+          transactionHashes: [sourceTxHash],
+          assetId: attempt.destination_asset_id,
+        });
+        if (!proof.verified || !proof.finalityConfirmed) {
+          return NextResponse.json({
+            attempt: publicAttempt(attempt),
+            pending: true,
+            waitingForFinality: !proof.finalityConfirmed,
+          });
+        }
+        const receivedMinor = assetUnitsToInvoiceMinor(proof.amount, 6);
+        if (receivedMinor === null) return NextResponse.json({ attempt: publicAttempt(attempt), pending: true });
+        const { data: recResult, error: recError } = await supabaseAdmin.rpc("record_payment_reconciliation", {
+          p_attempt_id: id,
+          p_provider_status: "SUCCESS",
+          p_provider_signature_verified: true,
+          p_chain_transfer_verified: true,
+          p_destination_asset_id: attempt.destination_asset_id,
+          p_destination_network: attempt.destination_network,
+          p_recipient_address: attempt.recipient_address,
+          p_received_amount_base_units: proof.amount,
+          p_received_asset_decimals: 6,
+          p_received_value_invoice_minor: receivedMinor,
+          p_destination_tx_hashes: [sourceTxHash],
+          p_evidence: { proof, verifiedAt: new Date().toISOString() },
+        });
+        if (recError || !recResult) return NextResponse.json({ attempt: publicAttempt(attempt), pending: true });
+        const { data: receipts } = await supabaseAdmin.rpc("lookup_shared_payment_receipts", { p_token_hash: tokenHash });
+        return NextResponse.json({
+          attempt: publicAttempt({ ...attempt, status: "SUCCESS" }),
+          settled: true,
+          reconciliation: recResult,
+          receipts: receipts ?? [],
+        });
+      } catch (directErr) {
+        if (isPendingOrTransientError(directErr)) {
+          return NextResponse.json({ attempt: publicAttempt(attempt), pending: true, verifying: true });
+        }
+        await saveRecovery(supabaseAdmin, id, "MANUAL_REVIEW");
+        return NextResponse.json({
+          attempt: publicAttempt({ ...attempt, circle_recovery_state: "MANUAL_REVIEW" }),
+          pending: true,
+          recoveryRequired: true,
+        });
+      }
     }
 
     if (snapshot.type !== "circle_cctp") return NextResponse.json({ attempt: publicAttempt(attempt), pending: true });
+
+    if (attempt.destination_network !== "arbitrum-sepolia"
+      || attempt.source_network !== "base-sepolia") {
+      return NextResponse.json({ attempt: publicAttempt(attempt), pending: true });
+    }
 
     const cctp = await fetchCircleCctpStatus({
       sourceNetwork: attempt.source_network,
@@ -279,9 +320,9 @@ export async function GET(
         settled: true, reconciliation: recResult, receipts: receipts ?? [],
       });
     } catch (error) {
-      const detail = error instanceof Error ? `${error.name} ${error.message}` : String(error);
-      const transportInterruption = /fetch failed|http request failed|timeout|timed out|network|transactionnotfound|connection/i.test(detail);
-      const recoveryState = cctp.forwardState === "FAILED" || !transportInterruption
+      const isTransient = isPendingOrTransientError(error);
+      const isExplicitFailure = cctp.forwardState === "FAILED" || cctp.status === "failed";
+      const recoveryState = isExplicitFailure || !isTransient
         ? "MANUAL_REVIEW" : "AWAITING_VERIFICATION";
       await saveRecovery(supabaseAdmin, id, recoveryState);
       await supabaseAdmin.rpc("update_live_attempt_status", {

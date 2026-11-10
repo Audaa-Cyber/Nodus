@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { signInAction, signUpAction } from "@/app/actions/auth";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
@@ -12,7 +12,7 @@ export function ExecutiveLoginCard({ initialMode = "signin" }: { initialMode?: "
   const searchParams = useSearchParams();
   const next = searchParams?.get("next") ?? "/dashboard";
   const modeParam = searchParams?.get("mode");
-  const confirmationError = searchParams?.get("error") === "confirmation";
+  const errorParam = searchParams?.get("error");
   const [isPending, startTransition] = useTransition();
   const [isSignUp, setIsSignUp] = useState(initialMode === "signup" || modeParam === "signup");
   const [email, setEmail] = useState("");
@@ -20,11 +20,108 @@ export function ExecutiveLoginCard({ initialMode = "signin" }: { initialMode?: "
   const [fullName, setFullName] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const dotCanvasRef = useRef<HTMLCanvasElement>(null);
+
   const [statusBanner, setStatusBanner] = useState<StatusBanner | null>(
-    confirmationError
+    errorParam === "confirmation"
       ? { message: "We couldn't confirm that email link. Request a fresh one or log in.", type: "error" }
+      : errorParam === "expired"
+      ? { message: "Authentication link expired or was already used. Please sign in again.", type: "error" }
+      : errorParam === "auth_failed"
+      ? { message: "Sign-in could not be completed. Please try again.", type: "error" }
       : null
   );
+
+  // Autonomous Dot-Matrix Background Animation (Zero Cursor Dependency)
+  useEffect(() => {
+    const dotCanvas = dotCanvasRef.current;
+    if (!dotCanvas) return;
+    const ctx = dotCanvas.getContext("2d");
+    if (!ctx) return;
+
+    let animFrameId = 0;
+    let gridPoints: { x: number; y: number; c: number; r: number; radialDist: number; phase: number }[] = [];
+    let canvasW = 0;
+    let canvasH = 0;
+    const dotSpacing = 28;
+
+    const rebuildDotGrid = () => {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      canvasW = window.innerWidth;
+      canvasH = window.innerHeight;
+      dotCanvas.width = canvasW * dpr;
+      dotCanvas.height = canvasH * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      const cols = Math.ceil(canvasW / dotSpacing) + 1;
+      const rows = Math.ceil(canvasH / dotSpacing) + 1;
+      const centerCol = cols / 2;
+      const centerRow = rows / 2;
+
+      gridPoints = [];
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const dc = c - centerCol;
+          const dr = r - centerRow;
+          const radialDist = Math.sqrt(dc * dc + dr * dr);
+          const shimmerSeed = Math.sin(c * 12.9898 + r * 78.233) * 43758.5453;
+          const phase = (shimmerSeed - Math.floor(shimmerSeed)) * Math.PI * 2;
+          gridPoints.push({
+            x: c * dotSpacing,
+            y: r * dotSpacing,
+            c,
+            r,
+            radialDist,
+            phase,
+          });
+        }
+      }
+    };
+
+    window.addEventListener("resize", rebuildDotGrid);
+    rebuildDotGrid();
+
+    const renderDotMatrix = (timestamp: number) => {
+      ctx.clearRect(0, 0, canvasW, canvasH);
+
+      const t = timestamp * 0.0028;
+      const isDark = document.documentElement.getAttribute("data-theme") === "light-dark";
+      const baseRGB = isDark ? "148, 163, 184" : "100, 116, 139";
+      const activeRGB = isDark ? "248, 250, 252" : "15, 23, 42";
+
+      const len = gridPoints.length;
+      for (let i = 0; i < len; i++) {
+        const pt = gridPoints[i];
+
+        const radialWave = Math.sin(pt.radialDist * 0.42 - t * 1.35);
+        const diagWave = Math.cos((pt.c * 0.25 + pt.r * 0.25) - t * 0.9);
+        const nodeTwinkle = Math.sin(t * 1.9 + pt.phase);
+
+        const composite = radialWave * 0.45 + diagWave * 0.35 + nodeTwinkle * 0.2;
+        const norm = (composite + 1) * 0.5;
+
+        const radius = 0.75 + norm * 1.1;
+        const alpha = 0.08 + norm * 0.28;
+
+        ctx.beginPath();
+        ctx.arc(pt.x, pt.y, radius, 0, Math.PI * 2);
+        ctx.fillStyle =
+          norm > 0.65
+            ? `rgba(${activeRGB}, ${alpha.toFixed(3)})`
+            : `rgba(${baseRGB}, ${alpha.toFixed(3)})`;
+        ctx.fill();
+      }
+
+      animFrameId = requestAnimationFrame(renderDotMatrix);
+    };
+
+    animFrameId = requestAnimationFrame(renderDotMatrix);
+
+    return () => {
+      window.removeEventListener("resize", rebuildDotGrid);
+      cancelAnimationFrame(animFrameId);
+    };
+  }, []);
 
   const showStatus = (message: string, type: StatusBanner["type"]) => {
     setStatusBanner({ message, type });
@@ -94,6 +191,9 @@ export function ExecutiveLoginCard({ initialMode = "signin" }: { initialMode?: "
 
   return (
     <div className="login-executive-page bg-grid selection:bg-slate-500 selection:text-white">
+      {/* Autonomous Dot-Matrix Background */}
+      <canvas id="dotMatrixCanvas" ref={dotCanvasRef} aria-hidden="true" />
+
       <div className="ambient-orb orb-1" aria-hidden="true" />
       <div className="ambient-orb orb-2" aria-hidden="true" />
       <div className="ambient-orb orb-3" aria-hidden="true" />
@@ -124,7 +224,7 @@ export function ExecutiveLoginCard({ initialMode = "signin" }: { initialMode?: "
               <div className="tab-indicator" style={{ transform: isSignUp ? "translateX(100%)" : "translateX(0%)" }} />
               <button
                 type="button"
-                onClick={() => { setIsSignUp(false); setStatusBanner(null); }}
+                onClick={() => { setIsSignUp(false); setShowPassword(false); setStatusBanner(null); }}
                 className="relative z-10 py-1.5 text-[11px] font-semibold tracking-wide rounded-lg"
                 style={{ color: !isSignUp ? "var(--text-primary)" : "var(--text-secondary)" }}
               >
@@ -132,7 +232,7 @@ export function ExecutiveLoginCard({ initialMode = "signin" }: { initialMode?: "
               </button>
               <button
                 type="button"
-                onClick={() => { setIsSignUp(true); setStatusBanner(null); }}
+                onClick={() => { setIsSignUp(true); setShowPassword(false); setStatusBanner(null); }}
                 className="relative z-10 py-1.5 text-[11px] font-semibold tracking-wide rounded-lg"
                 style={{ color: isSignUp ? "var(--text-primary)" : "var(--text-secondary)" }}
               >
@@ -189,6 +289,7 @@ export function ExecutiveLoginCard({ initialMode = "signin" }: { initialMode?: "
               <div className="input-group">
                 <input
                   id="passwordInput"
+                  name="password"
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
@@ -202,7 +303,8 @@ export function ExecutiveLoginCard({ initialMode = "signin" }: { initialMode?: "
                 <button
                   type="button"
                   onClick={() => setShowPassword((shown) => !shown)}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-slate-400 hover:text-slate-800 transition-all duration-150 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
+                  onMouseDown={(event) => event.preventDefault()}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-800 transition-all duration-150 active:scale-90 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
                   aria-label={showPassword ? "Hide password" : "Show password"}
                   aria-pressed={showPassword}
                 >

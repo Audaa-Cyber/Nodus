@@ -131,8 +131,8 @@ export function getEvmWalletNetwork(chainId: number | undefined): WalletNetwork 
   );
 }
 
-export const DEFAULT_RECOMMENDED_CHAIN_ID = base.id; // 8453 (Base)
-export const DEFAULT_RECOMMENDED_CHAIN_NAME = "Base";
+export const DEFAULT_RECOMMENDED_CHAIN_ID = baseSepoliaChain.id; // 84532 (Base Sepolia)
+export const DEFAULT_RECOMMENDED_CHAIN_NAME = "Base Sepolia";
 
 export function isSupportedEvmChain(chainId: number | undefined): boolean {
   if (chainId === undefined) return false;
@@ -147,5 +147,5 @@ export function getRecommendedEvmChain(preferredKey?: string | null): { id: numb
       if (match) return { id: match.id, name: match.name };
     }
   }
-  return { id: base.id, name: "Base" };
+  return { id: baseSepoliaChain.id, name: "Base Sepolia" };
 }

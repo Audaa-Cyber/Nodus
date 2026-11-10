@@ -48,6 +48,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
   const quoteSnapshotInput = input.quoteSnapshot && typeof input.quoteSnapshot === "object"
     ? input.quoteSnapshot as Record<string, unknown> : null;
   const senderAddress = String(input.senderAddress ?? "").trim();
+  const quoteType = quoteSnapshotInput?.type;
   if (
     !UUID_PATTERN.test(idempotencyKey) ||
     !sourceAssetId ||
@@ -58,14 +59,20 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
     !/^[0-9]+$/.test(requestedAmount) ||
     !/^[0-9]+$/.test(expectedReceivedAmount) ||
     !quoteExpiresAt ||
-    !quoteSnapshotInput || typeof quoteSnapshotInput.quote !== "string"
-      || quoteSnapshotInput.type !== "circle_cctp"
+    !quoteSnapshotInput ||
+    (quoteType !== "circle_cctp" && quoteType !== "circle_direct")
   ) {
     return NextResponse.json({ error: "invalid_attempt_parameters" }, { status: 400 });
   }
-  if (JSON.stringify(quoteSnapshotInput).length > 48_000
-    || (Array.isArray(quoteSnapshotInput.feeItems) && quoteSnapshotInput.feeItems.length > 20)) {
-    return NextResponse.json({ error: "circle_quote_terms_invalid" }, { status: 400 });
+
+  if (quoteType === "circle_cctp") {
+    if (typeof quoteSnapshotInput.quote !== "string"
+      || JSON.stringify(quoteSnapshotInput).length > 48_000
+      || (Array.isArray(quoteSnapshotInput.feeItems) && quoteSnapshotInput.feeItems.length > 20)) {
+      return NextResponse.json({ error: "circle_quote_terms_invalid" }, { status: 400 });
+    }
+  } else if (JSON.stringify(quoteSnapshotInput).length > 48_000) {
+    return NextResponse.json({ error: "invalid_attempt_parameters" }, { status: 400 });
   }
 
   // Load the invoice again at the privileged boundary. Client destination and
@@ -83,25 +90,85 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
   }
   const amountBaseUnits = (BigInt(context.amount_minor) * 10_000n).toString();
   const { getCircleChain } = await import("@/lib/server/circle");
-  const destinationCircle = getCircleChain(context.receiving_network, true);
-  const sourceCircle = getCircleChain("base-sepolia", true);
-  if (!destinationCircle || !sourceCircle || sourceNetwork !== "base-sepolia"
-      || destinationNetwork !== "arbitrum-sepolia" || context.receiving_network !== "arbitrum-sepolia"
-      || requestedRecipient.toLowerCase() !== context.receiving_address.toLowerCase()
-      || expectedReceivedAmount !== amountBaseUnits || destinationAssetId !== `${context.receiving_network}:usdc`
-      || sourceAssetId !== "base-sepolia:usdc") {
+  const destinationCircle = getCircleChain(context.receiving_network, true)
+    ?? getCircleChain(context.receiving_network, false);
+  if (!destinationCircle) {
     return NextResponse.json({ error: "invoice_payment_terms_mismatch" }, { status: 409 });
   }
-  const quotedReceived = usdcToUnits(quoteSnapshotInput.amountReceived);
-  const quotedDebit = usdcToUnits(quoteSnapshotInput.totalDebit);
-  const quotedFees = usdcToUnits(quoteSnapshotInput.feeTotal);
-  if (quotedReceived !== amountBaseUnits || quotedDebit !== requestedAmount || quotedFees === null
-    || BigInt(quotedDebit) - BigInt(quotedReceived) !== BigInt(quotedFees)
-    || !Array.isArray(quoteSnapshotInput.feeItems)
-    || quoteSnapshotInput.feeItems.some((item) => !item || typeof item !== "object"
-      || typeof (item as Record<string, unknown>).type !== "string"
-      || usdcToUnits((item as Record<string, unknown>).amount) === null)) {
-    return NextResponse.json({ error: "circle_quote_terms_invalid" }, { status: 409 });
+
+  let depositAddress: string;
+  let quoteSnapshot: Record<string, unknown>;
+
+  if (quoteType === "circle_cctp") {
+    const sourceCircle = getCircleChain("base-sepolia", true);
+    if (!sourceCircle || sourceNetwork !== "base-sepolia"
+        || destinationNetwork !== "arbitrum-sepolia" || context.receiving_network !== "arbitrum-sepolia"
+        || requestedRecipient.toLowerCase() !== context.receiving_address.toLowerCase()
+        || expectedReceivedAmount !== amountBaseUnits || destinationAssetId !== `${context.receiving_network}:usdc`
+        || sourceAssetId !== "base-sepolia:usdc") {
+      return NextResponse.json({ error: "invoice_payment_terms_mismatch" }, { status: 409 });
+    }
+    const quotedReceived = usdcToUnits(quoteSnapshotInput.amountReceived);
+    const quotedDebit = usdcToUnits(quoteSnapshotInput.totalDebit);
+    const quotedFees = usdcToUnits(quoteSnapshotInput.feeTotal);
+    if (quotedReceived !== amountBaseUnits || quotedDebit !== requestedAmount || quotedFees === null
+      || BigInt(quotedDebit) - BigInt(quotedReceived) !== BigInt(quotedFees)
+      || !Array.isArray(quoteSnapshotInput.feeItems)
+      || quoteSnapshotInput.feeItems.some((item) => !item || typeof item !== "object"
+        || typeof (item as Record<string, unknown>).type !== "string"
+        || usdcToUnits((item as Record<string, unknown>).amount) === null)) {
+      return NextResponse.json({ error: "circle_quote_terms_invalid" }, { status: 409 });
+    }
+    depositAddress = sourceCircle.tokenMessengerAddress;
+    quoteSnapshot = {
+      type: "circle_cctp",
+      invoiceId: context.invoice_id,
+      invoiceAmountMinor: String(context.amount_minor),
+      invoiceCurrency: String(context.currency),
+      payer: senderAddress.toLowerCase(),
+      sourceNetwork: "base-sepolia",
+      sourceAssetId: "base-sepolia:usdc",
+      sourceUsdc: sourceCircle.usdcAddress,
+      sourceDomain: sourceCircle.cctpDomainId,
+      destinationNetwork: context.receiving_network,
+      destinationAssetId: `${context.receiving_network}:usdc`,
+      destinationUsdc: destinationCircle.usdcAddress,
+      destinationDomain: destinationCircle.cctpDomainId,
+      recipient: context.receiving_address.toLowerCase(),
+      amountReceived: String(quoteSnapshotInput.amountReceived ?? ""),
+      feeTotal: String(quoteSnapshotInput.feeTotal ?? ""),
+      feeItems: Array.isArray(quoteSnapshotInput.feeItems) ? quoteSnapshotInput.feeItems : [],
+      totalDebit: String(quoteSnapshotInput.totalDebit ?? ""),
+      minimumReceived: amountBaseUnits,
+      quoteExpiresAt,
+      quote: quoteSnapshotInput.quote,
+    };
+  } else {
+    // circle_direct (same-chain USDC transfer)
+    if (sourceNetwork !== destinationNetwork
+        || destinationNetwork !== context.receiving_network
+        || requestedRecipient.toLowerCase() !== context.receiving_address.toLowerCase()
+        || expectedReceivedAmount !== amountBaseUnits || requestedAmount !== amountBaseUnits
+        || destinationAssetId !== `${context.receiving_network}:usdc`
+        || sourceAssetId !== `${context.receiving_network}:usdc`) {
+      return NextResponse.json({ error: "invoice_payment_terms_mismatch" }, { status: 409 });
+    }
+    depositAddress = context.receiving_address;
+    quoteSnapshot = {
+      type: "circle_direct",
+      invoiceId: context.invoice_id,
+      invoiceAmountMinor: String(context.amount_minor),
+      invoiceCurrency: String(context.currency),
+      payer: senderAddress.toLowerCase(),
+      sourceNetwork: context.receiving_network,
+      sourceAssetId: `${context.receiving_network}:usdc`,
+      destinationNetwork: context.receiving_network,
+      destinationAssetId: `${context.receiving_network}:usdc`,
+      recipient: context.receiving_address.toLowerCase(),
+      minimumReceived: amountBaseUnits,
+      totalDebit: amountBaseUnits,
+      quoteExpiresAt,
+    };
   }
 
   // Pre-authorization check: Ensure quote is not expired
@@ -114,41 +181,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
     const { data, error } = await supabaseAdmin.rpc("create_committed_payment_attempt", {
       p_token_hash: tokenHash,
       p_idempotency_key: idempotencyKey,
-      p_source_asset_id: "base-sepolia:usdc",
-      p_source_network: "base-sepolia",
+      p_source_asset_id: quoteType === "circle_cctp" ? "base-sepolia:usdc" : `${context.receiving_network}:usdc`,
+      p_source_network: quoteType === "circle_cctp" ? "base-sepolia" : context.receiving_network,
       p_destination_asset_id: `${context.receiving_network}:usdc`,
       p_destination_network: context.receiving_network,
       p_recipient_address: context.receiving_address,
       p_requested_amount: requestedAmount,
       p_expected_received_amount: amountBaseUnits,
-      p_deposit_address: sourceCircle.tokenMessengerAddress,
+      p_deposit_address: depositAddress,
       p_deposit_memo: null,
       p_quote_expires_at: quoteExpiresAt,
-      // Keep Circle's signed quote opaque. Never let the client define invoice
-      // terms or execution routing in the persisted attempt.
-      p_quote_snapshot: {
-        type: "circle_cctp",
-        invoiceId: context.invoice_id,
-        invoiceAmountMinor: String(context.amount_minor),
-        invoiceCurrency: String(context.currency),
-        payer: senderAddress.toLowerCase(),
-        sourceNetwork: "base-sepolia",
-        sourceAssetId: "base-sepolia:usdc",
-        sourceUsdc: sourceCircle.usdcAddress,
-        sourceDomain: sourceCircle.cctpDomainId,
-        destinationNetwork: context.receiving_network,
-        destinationAssetId: `${context.receiving_network}:usdc`,
-        destinationUsdc: destinationCircle.usdcAddress,
-        destinationDomain: destinationCircle.cctpDomainId,
-        recipient: context.receiving_address.toLowerCase(),
-        amountReceived: String(quoteSnapshotInput.amountReceived ?? ""),
-        feeTotal: String(quoteSnapshotInput.feeTotal ?? ""),
-        feeItems: Array.isArray(quoteSnapshotInput.feeItems) ? quoteSnapshotInput.feeItems : [],
-        totalDebit: String(quoteSnapshotInput.totalDebit ?? ""),
-        minimumReceived: amountBaseUnits,
-        quoteExpiresAt,
-        quote: quoteSnapshotInput.quote,
-      } as unknown as Json,
+      p_quote_snapshot: quoteSnapshot as unknown as Json,
     });
 
     if (error) {

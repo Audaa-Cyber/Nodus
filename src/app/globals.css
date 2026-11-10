@@ -720,6 +720,12 @@ p { text-wrap: pretty; }
 .wallet-asset-error p { margin: 0; color: #6d7068; font-size: 11px; }
 .wallet-text-button { margin-top: 7px; padding: 0; border: 0; background: none; color: #315572; font-size: 11px; text-decoration: underline; text-underline-offset: 3px; }
 .wallet-preparation { margin-top: 16px; padding: 17px; background: #f7f8f6; }
+.wallet-execution-steps { display: grid; gap: 8px; margin-top: 14px; padding: 13px 15px; border: 1px solid #e3e4df; background: #fff; color: #575950; font-size: 10px; line-height: 1.65; }
+.wallet-execution-steps p { margin: 0; }
+.wallet-execution-steps strong { color: #343630; font-weight: 600; }
+.wallet-recovery-panel { display: grid; gap: 8px; margin-top: 12px; padding: 13px; border: 1px solid #e2c978; background: #fffdf5; }
+.wallet-recovery-copy { margin: 0; color: #665329; font-size: 10px; line-height: 1.65; }
+.wallet-explorer-link { width: fit-content; color: #315572; font-size: 10px; text-decoration: underline; text-underline-offset: 3px; overflow-wrap: anywhere; }
 .wallet-preparation dl { display: grid; gap: 0; margin: 14px 0 0; }
 .wallet-preparation dl > div { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: 12px; padding: 10px 0; border-top: 1px solid #e7e8e3; font-size: 10px; }
 .wallet-preparation dt { color: #7e8078; }
@@ -1207,6 +1213,17 @@ main > footer > * {
 .login-executive-page .premium-input:focus {
   border-color: var(--input-focus);
   box-shadow: 0 0 0 3px rgba(100, 116, 139, 0.12);
+}
+
+/* Microsoft Edge and legacy IE render a built-in password-reveal (and clear)
+   button inside password inputs, overlapping the card's custom eye toggle and
+   producing a double-control. Hide them; the custom toggle is the single
+   source of truth for visibility. */
+.login-executive-page .premium-input::-ms-reveal,
+.login-executive-page .premium-input::-ms-clear {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 .login-executive-page .floating-label {
