@@ -2,7 +2,6 @@ import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { isServerSupabaseConfigured } from "@/config/env.server";
-import { indexSuperbridgeTransaction } from "@/lib/server/superbridge";
 
 export const dynamic = "force-dynamic";
 const TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
@@ -35,9 +34,11 @@ export async function POST(
 
   const input = body as Record<string, unknown>;
   const transactionHash = String(input.transactionHash ?? "").trim();
-  const chainUid = typeof input.chainUid === "string" ? input.chainUid : undefined;
+  const approvalTransactionHash = input.approvalTransactionHash == null
+    ? null : String(input.approvalTransactionHash).trim();
 
-  if (!HASH_PATTERN.test(transactionHash)) {
+  if (!HASH_PATTERN.test(transactionHash)
+    || (approvalTransactionHash !== null && !HASH_PATTERN.test(approvalTransactionHash))) {
     return NextResponse.json({ error: "invalid_transaction_hash" }, { status: 400 });
   }
 
@@ -45,25 +46,23 @@ export async function POST(
   const tokenHash = createHash("sha256").update(token, "utf8").digest("hex");
 
   try {
-    const { data, error } = await supabaseAdmin.rpc("update_live_attempt_status", {
+    const { data, error } = await supabaseAdmin.rpc("submit_circle_broadcast_references", {
       p_token_hash: tokenHash,
       p_attempt_id: id,
-      p_status: "KNOWN_DEPOSIT_TX",
-      p_transaction_hash: transactionHash,
+      p_source_tx_hash: transactionHash,
+      p_approval_tx_hash: approvalTransactionHash,
     });
 
     if (error || !data?.[0]) {
       return NextResponse.json({ error: error?.message || "failed_to_update_attempt" }, { status: 409 });
     }
 
-    // Optional Superbridge indexing notification
-    if (chainUid) {
-      void indexSuperbridgeTransaction({ chainUid, txHash: transactionHash });
-    }
+    const publicAttempt = { ...data[0] } as Record<string, unknown>;
+    delete publicAttempt.quote_snapshot;
 
     return NextResponse.json({
       success: true,
-      attempt: data[0],
+      attempt: publicAttempt,
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "unknown_error";

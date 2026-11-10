@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { discoverPaymentRoutes } from "@/lib/payments/route-orchestrator";
+import { getCircleChain } from "@/lib/server/circle";
 
 export const dynamic = "force-dynamic";
 const TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
@@ -55,6 +56,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
     return NextResponse.json({ error: "receiving_destination_not_configured" }, { status: 400 });
   }
 
+  const baseSepolia = getCircleChain("base-sepolia", true);
+  const arbSepolia = getCircleChain("arbitrum-sepolia", true);
+  if (sourceNetwork !== "base-sepolia" || sourceAssetId !== "base-sepolia:usdc"
+    || sourceSymbol.toUpperCase() !== "USDC" || sourceDecimals !== 6
+    || sourceContractAddress?.toLowerCase() !== baseSepolia?.usdcAddress.toLowerCase()
+    || invoice.receiving_network !== "arbitrum-sepolia" || !baseSepolia || !arbSepolia) {
+    return NextResponse.json({ error: "unsupported_circle_testnet_payment_route" }, { status: 400 });
+  }
+
   const result = await discoverPaymentRoutes({
     invoiceId: invoice.invoice_id,
     amountMinor: Number(invoice.amount_minor),
@@ -67,7 +77,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
     sourceDecimals,
     sourceContractAddress,
     senderAddress,
-    isTestnet: process.env.NODE_ENV !== "production",
+    isTestnet: true,
   });
 
   if (result.error) {

@@ -62,19 +62,20 @@ test("route discovery: same-chain USDC selects circle_direct with zero protocol 
   assert.equal(topRoute.depositAddress, recipient);
 });
 
-test("route discovery: cross-chain USDC on supported CCTP chains selects circle_cctp", async () => {
+test("route discovery: the Phase 1 Base Sepolia to Arbitrum Sepolia pair selects Circle CCTP", async () => {
   const result = await discoverPaymentRoutes({
     invoiceId: "inv-test-cctp-1",
     amountMinor: 2500, // $25.00
     currency: "USD",
-    destinationNetwork: "base",
+    destinationNetwork: "arbitrum-sepolia",
     recipientAddress: recipient,
-    sourceAssetId: "ethereum:usdc",
-    sourceNetwork: "ethereum",
+    sourceAssetId: "base-sepolia:usdc",
+    sourceNetwork: "base-sepolia",
     sourceSymbol: "USDC",
     sourceDecimals: 6,
-    sourceContractAddress: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+    sourceContractAddress: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
     senderAddress: sender,
+    isTestnet: true,
   });
 
   assert.equal(result.error, undefined);
@@ -88,10 +89,10 @@ test("route discovery: cross-chain USDC on supported CCTP chains selects circle_
   assert.equal(cctpRoute.expectedReceivedAmount, "25000000");
   assert.equal(cctpRoute.minReceivedAmount, "25000000");
   assert.equal(cctpRoute.coversInvoice, true);
-  assert.equal(cctpRoute.fees.protocolFeeUsd, "0.00");
+  assert.match(cctpRoute.fees.protocolFeeUsd, /Circle estimate required/);
 
-  const ethCircle = getCircleChain("ethereum", false);
-  assert.equal(cctpRoute.depositAddress, ethCircle.tokenMessengerAddress);
+  const baseCircle = getCircleChain("base-sepolia", true);
+  assert.equal(cctpRoute.depositAddress, baseCircle.tokenMessengerAddress);
 });
 
 test("route discovery: rejects non-EVM destination networks for MVP", async () => {

@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAccount, useSendTransaction, useSwitchChain } from "wagmi";
 import { formatMoney } from "@/lib/invoices";
-import { getWalletNetwork } from "@/lib/wallet/networks";
+import { baseSepoliaChain, getWalletNetwork } from "@/lib/wallet/networks";
+import { createPublicClient, custom, formatEther, parseAbi } from "viem";
 import type { WalletAsset } from "@/lib/wallet/types";
 import type { StandardizedRouteQuote } from "@/lib/payments/route-orchestrator";
 
@@ -48,6 +49,12 @@ function formatUnits(baseUnits: string, decimals: number): string {
   return remainderStr ? `${integerPart}.${remainderStr}` : integerPart.toString();
 }
 
+function usdcToBaseUnits(value: string): string {
+  const [whole, fraction = ""] = value.split(".");
+  if (!/^\d+$/.test(whole) || !/^\d{0,6}$/.test(fraction)) throw new Error("Invalid Circle USDC amount.");
+  return (BigInt(whole) * 1_000_000n + BigInt(fraction.padEnd(6, "0"))).toString();
+}
+
 function shortHash(hash: string): string {
   return hash.length > 18 ? `${hash.slice(0, 10)}…${hash.slice(-8)}` : hash;
 }
@@ -76,11 +83,24 @@ export function LivePaymentFlow({
   const [statusMessage, setStatusMessage] = useState("");
   const [flowError, setFlowError] = useState("");
   const [attemptId, setAttemptId] = useState<string | null>(null);
+  const [recoveryRequired, setRecoveryRequired] = useState(false);
+  const [recoveryTxHash, setRecoveryTxHash] = useState("");
+  const [recoveryApprovalHash, setRecoveryApprovalHash] = useState("");
+  const [submittingRecovery, setSubmittingRecovery] = useState(false);
   const [depositTxHash, setDepositTxHash] = useState<string | null>(null);
   const [destinationReceipts, setDestinationReceipts] = useState<
     Array<{ receipt_number: string; issued_at: string }>
   >([]);
   const [timeRemainingSeconds, setTimeRemainingSeconds] = useState<number | null>(null);
+  const [circleQuote, setCircleQuote] = useState<{
+    quote: string;
+    amountReceived: string;
+    feeTotal: string;
+    totalDebit: string;
+    feeItems: Array<{ type: string; amount: string }>;
+    expiresAt: string;
+    gasWei: string;
+  } | null>(null);
 
   const selectedRoute = useMemo(
     () => routes[selectedRouteIndex] ?? null,
@@ -125,6 +145,15 @@ export function LivePaymentFlow({
     void fetchRoutes();
   }, [fetchRoutes]);
 
+  useEffect(() => {
+    const savedAttemptId = window.localStorage.getItem(`nodus:live-attempt:${shareToken}`);
+    if (!attemptId && savedAttemptId && /^[0-9a-f-]{36}$/i.test(savedAttemptId)) {
+      setAttemptId(savedAttemptId);
+      setStage("verifying");
+      setStatusMessage("Resuming verification for the payment attempt saved in this browser.");
+    }
+  }, [attemptId, shareToken]);
+
   // 2. Countdown timer for quote expiration
   useEffect(() => {
     if (!selectedRoute?.quoteExpiresAt) {
@@ -148,8 +177,75 @@ export function LivePaymentFlow({
   async function handleAuthorizePayment() {
     if (!selectedRoute || !selectedAsset || !activeAddress) return;
 
+    if (selectedRoute.provider === "circle_cctp" && !circleQuote) {
+      setStage("authorizing");
+      setStatusMessage("Requesting a live Circle receive-exact quote…");
+      try {
+        if (!connector) throw new Error("Wallet connector unavailable.");
+        if (evmChainId !== 84532) {
+          setStatusMessage("Switch to Base Sepolia to request the Circle quote.");
+          await switchChainAsync({ chainId: 84532 });
+        }
+        const provider = (await connector.getProvider()) as { request: (args: unknown) => Promise<unknown> };
+        const { createViemAdapterFromProvider } = await import("@circle-fin/adapter-viem-v2");
+        const { AppKit } = await import("@circle-fin/app-kit");
+        const adapter = await createViemAdapterFromProvider({ provider: provider as never });
+        const kit = new AppKit();
+        const estimate = await kit.estimateBridge({
+          from: { adapter, chain: "Base_Sepolia" },
+          to: { chain: "Arbitrum_Sepolia", recipientAddress: selectedRoute.recipientAddress, useForwarder: true },
+          amount: (amountMinor / 100).toFixed(2),
+          token: "USDC",
+          config: { feePayment: "source" },
+        });
+        if (!("amountReceived" in estimate) || typeof estimate.quote !== "string" || !estimate.quote) {
+          throw new Error("Circle did not return a signed receive-exact quote.");
+        }
+        const sourceGasFees = estimate.gasFees.filter((item) => item.blockchain === "Base_Sepolia");
+        if (!sourceGasFees.length || sourceGasFees.some((item) => !item.fees || item.error)) {
+          throw new Error("Circle source-chain gas estimate is unavailable; payment is not eligible.");
+        }
+        const estimatedGasWei = sourceGasFees.reduce((sum, item) => sum + BigInt(item.fees!.fee), 0n);
+        const publicClient = createPublicClient({ chain: baseSepoliaChain, transport: custom(provider as never) });
+        const [usdcBalance, nativeBalance] = await Promise.all([
+          publicClient.readContract({
+            address: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+            abi: parseAbi(["function balanceOf(address) view returns (uint256)"]),
+            functionName: "balanceOf",
+            args: [activeAddress as `0x${string}`],
+          }),
+          publicClient.getBalance({ address: activeAddress as `0x${string}` }),
+        ]);
+        const requiredUsdc = usdcToBaseUnits(estimate.totalDebit);
+        if (usdcBalance < BigInt(requiredUsdc)) throw new Error("Insufficient Base Sepolia USDC for the Circle quote.");
+        if (nativeBalance < estimatedGasWei) throw new Error("Insufficient Base Sepolia ETH for the estimated bridge gas.");
+        const expiry = estimate.quoteExpiry;
+        if (expiry.mode !== "TIMESTAMP") {
+          throw new Error("Circle returned a block-based quote expiry that cannot be safely disclosed yet.");
+        }
+        const expiresAt = new Date(expiry.expiresAt * 1000).toISOString();
+        if (Date.parse(expiresAt) <= Date.now()) throw new Error("Circle returned an expired quote.");
+        setCircleQuote({
+          quote: estimate.quote,
+          amountReceived: estimate.amountReceived,
+          feeTotal: estimate.feeTotal,
+          totalDebit: estimate.totalDebit,
+          feeItems: estimate.feeItems.map(({ type, amount }) => ({ type, amount })),
+          expiresAt,
+          gasWei: estimatedGasWei.toString(),
+        });
+        setStage("idle");
+        setStatusMessage("Quote ready. Review the amount and Circle fees, then authorize the payment.");
+        return;
+      } catch (err) {
+        setStage("error");
+        setFlowError(err instanceof Error ? err.message : "Circle quote request failed.");
+        return;
+      }
+    }
+
     // Check expiry
-    const expiresAt = new Date(selectedRoute.quoteExpiresAt).getTime();
+    const expiresAt = circleQuote ? Date.parse(circleQuote.expiresAt) : new Date(selectedRoute.quoteExpiresAt).getTime();
     if (expiresAt <= Date.now()) {
       setFlowError("Quote has expired. Refreshing payment routes...");
       await fetchRoutes();
@@ -159,6 +255,7 @@ export function LivePaymentFlow({
     setFlowError("");
     setStage("authorizing");
     setStatusMessage("Validating route and network parameters…");
+    let circleExecutionStarted = false;
 
     try {
       // Step A: Ensure wallet is on the correct source network
@@ -184,10 +281,17 @@ export function LivePaymentFlow({
           recipientAddress: selectedRoute.recipientAddress,
           depositAddress: selectedRoute.depositAddress,
           depositMemo: selectedRoute.depositMemo,
-          requestedAmount: selectedRoute.requestedAmount,
+          requestedAmount: circleQuote
+            ? usdcToBaseUnits(circleQuote.totalDebit)
+            : selectedRoute.requestedAmount,
           expectedReceivedAmount: selectedRoute.expectedReceivedAmount,
-          quoteExpiresAt: selectedRoute.quoteExpiresAt,
-          quoteSnapshot: selectedRoute.quoteSnapshot,
+          quoteExpiresAt: circleQuote?.expiresAt ?? selectedRoute.quoteExpiresAt,
+          quoteSnapshot: circleQuote ? {
+            type: "circle_cctp", quote: circleQuote.quote,
+            amountReceived: circleQuote.amountReceived, feeTotal: circleQuote.feeTotal,
+            feeItems: circleQuote.feeItems, totalDebit: circleQuote.totalDebit,
+          } : selectedRoute.quoteSnapshot,
+          senderAddress: activeAddress,
         }),
       });
 
@@ -197,11 +301,23 @@ export function LivePaymentFlow({
       }
 
       const currentAttemptId = attemptData.attempt.id as string;
+      window.localStorage.setItem(`nodus:live-attempt:${shareToken}`, currentAttemptId);
       setAttemptId(currentAttemptId);
+
+      if (selectedRoute.provider === "circle_cctp") {
+        circleExecutionStarted = true;
+        const startRes = await fetch(
+          `/api/pay/${encodeURIComponent(shareToken)}/attempt/${currentAttemptId}/start`,
+          { method: "POST", cache: "no-store" }
+        );
+        const startData = await startRes.json();
+        if (!startRes.ok) throw new Error(startData.error || "Could not reserve this payment attempt for execution.");
+      }
 
       // Step C: Trigger wallet signature / broadcast according to provider
       setStatusMessage("Please sign the transaction in your connected wallet…");
       let txHash: string | null = null;
+      let approvalTxHash: string | null = null;
 
       if (selectedRoute.provider === "circle_direct") {
         // Direct USDC transfer
@@ -229,7 +345,7 @@ export function LivePaymentFlow({
           if (/reject|denied|cancel|user refused/i.test(err?.message ?? "")) {
             throw new Error("Transaction was declined in your wallet.");
           }
-          // Direct fallback: standard ERC-20 transfer
+          // Direct fallback: standard ERC-20 transfer for same-chain
           const { encodeFunctionData, parseAbi } = await import("viem");
           const erc20Abi = parseAbi(["function transfer(address to, uint256 amount) returns (bool)"]);
           const tokenAddr = (selectedAsset.contractAddress ?? selectedRoute.depositAddress) as `0x${string}`;
@@ -245,7 +361,7 @@ export function LivePaymentFlow({
           });
         }
       } else if (selectedRoute.provider === "circle_cctp") {
-        // CCTP Cross-chain bridge
+        // CCTP Cross-chain bridge with Circle Orbit Forwarder
         try {
           if (!connector) throw new Error("Wallet connector unavailable.");
           const provider = (await connector.getProvider()) as { request: (args: unknown) => Promise<unknown> };
@@ -258,52 +374,34 @@ export function LivePaymentFlow({
           const destNet = getWalletNetwork(selectedRoute.destinationNetwork);
           const destChainId = destNet?.chainId ?? 84532;
           const destChainKey = CHAIN_ID_TO_BRIDGE_CHAIN[destChainId] ?? "Base_Sepolia";
-          const amountFormatted = (
-            Number(selectedRoute.requestedAmount) / 10 ** selectedRoute.sourceDecimals
-          ).toFixed(selectedRoute.sourceDecimals);
-
           const bridgeRes = await kit.bridge({
             from: { adapter, chain: sourceChainKey as never },
             to: {
-              adapter,
               chain: destChainKey as never,
               recipientAddress: selectedRoute.recipientAddress,
+              useForwarder: true,
             },
-            amount: amountFormatted,
+            amount: (amountMinor / 100).toFixed(2),
             token: "USDC",
+            quote: circleQuote?.quote,
+            config: { feePayment: "source" },
           });
 
-          const stepWithHash = bridgeRes.steps?.find((s: { txHash?: string }) => s.txHash);
-          txHash = stepWithHash?.txHash ?? null;
+          const burnStep = bridgeRes.steps?.find(
+            (s: { name?: string; txHash?: string }) =>
+              (s.name?.toLowerCase().includes("burn") || s.name?.toLowerCase().includes("depositforburn")) && s.txHash
+          );
+          const approvalStep = bridgeRes.steps?.find(
+            (s: { name?: string; txHash?: string }) => s.name?.toLowerCase().includes("approv") && s.txHash
+          );
+          approvalTxHash = approvalStep?.txHash ?? null;
+          txHash = burnStep?.txHash ?? null;
         } catch (cctpErr: unknown) {
           const err = cctpErr as Error;
           if (/reject|denied|cancel|user refused/i.test(err?.message ?? "")) {
             throw new Error("Transaction was declined in your wallet.");
           }
           throw err;
-        }
-      } else if (selectedRoute.provider === "superbridge") {
-        // Superbridge execution
-        if (selectedRoute.stepTransaction) {
-          txHash = await sendTransactionAsync({
-            to: selectedRoute.stepTransaction.to as `0x${string}`,
-            data: selectedRoute.stepTransaction.data as `0x${string}`,
-            value: BigInt(selectedRoute.stepTransaction.value || "0"),
-          });
-        } else {
-          const { encodeFunctionData, parseAbi } = await import("viem");
-          const erc20Abi = parseAbi(["function transfer(address to, uint256 amount) returns (bool)"]);
-          const tokenAddr = (selectedAsset.contractAddress ?? selectedRoute.depositAddress) as `0x${string}`;
-          const transferData = encodeFunctionData({
-            abi: erc20Abi,
-            functionName: "transfer",
-            args: [selectedRoute.depositAddress as `0x${string}`, BigInt(selectedRoute.requestedAmount)],
-          });
-          txHash = await sendTransactionAsync({
-            to: tokenAddr,
-            data: transferData,
-            value: 0n,
-          });
         }
       } else {
         // Simulation provider
@@ -326,6 +424,7 @@ export function LivePaymentFlow({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             transactionHash: txHash,
+            approvalTransactionHash: approvalTxHash,
             chainUid: selectedRoute.sourceNetwork,
           }),
         }
@@ -339,8 +438,14 @@ export function LivePaymentFlow({
       setStage("verifying");
       setStatusMessage("Awaiting independent destination settlement verification…");
     } catch (err) {
-      setStage("error");
-      setFlowError(err instanceof Error ? err.message : "An unexpected execution error occurred.");
+      if (circleExecutionStarted) {
+        setStage("verifying");
+        setRecoveryRequired(true);
+        setStatusMessage("The Circle operation may have started. NODUS will check for its source burn and will not start a second one.");
+      } else {
+        setStage("error");
+        setFlowError(err instanceof Error ? err.message : "An unexpected execution error occurred.");
+      }
     }
   }
 
@@ -362,6 +467,7 @@ export function LivePaymentFlow({
 
         if (data.settled || data.attempt?.status === "SUCCESS") {
           clearInterval(interval);
+          window.localStorage.removeItem(`nodus:live-attempt:${shareToken}`);
           setStage("settled");
           setStatusMessage("Payment settled and verified on destination chain!");
           if (Array.isArray(data.receipts) && data.receipts.length > 0) {
@@ -370,8 +476,17 @@ export function LivePaymentFlow({
           onPaymentSuccess?.();
         } else if (data.attempt?.status === "FAILED") {
           clearInterval(interval);
+          window.localStorage.removeItem(`nodus:live-attempt:${shareToken}`);
           setStage("error");
           setFlowError("Payment failed on-chain. Funds were not settled.");
+        } else if (data.expired) {
+          clearInterval(interval);
+          window.localStorage.removeItem(`nodus:live-attempt:${shareToken}`);
+          setStage("error");
+          setFlowError("The payment quote expired before a source transaction was recorded. Request a fresh quote to continue.");
+        } else if (data.recoveryRequired) {
+          setRecoveryRequired(true);
+          setStatusMessage("Circle reports an incomplete execution. NODUS is preserving the attempt for manual review and will not send another burn.");
         }
       } catch {
         // Transient network error in polling - retry next interval
@@ -383,6 +498,39 @@ export function LivePaymentFlow({
       clearInterval(interval);
     };
   }, [stage, attemptId, shareToken, onPaymentSuccess]);
+
+  async function attachRecoveredSourceTransaction() {
+    if (!attemptId || !/^0x[0-9a-fA-F]{64}$/.test(recoveryTxHash.trim())) {
+      setFlowError("Enter the source CCTP transaction hash from the payer wallet or Base Sepolia explorer.");
+      return;
+    }
+    setSubmittingRecovery(true);
+    setFlowError("");
+    try {
+      const response = await fetch(
+        `/api/pay/${encodeURIComponent(shareToken)}/attempt/${attemptId}/submit`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            transactionHash: recoveryTxHash.trim(),
+            approvalTransactionHash: recoveryApprovalHash.trim() || null,
+          }),
+        }
+      );
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Could not attach this source transaction.");
+      setDepositTxHash(recoveryTxHash.trim());
+      setRecoveryRequired(false);
+      setStatusMessage("Source transaction attached. NODUS is checking the payer, burn and CCTP message before continuing.");
+      setRecoveryTxHash("");
+      setRecoveryApprovalHash("");
+    } catch (error) {
+      setFlowError(error instanceof Error ? error.message : "Could not recover this payment attempt.");
+    } finally {
+      setSubmittingRecovery(false);
+    }
+  }
 
   const busy =
     loadingRoutes ||
@@ -425,7 +573,7 @@ export function LivePaymentFlow({
       </h3>
 
       {loadingRoutes ? (
-        <p className="wallet-description">Discovering best execution routes across Superbridge & Circle…</p>
+        <p className="wallet-description">Checking Circle USDC payment routes…</p>
       ) : routesError ? (
         <div className="wallet-asset-error" role="alert">
           <p>{routesError}</p>
@@ -481,14 +629,22 @@ export function LivePaymentFlow({
             <div>
               <dt>You pay (source)</dt>
               <dd>
-                {formatUnits(selectedRoute.requestedAmount, selectedRoute.sourceDecimals)}{" "}
+                {circleQuote ? circleQuote.totalDebit : formatUnits(selectedRoute.requestedAmount, selectedRoute.sourceDecimals)}{" "}
                 {selectedRoute.sourceSymbol} on {getWalletNetwork(selectedRoute.sourceNetwork)?.label ?? selectedRoute.sourceNetwork}
               </dd>
             </div>
+            {circleQuote && <>
+              <div><dt>Circle fee total</dt><dd>{circleQuote.feeTotal} USDC</dd></div>
+              {circleQuote.feeItems.map((fee, index) => (
+                <div key={`${fee.type}-${index}`}><dt>Circle fee · {fee.type}</dt><dd>{fee.amount} USDC</dd></div>
+              ))}
+              <div><dt>Quote expires</dt><dd>{new Date(circleQuote.expiresAt).toLocaleString()}</dd></div>
+              <div><dt>Estimated Base Sepolia gas</dt><dd>{formatEther(BigInt(circleQuote.gasWei))} ETH</dd></div>
+            </>}
             <div>
-              <dt>Guaranteed minimum received</dt>
+              <dt>Expected / minimum received</dt>
               <dd>
-                {formatUnits(selectedRoute.minReceivedAmount, selectedRoute.destinationDecimals)}{" "}
+                {circleQuote ? circleQuote.amountReceived : formatUnits(selectedRoute.minReceivedAmount, selectedRoute.destinationDecimals)}{" "}
                 {selectedRoute.destinationSymbol} on {getWalletNetwork(selectedRoute.destinationNetwork)?.label ?? selectedRoute.destinationNetwork}
               </dd>
             </div>
@@ -499,7 +655,7 @@ export function LivePaymentFlow({
             <div>
               <dt>Recipient settlement</dt>
               <dd>
-                <code style={{ fontSize: "0.8125rem" }}>{shortHash(selectedRoute.recipientAddress)}</code>
+                <code style={{ fontSize: "0.8125rem", overflowWrap: "anywhere" }}>{selectedRoute.recipientAddress}</code>
               </dd>
             </div>
             {depositTxHash && (
@@ -512,11 +668,42 @@ export function LivePaymentFlow({
             )}
           </dl>
 
+          {selectedRoute.provider === "circle_cctp" && (
+            <p className="wallet-description" style={{ marginTop: "0.75rem" }}>
+              Your wallet may request USDC approval, followed by the Circle CCTP burn transaction. Review each transaction in your wallet. NODUS will wait for and independently verify the Arbitrum Sepolia transfer before marking this invoice paid.
+            </p>
+          )}
+
           {statusMessage && (
             <p className="wallet-inline-status" style={{ margin: "0.75rem 0", color: "#1e293b" }}>
               {stage === "verifying" ? "● " : ""}
               {statusMessage}
             </p>
+          )}
+
+          {recoveryRequired && attemptId && (
+            <div style={{ marginTop: "0.75rem", padding: "0.75rem", border: "1px solid #fbbf24", borderRadius: "6px", background: "#fffbeb" }}>
+              <p style={{ margin: "0 0 0.5rem", fontSize: "0.8125rem", color: "#78350f" }}>
+                Find the source CCTP burn in the payer wallet or Base Sepolia explorer and attach its transaction hash. This resumes verification; it does not send another burn.
+              </p>
+              <input
+                aria-label="Source CCTP transaction hash"
+                value={recoveryTxHash}
+                onChange={(event) => setRecoveryTxHash(event.target.value)}
+                placeholder="0x… source transaction hash"
+                style={{ width: "100%", padding: "0.5rem", marginBottom: "0.5rem", fontFamily: "monospace" }}
+              />
+              <input
+                aria-label="Optional USDC approval transaction hash"
+                value={recoveryApprovalHash}
+                onChange={(event) => setRecoveryApprovalHash(event.target.value)}
+                placeholder="Optional approval transaction hash"
+                style={{ width: "100%", padding: "0.5rem", marginBottom: "0.5rem", fontFamily: "monospace" }}
+              />
+              <button type="button" className="wallet-primary-button" disabled={submittingRecovery} onClick={() => void attachRecoveredSourceTransaction()}>
+                {submittingRecovery ? "Attaching…" : "Resume verification"}
+              </button>
+            </div>
           )}
 
           {destinationReceipts.length > 0 && (
@@ -538,7 +725,9 @@ export function LivePaymentFlow({
                 disabled={busy}
                 onClick={() => void handleAuthorizePayment()}
               >
-                {busy ? "Preparing…" : `Authorize payment (${formatUnits(selectedRoute.requestedAmount, selectedRoute.sourceDecimals)} ${selectedRoute.sourceSymbol})`}
+                {busy ? "Preparing…" : circleQuote
+                  ? `Authorize payment (${circleQuote.totalDebit} USDC)`
+                  : "Get Circle quote"}
               </button>
             </div>
           )}

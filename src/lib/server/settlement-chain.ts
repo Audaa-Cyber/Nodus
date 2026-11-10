@@ -50,9 +50,14 @@ export async function verifyEvmDestinationTransfers(input: {
   const chain = evmWalletChains.find((candidate) => candidate.id === network.chainId);
   if (!chain) throw new Error("settlement_chain_unsupported");
   const client = createPublicClient({ chain, transport: http(rpcUrl, { timeout: 12_000, retryCount: 1 }) });
+  const minimum = BigInt(input.amount);
   let received = 0n;
+  let matchingTransfers = 0;
   let finalityConfirmed = true;
   const hashes = input.transactionHashes as Hash[];
+  // A CCTP destination mint/forward is a single destination execution. Do not
+  // aggregate unrelated transactions (or multiple transfer logs) into a proof.
+  if (hashes.length !== 1) throw new Error("invalid_destination_transaction_count");
   for (const hash of hashes) {
     const receipt = await deadline(client.getTransactionReceipt({ hash }));
     if (receipt.status !== "success") throw new Error("destination_transaction_failed");
@@ -62,11 +67,15 @@ export async function verifyEvmDestinationTransfers(input: {
     for (const log of logs) {
       if (!log.address || !isAddressEqual(log.address, input.contractAddress as Address)) continue;
       if (!log.args.to || !isAddressEqual(log.args.to, input.recipient as Address)) continue;
-      if (typeof log.args.value === "bigint") received += log.args.value;
+      if (typeof log.args.value === "bigint") {
+        matchingTransfers += 1;
+        received = log.args.value;
+      }
     }
   }
+  if (matchingTransfers !== 1) throw new Error("destination_transfer_event_count_mismatch");
   return {
-    verified: received > 0n,
+    verified: received >= minimum,
     assetId: input.assetId,
     network: key,
     contractAddress: input.contractAddress,

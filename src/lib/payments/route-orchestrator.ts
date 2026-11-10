@@ -1,5 +1,4 @@
 import { getCircleChain, isCctpRouteSupported } from "../server/circle.ts";
-import { fetchSuperbridgeRoutes, isSuperbridgeConfigured } from "../server/superbridge.ts";
 import { getWalletNetwork } from "../wallet/networks.ts";
 
 export interface RouteDiscoveryInput {
@@ -19,7 +18,7 @@ export interface RouteDiscoveryInput {
 
 export interface StandardizedRouteQuote {
   id: string;
-  provider: "circle_direct" | "circle_cctp" | "superbridge" | "simulation";
+  provider: "circle_direct" | "circle_cctp" | "simulation";
   providerLabel: string;
   sourceAssetId: string;
   sourceNetwork: string;
@@ -72,8 +71,6 @@ export async function discoverPaymentRoutes(
     sourceNetwork,
     sourceSymbol,
     sourceDecimals,
-    sourceContractAddress,
-    senderAddress,
     isTestnet = false,
   } = input;
 
@@ -88,7 +85,6 @@ export async function discoverPaymentRoutes(
 
   const candidateRoutes: StandardizedRouteQuote[] = [];
 
-  const sourceNet = getWalletNetwork(sourceNetwork);
   const destNet = getWalletNetwork(destinationNetwork);
 
   if (!destNet || destNet.family !== "evm") {
@@ -96,7 +92,6 @@ export async function discoverPaymentRoutes(
   }
 
   const destCircleInfo = getCircleChain(destinationNetwork, isTestnet);
-  const destinationContract = destCircleInfo?.usdcAddress ?? "0x0000000000000000000000000000000000000000";
 
   // =========================================================================
   // 1. PATH 1: Same-Chain Direct USDC Transfer
@@ -143,10 +138,11 @@ export async function discoverPaymentRoutes(
     candidateRoutes.push(directQuote);
   }
 
+  // This phase exposes only the supported Circle CCTP testnet pair.
   // =========================================================================
-  // 2. PATH 2: Circle CCTP Cross-Chain Native USDC Transfer
-  // =========================================================================
-  if (!isSameChain && isSourceUsdc && isCctpRouteSupported(sourceNetwork, destinationNetwork, isTestnet)) {
+  if (!isSameChain && isSourceUsdc && sourceNetwork.toLowerCase() === "base-sepolia"
+    && destinationNetwork.toLowerCase() === "arbitrum-sepolia" && isTestnet
+    && isCctpRouteSupported(sourceNetwork, destinationNetwork, isTestnet)) {
     const sourceCircle = getCircleChain(sourceNetwork, isTestnet);
     const depositMessenger = sourceCircle?.tokenMessengerAddress ?? recipientAddress;
 
@@ -172,8 +168,8 @@ export async function discoverPaymentRoutes(
       quoteExpiresAt,
       estimatedDurationSeconds: 120, // Typical CCTP cross-chain finality
       fees: {
-        protocolFeeUsd: "0.00",
-        networkFeeEstimate: "Source chain gas only",
+        protocolFeeUsd: "Circle estimate required before authorization",
+        networkFeeEstimate: "Read from connected wallet before authorization",
       },
       quoteSnapshot: {
         type: "circle_cctp",
@@ -192,77 +188,9 @@ export async function discoverPaymentRoutes(
   }
 
   // =========================================================================
-  // 3. PATH 3: Superbridge Aggregated Cross-Chain Route
-  // =========================================================================
-  if (isSuperbridgeConfigured() && sourceNet && destNet) {
-    try {
-      const fromTokenAddress = sourceContractAddress ?? "0x0000000000000000000000000000000000000000";
-      const toTokenAddress = destinationContract;
-
-      const sbResult = await fetchSuperbridgeRoutes({
-        fromChainId: String(sourceNet.chainId ?? 1),
-        toChainId: String(destNet.chainId ?? 8453),
-        fromTokenAddress,
-        toTokenAddress,
-        amount: requiredBaseUnits,
-        sender: senderAddress,
-        recipient: recipientAddress,
-        slippage: 0.005,
-      });
-
-      if (sbResult.success && sbResult.routes && Array.isArray((sbResult.routes as unknown as { routes?: unknown[] }).routes)) {
-        const rawRoutes = (sbResult.routes as unknown as { routes: Array<Record<string, unknown>> }).routes;
-        for (const r of rawRoutes) {
-          const toAmount = String(r.toAmount ?? r.amountOut ?? "0");
-          const minToAmount = String(r.minToAmount ?? r.minAmountOut ?? toAmount);
-
-          // STRICT CHECK: minReceivedAmount must cover requiredBaseUnits!
-          const covers = BigInt(minToAmount) >= BigInt(requiredBaseUnits);
-          if (!covers) continue; // Reject quotes that do not cover invoice!
-
-          const depositAddr = String(r.depositAddress ?? r.contractAddress ?? recipientAddress);
-          candidateRoutes.push({
-            id: `nodus-sb-${String(r.id ?? invoiceId)}-${Date.now()}`,
-            provider: "superbridge",
-            providerLabel: String(r.name ?? "Superbridge Route"),
-            sourceAssetId,
-            sourceNetwork,
-            sourceSymbol,
-            sourceDecimals,
-            destinationAssetId: `${destinationNetwork}:usdc`,
-            destinationNetwork,
-            destinationSymbol: "USDC",
-            destinationDecimals: 6,
-            recipientAddress,
-            depositAddress: depositAddr,
-            depositMemo: null,
-            requestedAmount: String(r.fromAmount ?? requiredBaseUnits),
-            expectedReceivedAmount: toAmount,
-            minReceivedAmount: minToAmount,
-            coversInvoice: true,
-            quoteExpiresAt,
-            estimatedDurationSeconds: Number(r.estimatedDuration ?? 180),
-            fees: {
-              protocolFeeUsd: String(r.feeUsd ?? "0.00"),
-              networkFeeEstimate: "Estimated in gas",
-            },
-            quoteSnapshot: {
-              type: "superbridge",
-              rawRoute: r,
-              requiredBaseUnits,
-            },
-          });
-        }
-      }
-    } catch {
-      // Superbridge query failure fails softly to allow other candidate routes
-    }
-  }
-
-  // =========================================================================
   // 4. MOCK / SIMULATION FALLBACK (when in mock mode or for verification)
   // =========================================================================
-  if (candidateRoutes.length === 0) {
+  if (candidateRoutes.length === 0 && process.env.PAYMENT_MODE === "mock") {
     candidateRoutes.push({
       id: `nodus-sim-${invoiceId}-${Date.now()}`,
       provider: "simulation",
