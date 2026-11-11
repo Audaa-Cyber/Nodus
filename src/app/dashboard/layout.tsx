@@ -11,7 +11,7 @@ async function SidebarBusiness() {
   return (
     <div className="flex items-center justify-between">
       <span id="sidebarBusinessName" className="text-sm font-semibold text-slate-900 truncate">
-        {business?.business_name ?? "Cars"}
+        {business?.business_name ?? "Workspace"}
       </span>
       <span className="w-2 h-2 rounded-full bg-emerald-500" title="Active Workspace" />
     </div>
