@@ -1,10 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useActionState, useEffect } from "react";
 import { forgotPasswordAction, type FormState } from "@/app/actions/auth";
 
 export function ForgotPasswordForm() {
+  const searchParams = useSearchParams();
+  const isExpired = searchParams?.get("error") === "expired";
   const [state, action, pending] = useActionState<FormState, FormData>(forgotPasswordAction, {});
 
   useEffect(() => {
@@ -30,6 +33,11 @@ export function ForgotPasswordForm() {
           placeholder="you@example.com"
         />
       </label>
+      {isExpired && !state.error && !state.success && (
+        <p className="form-error" role="alert">
+          Your reset link has expired or is invalid. Request a new one below.
+        </p>
+      )}
       {state.error && <p className="form-error" role="alert">{state.error}</p>}
       {state.success && <p className="form-success" role="status">{state.success}</p>}
       <button type="submit" className="button button-dark auth-submit" disabled={pending}>

@@ -1,0 +1,1 @@
+C:\Users\Nimox\OneDrive\Documents\nodus\Nodus\contracts\payment-registry\target\cargo-near-abi\debug\nodus_payment_registry.dll: C:\Users\Nimox\OneDrive\Documents\nodus\Nodus\contracts\payment-registry\src\lib.rs

@@ -1,0 +1,546 @@
+{
+  "schema_version": "0.4.0",
+  "metadata": {
+    "name": "nodus-payment-registry",
+    "version": "0.1.0"
+  },
+  "body": {
+    "functions": [
+      {
+        "name": "add_attestor",
+        "kind": "call",
+        "params": {
+          "serialization_type": "json",
+          "args": [
+            {
+              "name": "account_id",
+              "type_schema": {
+                "description": "NEAR Account Identifier.\n\nThis is a unique, syntactically valid, human-readable account identifier on the NEAR network.\n\n[See the crate-level docs for information about validation.](index.html#account-id-rules)\n\nAlso see [Error kind precedence](AccountId#error-kind-precedence).\n\n## Examples\n\n``` use near_account_id::AccountId;\n\nlet alice: AccountId = \"alice.near\".parse().unwrap();\n\nassert!(\"ƒelicia.near\".parse::<AccountId>().is_err()); // (ƒ is not f) ```",
+                "type": "string"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "name": "attest_settlement",
+        "kind": "call",
+        "params": {
+          "serialization_type": "json",
+          "args": [
+            {
+              "name": "input",
+              "type_schema": {
+                "$ref": "#/definitions/AttestationInput"
+              }
+            }
+          ]
+        },
+        "result": {
+          "serialization_type": "json",
+          "type_schema": {
+            "$ref": "#/definitions/SettlementRecord"
+          }
+        }
+      },
+      {
+        "name": "contract_source_metadata",
+        "kind": "view"
+      },
+      {
+        "name": "get_attempt",
+        "kind": "view",
+        "params": {
+          "serialization_type": "json",
+          "args": [
+            {
+              "name": "attempt_id",
+              "type_schema": {
+                "type": "string"
+              }
+            }
+          ]
+        },
+        "result": {
+          "serialization_type": "json",
+          "type_schema": {
+            "anyOf": [
+              {
+                "$ref": "#/definitions/AttemptRecord"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "name": "get_invoice",
+        "kind": "view",
+        "params": {
+          "serialization_type": "json",
+          "args": [
+            {
+              "name": "invoice_id",
+              "type_schema": {
+                "type": "string"
+              }
+            }
+          ]
+        },
+        "result": {
+          "serialization_type": "json",
+          "type_schema": {
+            "anyOf": [
+              {
+                "$ref": "#/definitions/InvoiceRecord"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "name": "get_settlement",
+        "kind": "view",
+        "params": {
+          "serialization_type": "json",
+          "args": [
+            {
+              "name": "reconciliation_id",
+              "type_schema": {
+                "type": "string"
+              }
+            }
+          ]
+        },
+        "result": {
+          "serialization_type": "json",
+          "type_schema": {
+            "anyOf": [
+              {
+                "$ref": "#/definitions/SettlementRecord"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "name": "is_attestor",
+        "kind": "view",
+        "params": {
+          "serialization_type": "json",
+          "args": [
+            {
+              "name": "account_id",
+              "type_schema": {
+                "description": "NEAR Account Identifier.\n\nThis is a unique, syntactically valid, human-readable account identifier on the NEAR network.\n\n[See the crate-level docs for information about validation.](index.html#account-id-rules)\n\nAlso see [Error kind precedence](AccountId#error-kind-precedence).\n\n## Examples\n\n``` use near_account_id::AccountId;\n\nlet alice: AccountId = \"alice.near\".parse().unwrap();\n\nassert!(\"ƒelicia.near\".parse::<AccountId>().is_err()); // (ƒ is not f) ```",
+                "type": "string"
+              }
+            }
+          ]
+        },
+        "result": {
+          "serialization_type": "json",
+          "type_schema": {
+            "type": "boolean"
+          }
+        }
+      },
+      {
+        "name": "new",
+        "kind": "call",
+        "modifiers": [
+          "init"
+        ],
+        "params": {
+          "serialization_type": "json",
+          "args": [
+            {
+              "name": "owner_id",
+              "type_schema": {
+                "description": "NEAR Account Identifier.\n\nThis is a unique, syntactically valid, human-readable account identifier on the NEAR network.\n\n[See the crate-level docs for information about validation.](index.html#account-id-rules)\n\nAlso see [Error kind precedence](AccountId#error-kind-precedence).\n\n## Examples\n\n``` use near_account_id::AccountId;\n\nlet alice: AccountId = \"alice.near\".parse().unwrap();\n\nassert!(\"ƒelicia.near\".parse::<AccountId>().is_err()); // (ƒ is not f) ```",
+                "type": "string"
+              }
+            },
+            {
+              "name": "registrar_id",
+              "type_schema": {
+                "description": "NEAR Account Identifier.\n\nThis is a unique, syntactically valid, human-readable account identifier on the NEAR network.\n\n[See the crate-level docs for information about validation.](index.html#account-id-rules)\n\nAlso see [Error kind precedence](AccountId#error-kind-precedence).\n\n## Examples\n\n``` use near_account_id::AccountId;\n\nlet alice: AccountId = \"alice.near\".parse().unwrap();\n\nassert!(\"ƒelicia.near\".parse::<AccountId>().is_err()); // (ƒ is not f) ```",
+                "type": "string"
+              }
+            },
+            {
+              "name": "initial_attestor",
+              "type_schema": {
+                "description": "NEAR Account Identifier.\n\nThis is a unique, syntactically valid, human-readable account identifier on the NEAR network.\n\n[See the crate-level docs for information about validation.](index.html#account-id-rules)\n\nAlso see [Error kind precedence](AccountId#error-kind-precedence).\n\n## Examples\n\n``` use near_account_id::AccountId;\n\nlet alice: AccountId = \"alice.near\".parse().unwrap();\n\nassert!(\"ƒelicia.near\".parse::<AccountId>().is_err()); // (ƒ is not f) ```",
+                "type": "string"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "name": "register_attempt",
+        "kind": "call",
+        "params": {
+          "serialization_type": "json",
+          "args": [
+            {
+              "name": "attempt_id",
+              "type_schema": {
+                "type": "string"
+              }
+            },
+            {
+              "name": "invoice_id",
+              "type_schema": {
+                "type": "string"
+              }
+            },
+            {
+              "name": "source_chain_id",
+              "type_schema": {
+                "type": "integer",
+                "format": "uint64",
+                "minimum": 0.0
+              }
+            }
+          ]
+        }
+      },
+      {
+        "name": "register_invoice",
+        "kind": "call",
+        "params": {
+          "serialization_type": "json",
+          "args": [
+            {
+              "name": "invoice_id",
+              "type_schema": {
+                "type": "string"
+              }
+            },
+            {
+              "name": "terms",
+              "type_schema": {
+                "$ref": "#/definitions/InvoiceTerms"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "name": "remove_attestor",
+        "kind": "call",
+        "params": {
+          "serialization_type": "json",
+          "args": [
+            {
+              "name": "account_id",
+              "type_schema": {
+                "description": "NEAR Account Identifier.\n\nThis is a unique, syntactically valid, human-readable account identifier on the NEAR network.\n\n[See the crate-level docs for information about validation.](index.html#account-id-rules)\n\nAlso see [Error kind precedence](AccountId#error-kind-precedence).\n\n## Examples\n\n``` use near_account_id::AccountId;\n\nlet alice: AccountId = \"alice.near\".parse().unwrap();\n\nassert!(\"ƒelicia.near\".parse::<AccountId>().is_err()); // (ƒ is not f) ```",
+                "type": "string"
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "root_schema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "String",
+      "type": "string",
+      "definitions": {
+        "AttemptRecord": {
+          "type": "object",
+          "required": [
+            "attempt_id",
+            "attempt_terms_commitment",
+            "invoice_id",
+            "source_chain_id",
+            "source_token_address",
+            "status"
+          ],
+          "properties": {
+            "attempt_id": {
+              "type": "string"
+            },
+            "attempt_terms_commitment": {
+              "type": "string"
+            },
+            "invoice_id": {
+              "type": "string"
+            },
+            "reconciliation_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "source_chain_id": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            },
+            "source_token_address": {
+              "type": "string"
+            },
+            "status": {
+              "$ref": "#/definitions/AttemptStatus"
+            }
+          }
+        },
+        "AttemptStatus": {
+          "type": "string",
+          "enum": [
+            "Registered",
+            "SettlementRecorded"
+          ]
+        },
+        "AttestationInput": {
+          "type": "object",
+          "required": [
+            "amount_base_units",
+            "attempt_id",
+            "cctp_message_hash",
+            "cctp_message_nonce",
+            "destination_block_hash",
+            "destination_block_number",
+            "destination_chain_id",
+            "destination_transaction_hash",
+            "evidence_digest",
+            "merchant_recipient",
+            "reconciliation_id",
+            "source_block_hash",
+            "source_block_number",
+            "source_chain_id",
+            "source_transaction_hash",
+            "token_address",
+            "token_decimals",
+            "verifier_policy_version"
+          ],
+          "properties": {
+            "amount_base_units": {
+              "type": "string"
+            },
+            "attempt_id": {
+              "type": "string"
+            },
+            "cctp_message_hash": {
+              "type": "string"
+            },
+            "cctp_message_nonce": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            },
+            "destination_block_hash": {
+              "type": "string"
+            },
+            "destination_block_number": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            },
+            "destination_chain_id": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            },
+            "destination_transaction_hash": {
+              "type": "string"
+            },
+            "evidence_digest": {
+              "type": "string"
+            },
+            "merchant_recipient": {
+              "type": "string"
+            },
+            "reconciliation_id": {
+              "type": "string"
+            },
+            "source_block_hash": {
+              "type": "string"
+            },
+            "source_block_number": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            },
+            "source_chain_id": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            },
+            "source_transaction_hash": {
+              "type": "string"
+            },
+            "token_address": {
+              "type": "string"
+            },
+            "token_decimals": {
+              "type": "integer",
+              "format": "uint8",
+              "minimum": 0.0
+            },
+            "verifier_policy_version": {
+              "type": "integer",
+              "format": "uint32",
+              "minimum": 0.0
+            }
+          }
+        },
+        "InvoiceRecord": {
+          "type": "object",
+          "required": [
+            "invoice_id",
+            "received_base_units",
+            "status",
+            "terms",
+            "terms_commitment"
+          ],
+          "properties": {
+            "invoice_id": {
+              "type": "string"
+            },
+            "received_base_units": {
+              "type": "string"
+            },
+            "status": {
+              "$ref": "#/definitions/InvoiceStatus"
+            },
+            "terms": {
+              "$ref": "#/definitions/InvoiceTerms"
+            },
+            "terms_commitment": {
+              "type": "string"
+            }
+          }
+        },
+        "InvoiceStatus": {
+          "type": "string",
+          "enum": [
+            "Open",
+            "Paid",
+            "ReviewRequired"
+          ]
+        },
+        "InvoiceTerms": {
+          "type": "object",
+          "required": [
+            "amount_minor",
+            "currency",
+            "destination_chain_id",
+            "merchant_recipient",
+            "token_address",
+            "token_decimals"
+          ],
+          "properties": {
+            "amount_minor": {
+              "type": "string"
+            },
+            "currency": {
+              "type": "string"
+            },
+            "destination_chain_id": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            },
+            "merchant_recipient": {
+              "type": "string"
+            },
+            "token_address": {
+              "type": "string"
+            },
+            "token_decimals": {
+              "type": "integer",
+              "format": "uint8",
+              "minimum": 0.0
+            }
+          }
+        },
+        "SettlementOutcome": {
+          "type": "string",
+          "enum": [
+            "Partial",
+            "Verified",
+            "Overpaid"
+          ]
+        },
+        "SettlementRecord": {
+          "type": "object",
+          "required": [
+            "amount_base_units",
+            "attempt_id",
+            "destination_chain_id",
+            "destination_transaction_hash",
+            "evidence_digest",
+            "invoice_id",
+            "merchant_recipient",
+            "outcome",
+            "reconciliation_id",
+            "source_chain_id",
+            "source_transaction_hash",
+            "token_address",
+            "token_decimals"
+          ],
+          "properties": {
+            "amount_base_units": {
+              "type": "string"
+            },
+            "attempt_id": {
+              "type": "string"
+            },
+            "destination_chain_id": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            },
+            "destination_transaction_hash": {
+              "type": "string"
+            },
+            "evidence_digest": {
+              "type": "string"
+            },
+            "invoice_id": {
+              "type": "string"
+            },
+            "merchant_recipient": {
+              "type": "string"
+            },
+            "outcome": {
+              "$ref": "#/definitions/SettlementOutcome"
+            },
+            "reconciliation_id": {
+              "type": "string"
+            },
+            "source_chain_id": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            },
+            "source_transaction_hash": {
+              "type": "string"
+            },
+            "token_address": {
+              "type": "string"
+            },
+            "token_decimals": {
+              "type": "integer",
+              "format": "uint8",
+              "minimum": 0.0
+            }
+          }
+        }
+      }
+    }
+  }
+}

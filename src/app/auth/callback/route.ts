@@ -1,10 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import type { EmailOtpType } from "@supabase/supabase-js";
 import { normalizeSupabaseUrl } from "@/config/env.client";
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = request.nextUrl;
   const code = searchParams.get("code");
+  const tokenHash = searchParams.get("token_hash");
+  const type = searchParams.get("type") as EmailOtpType | null;
   const next = searchParams.get("next") ?? "/dashboard";
 
   // Validate redirect target to prevent open redirect vulnerabilities
@@ -16,7 +19,7 @@ export async function GET(request: NextRequest) {
   const isLocalEnv = process.env.NODE_ENV === "development";
   const redirectOrigin = !isLocalEnv && forwardedHost ? `https://${forwardedHost}` : origin;
 
-  if (!code) {
+  if (!code && !tokenHash) {
     return NextResponse.redirect(new URL("/login?error=confirmation", redirectOrigin));
   }
 
@@ -42,12 +45,16 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
-
-    if (error) {
-      // In PKCE flow, if the user hits the back button or reuses a consumed code,
-      // return a graceful redirect to login instead of throwing an unhandled error.
-      return NextResponse.redirect(new URL("/login?error=expired", redirectOrigin));
+    if (code) {
+      const { error } = await supabase.auth.exchangeCodeForSession(code);
+      if (error) {
+        return NextResponse.redirect(new URL("/login?error=expired", redirectOrigin));
+      }
+    } else if (tokenHash && type) {
+      const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type });
+      if (error) {
+        return NextResponse.redirect(new URL("/login?error=expired", redirectOrigin));
+      }
     }
 
     return redirectResponse;

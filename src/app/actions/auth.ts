@@ -19,7 +19,16 @@ export async function signUpAction(_previous: FormState, formData: FormData): Pr
     password,
     options: { data: { business_name: businessName }, emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/auth/callback?next=/dashboard` },
   });
-  if (error) return { error: error.message.includes("already registered") ? "An account with this email already exists. Try logging in." : "We could not create your account. Check your details and try again." };
+  if (error) {
+    if (error.message.includes("rate limit")) {
+      return { error: "Too many sign up requests. Please wait a moment and try again." };
+    }
+    return {
+      error: error.message.includes("already registered")
+        ? "An account with this email already exists. Try logging in."
+        : "We could not create your account. Check your details and try again.",
+    };
+  }
   if (!data.session) return { success: "Check your email for a confirmation link. Your business profile will be ready when you verify your address." };
   redirect("/dashboard", RedirectType.replace);
 }
@@ -31,7 +40,15 @@ export async function signInAction(_previous: FormState, formData: FormData): Pr
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || password.length === 0) return { error: "Enter a valid email and password." };
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) return { error: "Email or password is incorrect." };
+  if (error) {
+    if (error.message.toLowerCase().includes("email not confirmed")) {
+      return { error: "Please verify your email address before signing in. Check your inbox for the confirmation link." };
+    }
+    if (error.message.includes("rate limit")) {
+      return { error: "Too many sign in attempts. Please wait a moment and try again." };
+    }
+    return { error: "Email or password is incorrect." };
+  }
   redirect(next.startsWith("/dashboard") ? next : "/dashboard", RedirectType.replace);
 }
 
