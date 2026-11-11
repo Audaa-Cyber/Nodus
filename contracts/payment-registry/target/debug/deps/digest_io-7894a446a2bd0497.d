@@ -1,0 +1,11 @@
+C:\Users\Nimox\OneDrive\Documents\nodus\Nodus\contracts\payment-registry\target\debug\deps\digest_io-7894a446a2bd0497.d: C:\Users\Nimox\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-io-0.1.0\src\lib.rs C:\Users\Nimox\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-io-0.1.0\src\io_wrapper.rs C:\Users\Nimox\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-io-0.1.0\src\reader.rs C:\Users\Nimox\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-io-0.1.0\src\writer.rs C:\Users\Nimox\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-io-0.1.0\src\../README.md
+
+C:\Users\Nimox\OneDrive\Documents\nodus\Nodus\contracts\payment-registry\target\debug\deps\libdigest_io-7894a446a2bd0497.rlib: C:\Users\Nimox\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-io-0.1.0\src\lib.rs C:\Users\Nimox\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-io-0.1.0\src\io_wrapper.rs C:\Users\Nimox\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-io-0.1.0\src\reader.rs C:\Users\Nimox\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-io-0.1.0\src\writer.rs C:\Users\Nimox\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-io-0.1.0\src\../README.md
+
+C:\Users\Nimox\OneDrive\Documents\nodus\Nodus\contracts\payment-registry\target\debug\deps\libdigest_io-7894a446a2bd0497.rmeta: C:\Users\Nimox\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-io-0.1.0\src\lib.rs C:\Users\Nimox\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-io-0.1.0\src\io_wrapper.rs C:\Users\Nimox\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-io-0.1.0\src\reader.rs C:\Users\Nimox\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-io-0.1.0\src\writer.rs C:\Users\Nimox\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-io-0.1.0\src\../README.md
+
+C:\Users\Nimox\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-io-0.1.0\src\lib.rs:
+C:\Users\Nimox\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-io-0.1.0\src\io_wrapper.rs:
+C:\Users\Nimox\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-io-0.1.0\src\reader.rs:
+C:\Users\Nimox\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-io-0.1.0\src\writer.rs:
+C:\Users\Nimox\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-io-0.1.0\src\../README.md:
