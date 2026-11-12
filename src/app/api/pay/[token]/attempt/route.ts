@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { isServerSupabaseConfigured } from "@/config/env.server";
+import { circleTestnetUsdcNetworks } from "@/lib/wallet/networks";
 import type { Json } from "@/types/database";
 
 export const dynamic = "force-dynamic";
@@ -90,8 +91,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
   }
   const amountBaseUnits = (BigInt(context.amount_minor) * 10_000n).toString();
   const { getCircleChain } = await import("@/lib/server/circle");
-  const destinationCircle = getCircleChain(context.receiving_network, true)
-    ?? getCircleChain(context.receiving_network, false);
+  const destinationNetworkOption = circleTestnetUsdcNetworks.find((network) => network.key === context.receiving_network);
+  const destinationCircle = destinationNetworkOption ? getCircleChain(context.receiving_network, true) : null;
   if (!destinationCircle) {
     return NextResponse.json({ error: "invoice_payment_terms_mismatch" }, { status: 409 });
   }
@@ -100,7 +101,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
   let quoteSnapshot: Record<string, unknown>;
 
   if (quoteType === "circle_cctp") {
-    const sourceCircle = getCircleChain("base-sepolia", true);
+    const sourceCircle = sourceNetwork === "base-sepolia" ? getCircleChain(sourceNetwork, true) : null;
     if (!sourceCircle || sourceNetwork !== "base-sepolia"
         || destinationNetwork !== "arbitrum-sepolia" || context.receiving_network !== "arbitrum-sepolia"
         || requestedRecipient.toLowerCase() !== context.receiving_address.toLowerCase()
@@ -146,6 +147,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
   } else {
     // circle_direct (same-chain USDC transfer)
     if (sourceNetwork !== destinationNetwork
+        || !destinationNetworkOption
         || destinationNetwork !== context.receiving_network
         || requestedRecipient.toLowerCase() !== context.receiving_address.toLowerCase()
         || expectedReceivedAmount !== amountBaseUnits || requestedAmount !== amountBaseUnits

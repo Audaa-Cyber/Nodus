@@ -4,8 +4,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAccount, useSendTransaction, useSwitchChain } from "wagmi";
 import { formatMoney } from "@/lib/invoices";
 import { baseSepoliaChain, getWalletNetwork } from "@/lib/wallet/networks";
-import { createPublicClient, custom, formatEther, parseAbi } from "viem";
+import { createPublicClient, custom, formatEther, http, parseAbi } from "viem";
 import { executeCircleBridgeAfterFreshReservation } from "@/lib/payments/circle-execution-reservation";
+import { estimateCircleSourceGas } from "@/lib/payments/circle-gas-estimation";
 import type { WalletAsset } from "@/lib/wallet/types";
 import type { StandardizedRouteQuote } from "@/lib/payments/route-orchestrator";
 
@@ -216,23 +217,40 @@ export function LivePaymentFlow({
         if (!("amountReceived" in estimate) || typeof estimate.quote !== "string" || !estimate.quote) {
           throw new Error("Circle did not return a signed receive-exact quote.");
         }
-        const sourceGasFees = estimate.gasFees.filter((item) => item.blockchain === "Base_Sepolia");
-        if (!sourceGasFees.length || sourceGasFees.some((item) => !item.fees || item.error)) {
-          throw new Error("Circle source-chain gas estimate is unavailable; payment is not eligible.");
-        }
-        const estimatedGasWei = sourceGasFees.reduce((sum, item) => sum + BigInt(item.fees!.fee), 0n);
-        const publicClient = createPublicClient({ chain: baseSepoliaChain, transport: custom(provider as never) });
-        const [usdcBalance, nativeBalance] = await Promise.all([
-          publicClient.readContract({
-            address: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
-            abi: parseAbi(["function balanceOf(address) view returns (uint256)"]),
-            functionName: "balanceOf",
-            args: [activeAddress as `0x${string}`],
-          }),
-          publicClient.getBalance({ address: activeAddress as `0x${string}` }),
-        ]);
         const requiredUsdc = usdcToBaseUnits(estimate.totalDebit);
-        if (usdcBalance < BigInt(requiredUsdc)) throw new Error("Insufficient Base Sepolia USDC for the Circle quote.");
+        const requiredUsdcBaseUnits = BigInt(requiredUsdc);
+        const publicClient = createPublicClient({ chain: baseSepoliaChain, transport: custom(provider as never) });
+        const gasEstimate = await estimateCircleSourceGas({
+          payerAddress: activeAddress as `0x${string}`,
+          amountBaseUnits: requiredUsdcBaseUnits,
+          publicClient,
+        });
+        const estimatedGasWei = gasEstimate.estimatedGasWei;
+        let usdcBalance: bigint;
+        let nativeBalance: bigint;
+        try {
+          [usdcBalance, nativeBalance] = await Promise.all([
+            publicClient.readContract({
+              address: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+              abi: parseAbi(["function balanceOf(address) view returns (uint256)"]),
+              functionName: "balanceOf",
+              args: [activeAddress as `0x${string}`],
+            }),
+            publicClient.getBalance({ address: activeAddress as `0x${string}` }),
+          ]);
+        } catch {
+          const fallbackClient = createPublicClient({ chain: baseSepoliaChain, transport: http("https://sepolia.base.org") });
+          [usdcBalance, nativeBalance] = await Promise.all([
+            fallbackClient.readContract({
+              address: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+              abi: parseAbi(["function balanceOf(address) view returns (uint256)"]),
+              functionName: "balanceOf",
+              args: [activeAddress as `0x${string}`],
+            }),
+            fallbackClient.getBalance({ address: activeAddress as `0x${string}` }),
+          ]);
+        }
+        if (usdcBalance < requiredUsdcBaseUnits) throw new Error("Insufficient Base Sepolia USDC for the Circle quote.");
         if (nativeBalance < estimatedGasWei) throw new Error("Insufficient Base Sepolia ETH for the estimated bridge gas.");
         const expiry = estimate.quoteExpiry;
         if (expiry.mode !== "TIMESTAMP") {

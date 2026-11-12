@@ -29,6 +29,10 @@ export interface Database {
         Row: { id: string; payment_settlement_id: string; payment_attempt_id: string; invoice_id: string; business_id: string; receipt_number: string; issued_at: string };
         Insert: never; Update: never; Relationships: [];
       };
+      near_settlement_outbox: {
+        Row: { id: string; payment_settlement_id: string; reconciliation_id: string; invoice_id: string; payment_attempt_id: string; source_transaction_hash: string; destination_tx_hashes: Json; status: "pending" | "processing" | "submitted" | "blocked"; attempt_count: number; next_attempt_at: string; lock_token: string | null; locked_until: string | null; near_transaction_hash: string | null; last_error_code: string | null; created_at: string; updated_at: string; submitted_at: string | null };
+        Insert: never; Update: never; Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -46,6 +50,10 @@ export interface Database {
       close_live_attempt: { Args: { p_token_hash: string; p_attempt_id: string; p_status: Database["public"]["Enums"]["payment_attempt_status"] }; Returns: Database["public"]["Tables"]["payment_attempts"]["Row"][] };
       record_payment_reconciliation: { Args: { p_attempt_id: string; p_provider_status: Database["public"]["Enums"]["payment_attempt_status"]; p_provider_signature_verified: boolean; p_chain_transfer_verified?: boolean; p_destination_asset_id?: string | null; p_destination_network?: string | null; p_recipient_address?: string | null; p_received_amount_base_units?: string | null; p_received_asset_decimals?: number | null; p_received_value_invoice_minor?: string | null; p_destination_tx_hashes?: Json; p_evidence?: Json }; Returns: Json };
       lookup_shared_payment_receipts: { Args: { p_token_hash: string }; Returns: { receipt_number: string; invoice_number: string; business_name: string | null; outcome: Database["public"]["Enums"]["payment_settlement_outcome"]; destination_asset_id: string | null; destination_network: string | null; received_amount_base_units: string | null; received_asset_decimals: number | null; destination_tx_hashes: Json; issued_at: string }[] };
+      claim_near_settlement_outbox: { Args: { p_limit?: number }; Returns: Database["public"]["Tables"]["near_settlement_outbox"]["Row"][] };
+      finish_near_settlement_outbox: { Args: { p_id: string; p_lock_token: string; p_near_transaction_hash?: string | null }; Returns: boolean };
+      retry_near_settlement_outbox: { Args: { p_id: string; p_lock_token: string; p_error_code: string }; Returns: boolean };
+      block_near_settlement_outbox: { Args: { p_id: string; p_lock_token: string; p_error_code: string }; Returns: boolean };
     };
     Enums: {
       payment_attempt_status: "MOCK_QUOTE_READY" | "QUOTE_EXPIRED" | "PENDING_DEPOSIT" | "KNOWN_DEPOSIT_TX" | "PROCESSING" | "SUCCESS" | "REFUNDED" | "FAILED" | "INCOMPLETE_DEPOSIT";

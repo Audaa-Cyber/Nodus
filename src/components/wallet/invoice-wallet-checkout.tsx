@@ -6,12 +6,13 @@ import { formatMoney } from "@/lib/invoices";
 import {
   DEFAULT_RECOMMENDED_CHAIN_ID,
   DEFAULT_RECOMMENDED_CHAIN_NAME,
-  evmWalletChains,
+  circleTestnetUsdcNetworks,
   getEvmWalletNetwork,
   getWalletNetwork,
 } from "@/lib/wallet/networks";
 import type { WalletAsset, WalletConnectionSnapshot } from "@/lib/wallet/types";
 import { EvmWalletCard } from "./evm-wallet-card";
+import { CircleGuestWalletCard } from "./circle-guest-wallet-card";
 import { WalletProviders } from "./wallet-providers";
 import { LivePaymentFlow } from "./live-payment-flow";
 
@@ -68,7 +69,7 @@ function InvoiceWalletCheckoutContent({
   const [flowError, setFlowError] = useState("");
   const [assets, setAssets] = useState<WalletAsset[]>([]);
   const [selectedSymbol, setSelectedSymbol] = useState("USDC");
-  const [manualNetworkKey, setManualNetworkKey] = useState<string | null>(null);
+  const [selectedSourceNetworkKey, setSelectedSourceNetworkKey] = useState<string>("base-sepolia");
   const [showAdvancedNetworks, setShowAdvancedNetworks] = useState(false);
   const [switchError, setSwitchError] = useState("");
   const [loadingAssets, setLoadingAssets] = useState(true);
@@ -80,6 +81,7 @@ function InvoiceWalletCheckoutContent({
   const [storedAttemptSettled, setStoredAttemptSettled] = useState(false);
   const [storedReceipts, setStoredReceipts] = useState<Array<{ receipt_number: string; issued_at: string }>>([]);
 
+  const [walletMethod, setWalletMethod] = useState<"external" | "circle">("external");
   const [evmConnection, setEvmConnection] = useState<WalletConnectionSnapshot>({ address: null, network: null });
 
   const payable = status === "open" || status === "overdue";
@@ -132,9 +134,13 @@ function InvoiceWalletCheckoutContent({
     return getEvmWalletNetwork(evmChainId) ?? null;
   }, [isEvmConnected, evmChainId]);
 
-  // Active route requires Base Sepolia (84532). Flag if outside supported set or not on recommended chain.
-  const isWrongChainForRoute = Boolean(isEvmConnected && evmChainId !== undefined && evmChainId !== DEFAULT_RECOMMENDED_CHAIN_ID);
-  const isUnsupportedEvmNetwork = Boolean(isEvmConnected && evmChainId !== undefined && (!detectedEvmNetwork || isWrongChainForRoute));
+  const selectedSourceNetwork = useMemo(
+    () => circleTestnetUsdcNetworks.find((network) => network.key === selectedSourceNetworkKey) ?? circleTestnetUsdcNetworks[1],
+    [selectedSourceNetworkKey],
+  );
+  const selectedSourceWalletNetwork = getWalletNetwork(selectedSourceNetwork.key) ?? null;
+  const isWrongChainForRoute = Boolean(isEvmConnected && evmChainId !== selectedSourceNetwork.chainId);
+  const isUnsupportedEvmNetwork = Boolean(isEvmConnected && (!detectedEvmNetwork || isWrongChainForRoute));
 
   // Load available assets inventory (EVM only for Circle route)
   const loadAssets = useCallback(async (signal?: AbortSignal) => {
@@ -182,26 +188,19 @@ function InvoiceWalletCheckoutContent({
     return { address: null, network: null };
   }, [evmConnection]);
 
-  // The effectively resolved network: detected wallet network takes precedence over manual selection
-  const effectiveNetwork = useMemo(() => {
-    if (manualNetworkKey) {
-      const manual = getWalletNetwork(manualNetworkKey);
-      if (manual) return manual;
-    }
-    if (activeConnection.network) return activeConnection.network;
-    return null;
-  }, [manualNetworkKey, activeConnection.network]);
+  // The payer chooses the source network. Wallet network detection only reports
+  // whether the connected wallet is ready to use that choice.
+  const effectiveNetwork = selectedSourceWalletNetwork;
 
   // Filter assets matching the effective network and selected symbol
-  const availableAssetsOnNetwork = useMemo(() => {
-    if (!effectiveNetwork) return assets;
-    return assets.filter((asset) => asset.network.key === effectiveNetwork.key);
-  }, [assets, effectiveNetwork]);
+  const availableAssetsOnNetwork = useMemo(
+    () => assets.filter((asset) => asset.network.key === selectedSourceNetwork.key),
+    [assets, selectedSourceNetwork.key],
+  );
 
-  // Distinct symbols available on the detected network (or globally if not connected)
+  // Only show assets actually listed on the payer-selected testnet.
   const distinctSymbols = useMemo(() => {
-    const sourceList = effectiveNetwork ? availableAssetsOnNetwork : assets;
-    const symbols = Array.from(new Set(sourceList.map((a) => a.symbol.toUpperCase())));
+    const symbols = Array.from(new Set(availableAssetsOnNetwork.map((a) => a.symbol.toUpperCase())));
     return symbols.sort((a, b) => {
       const aIdx = POPULAR_SYMBOLS.indexOf(a as (typeof POPULAR_SYMBOLS)[number]);
       const bIdx = POPULAR_SYMBOLS.indexOf(b as (typeof POPULAR_SYMBOLS)[number]);
@@ -210,30 +209,20 @@ function InvoiceWalletCheckoutContent({
       if (bIdx !== -1) return 1;
       return a.localeCompare(b);
     });
-  }, [availableAssetsOnNetwork, assets, effectiveNetwork]);
+  }, [availableAssetsOnNetwork]);
 
-  // Resolved selected asset: prioritizes Base Sepolia for active Circle testnet route
+  // Resolve the token on the payer-selected network, independently of the wallet's current chain.
   const selectedAsset = useMemo(() => {
     if (availableAssetsOnNetwork.length === 0) return null;
-    if (effectiveNetwork) {
-      const match = availableAssetsOnNetwork.find((a) => a.symbol.toUpperCase() === selectedSymbol.toUpperCase());
-      return match ?? availableAssetsOnNetwork[0] ?? null;
-    }
-    const recommendedMatch = availableAssetsOnNetwork.find(
-      (a) => a.symbol.toUpperCase() === selectedSymbol.toUpperCase() && a.network.chainId === DEFAULT_RECOMMENDED_CHAIN_ID
-    );
-    if (recommendedMatch) return recommendedMatch;
-
-    const symbolMatch = availableAssetsOnNetwork.find((a) => a.symbol.toUpperCase() === selectedSymbol.toUpperCase());
-    return symbolMatch ?? availableAssetsOnNetwork[0] ?? null;
-  }, [availableAssetsOnNetwork, selectedSymbol, effectiveNetwork]);
+    const match = availableAssetsOnNetwork.find((a) => a.symbol.toUpperCase() === selectedSymbol.toUpperCase());
+    return match ?? availableAssetsOnNetwork[0] ?? null;
+  }, [availableAssetsOnNetwork, selectedSymbol]);
 
   // Handle guided network switch
   async function handleSwitchToNetwork(targetChainId: number) {
     setSwitchError("");
     try {
       await switchChainAsync({ chainId: targetChainId });
-      setManualNetworkKey(null);
     } catch (err) {
       const isUserRejection = err instanceof Error && /reject|denied|user refused|cancel/i.test(err.message);
       if (isUserRejection) {
@@ -332,6 +321,29 @@ function InvoiceWalletCheckoutContent({
           {/* 1. ASSET-FIRST SELECTION BAR */}
           <div className="wallet-asset-control">
             <div className="asset-selection-header">
+              <label htmlFor="payerSourceNetwork">Pay from network</label>
+              {effectiveNetwork && <span className="network-pill">{effectiveNetwork.label}</span>}
+            </div>
+            <select
+              id="payerSourceNetwork"
+              value={selectedSourceNetwork.key}
+              onChange={(event) => {
+                setSelectedSourceNetworkKey(event.target.value);
+                setAttempt(null);
+                setFlowError("");
+              }}
+              className="nodus-input font-medium"
+              aria-label="Choose the network to pay from"
+            >
+              {circleTestnetUsdcNetworks.map((network) => (
+                <option key={network.key} value={network.key}>{network.label}</option>
+              ))}
+            </select>
+            <p className="wallet-description">
+              Choose the network holding your USDC. A direct route is available when it matches the merchant network; cross-network availability depends on the supported Circle route.
+            </p>
+
+            <div className="asset-selection-header">
               <label>Select payment token</label>
               {effectiveNetwork && (
                 <span className="network-pill" title={`Detected network: ${effectiveNetwork.label}`}>
@@ -384,35 +396,66 @@ function InvoiceWalletCheckoutContent({
             )}
           </div>
 
-          {/* 2. GUIDED NETWORK SWITCH BANNER (RECOMMENDS BASE SEPOLIA) */}
+          {/* The payer can choose a supported testnet and switch the wallet to match. */}
           {isUnsupportedEvmNetwork && (
             <div className="wallet-switch-alert" role="alert">
               <div>
                 <p className="wallet-eyebrow" style={{ color: "#8c2f22" }}>
-                  {detectedEvmNetwork ? "SWITCH TO PAYMENT NETWORK" : "UNSUPPORTED NETWORK DETECTED"}
+                  {detectedEvmNetwork ? "SWITCH TO SELECTED NETWORK" : "UNSUPPORTED NETWORK DETECTED"}
                 </p>
                 <p className="wallet-inline-status" style={{ color: "#54211b" }}>
-                  This payment route settles through Circle CCTP from {DEFAULT_RECOMMENDED_CHAIN_NAME}. Please switch your wallet to {DEFAULT_RECOMMENDED_CHAIN_NAME} to continue.
+                  You selected {selectedSourceNetwork.label}. Switch your wallet to that network to continue, or choose another network above.
                 </p>
               </div>
               <button
                 type="button"
                 className="wallet-primary-button"
                 disabled={isSwitchingChain}
-                onClick={() => void handleSwitchToNetwork(DEFAULT_RECOMMENDED_CHAIN_ID)}
+                onClick={() => void handleSwitchToNetwork(selectedSourceNetwork.chainId)}
               >
-                {isSwitchingChain ? "Approve switch in wallet…" : `Switch to ${DEFAULT_RECOMMENDED_CHAIN_NAME} (Recommended)`}
+                {isSwitchingChain ? "Approve switch in wallet…" : `Switch to ${selectedSourceNetwork.label}`}
               </button>
               {switchError && <p className="wallet-error" role="alert">{switchError}</p>}
             </div>
           )}
 
-          {/* 3. EVM WALLET CONNECTION (SOLANA NOT EXPOSED FOR CIRCLE ROUTE) */}
+          {/* 3. WALLET METHOD SELECTION & EVM CONNECTION */}
+          <div className="wallet-method-selector" style={{ marginBottom: "1rem" }}>
+            <div className="asset-selection-header" style={{ marginBottom: "0.5rem" }}>
+              <label>Wallet method</label>
+            </div>
+            <div style={{ display: "flex", gap: "0.5rem" }}>
+              <button
+                type="button"
+                className={`asset-choice-pill ${walletMethod === "external" ? "is-selected" : ""}`}
+                onClick={() => setWalletMethod("external")}
+              >
+                <span>Browser / External Wallet</span>
+                <span className="asset-tag" style={{ marginLeft: "0.5rem" }}>POPULAR</span>
+              </button>
+              <button
+                type="button"
+                className={`asset-choice-pill ${walletMethod === "circle" ? "is-selected" : ""}`}
+                onClick={() => setWalletMethod("circle")}
+              >
+                <span>Circle Wallet</span>
+                <span style={{ fontSize: "0.65rem", padding: "1px 6px", borderRadius: "4px", background: "rgba(0,0,0,0.06)", marginLeft: "0.5rem" }}>OPTIONAL</span>
+              </button>
+            </div>
+          </div>
+
           <div className="wallet-card-grid" style={{ gridTemplateColumns: "1fr" }}>
-            <EvmWalletCard
-              selectedChainId={selectedAsset?.network.chainId ?? DEFAULT_RECOMMENDED_CHAIN_ID}
-              onConnectionChange={updateEvmConnection}
-            />
+            {walletMethod === "external" ? (
+              <EvmWalletCard
+                selectedChainId={selectedAsset?.network.chainId ?? DEFAULT_RECOMMENDED_CHAIN_ID}
+                onConnectionChange={updateEvmConnection}
+              />
+            ) : (
+              <CircleGuestWalletCard
+                selectedChainId={selectedAsset?.network.chainId ?? DEFAULT_RECOMMENDED_CHAIN_ID}
+                onConnectionChange={updateEvmConnection}
+              />
+            )}
           </div>
 
           {/* 4. PROGRESSIVE DISCLOSURE: MANUAL NETWORK SWITCHING / ADVANCED */}
@@ -430,20 +473,24 @@ function InvoiceWalletCheckoutContent({
               {showAdvancedNetworks && (
                 <div className="network-disclosure-panel">
                   <p className="wallet-description">
-                    The active Circle CCTP route requires {DEFAULT_RECOMMENDED_CHAIN_NAME}. You can switch to any supported testnet or network below.
+                    Choose a payer network above, then switch the connected wallet to match it.
                   </p>
                   <div className="network-switch-pills">
-                    {evmWalletChains.map((chain) => {
-                      const isCurrent = detectedEvmNetwork.chainId === chain.id;
+                    {circleTestnetUsdcNetworks.map((network) => {
+                      const isCurrent = detectedEvmNetwork.chainId === network.chainId;
                       return (
                         <button
-                          key={chain.id}
+                          key={network.key}
                           type="button"
-                          className={`network-switch-pill ${isCurrent ? "is-active" : ""}`}
-                          disabled={isCurrent || isSwitchingChain}
-                          onClick={() => void handleSwitchToNetwork(chain.id)}
+                          className={`network-switch-pill ${network.key === selectedSourceNetwork.key ? "is-active" : ""}`}
+                          disabled={isSwitchingChain}
+                          onClick={() => {
+                            setSelectedSourceNetworkKey(network.key);
+                            setAttempt(null);
+                            void handleSwitchToNetwork(network.chainId);
+                          }}
                         >
-                          <span>{chain.name}</span>
+                          <span>{network.label}</span>
                           {isCurrent && <span className="current-badge">ACTIVE</span>}
                         </button>
                       );

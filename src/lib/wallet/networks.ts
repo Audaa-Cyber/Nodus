@@ -92,6 +92,13 @@ export const evmWalletChains = [
   optimismSepoliaChain,
 ] as const;
 
+// Circle checkout currently lists USDC on these testnets. Other chains remain
+// available to the broader wallet UI but are not presented as live checkout routes.
+export const circleTestnetUsdcNetworks = [
+  { key: "base-sepolia", label: "Base Sepolia", chainId: baseSepoliaChain.id },
+  { key: "arbitrum-sepolia", label: "Arbitrum Sepolia", chainId: arbitrumSepoliaChain.id },
+] as const;
+
 export type WalletNetwork = {
   key: string;
   label: string;

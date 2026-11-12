@@ -45,3 +45,12 @@ test("manual recovery requests only a source burn hash and links to Base Sepolia
   assert.doesNotMatch(flow, /Optional USDC approval transaction hash/);
   assert.match(styles, /\.wallet-recovery-panel/);
 });
+
+test("Circle checkout estimates source gas safely without relying on empty AppKit gasFees and guards ETH balance fail-closed", () => {
+  assert.match(flow, /import\s*\{[^}]*estimateCircleSourceGas[^}]*\}\s*from\s*"@\/lib\/payments\/circle-gas-estimation"/);
+  assert.match(flow, /const gasEstimate = await estimateCircleSourceGas\(\{[\s\S]*?payerAddress: activeAddress as `0x\$\{string\}`,\s*amountBaseUnits: requiredUsdcBaseUnits,\s*publicClient,/);
+  assert.match(flow, /if \(nativeBalance < estimatedGasWei\) throw new Error\("Insufficient Base Sepolia ETH for the estimated bridge gas\."\);/);
+  assert.match(flow, /if \(usdcBalance < requiredUsdcBaseUnits\) throw new Error\("Insufficient Base Sepolia USDC for the Circle quote\."\);/);
+  assert.doesNotMatch(flow, /estimate\.gasFees\.filter/);
+  assert.match(flow, /<div><dt>Estimated Base Sepolia gas<\/dt><dd>\{formatEther\(BigInt\(circleQuote\.gasWei\)\)\} ETH<\/dd><\/div>/);
+});

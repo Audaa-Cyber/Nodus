@@ -9,6 +9,7 @@ import {
   isCctpRouteSupported,
   isDirectUsdcTransferSupported,
 } from "../src/lib/server/circle.ts";
+import { circleTestnetUsdcNetworks } from "../src/lib/wallet/networks.ts";
 
 const recipient = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8";
 const sender = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
@@ -93,6 +94,53 @@ test("route discovery: the Phase 1 Base Sepolia to Arbitrum Sepolia pair selects
 
   const baseCircle = getCircleChain("base-sepolia", true);
   assert.equal(cctpRoute.depositAddress, baseCircle.tokenMessengerAddress);
+});
+
+test("route discovery: payer and merchant can choose any listed same-network testnet for direct USDC", async () => {
+  assert.deepEqual(circleTestnetUsdcNetworks.map((network) => network.key), [
+    "base-sepolia", "arbitrum-sepolia",
+  ]);
+
+  for (const network of circleTestnetUsdcNetworks) {
+    assert.ok(getCircleChain(network.key, true), `${network.key} must have Circle testnet USDC config`);
+    const result = await discoverPaymentRoutes({
+      invoiceId: `invoice-${network.key}`,
+      amountMinor: 1000,
+      currency: "USD",
+      destinationNetwork: network.key,
+      recipientAddress: recipient,
+      sourceAssetId: `${network.key}:usdc`,
+      sourceNetwork: network.key,
+      sourceSymbol: "USDC",
+      sourceDecimals: 6,
+      sourceContractAddress: getCircleChain(network.key, true).usdcAddress,
+      isTestnet: true,
+    });
+
+    assert.equal(result.error, undefined);
+    assert.equal(result.routes[0]?.provider, "circle_direct", `${network.key} same-network checkout should be direct`);
+    assert.equal(result.routes[0]?.sourceNetwork, network.key);
+    assert.equal(result.routes[0]?.destinationNetwork, network.key);
+  }
+});
+
+test("route discovery: unsupported cross-network choices do not invent a route", async () => {
+  const result = await discoverPaymentRoutes({
+    invoiceId: "invoice-unsupported-cross-chain",
+    amountMinor: 1000,
+    currency: "USD",
+    destinationNetwork: "optimism-sepolia",
+    recipientAddress: recipient,
+    sourceAssetId: "base-sepolia:usdc",
+    sourceNetwork: "base-sepolia",
+    sourceSymbol: "USDC",
+    sourceDecimals: 6,
+    sourceContractAddress: getCircleChain("base-sepolia", true).usdcAddress,
+    isTestnet: true,
+  });
+
+  assert.equal(result.error, undefined);
+  assert.deepEqual(result.routes, []);
 });
 
 test("route discovery: rejects non-EVM destination networks for MVP", async () => {

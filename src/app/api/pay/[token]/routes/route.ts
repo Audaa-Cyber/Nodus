@@ -1,8 +1,8 @@
-import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { lookupPublicPaymentContext } from "@/lib/payments/public-payment-context";
 import { discoverPaymentRoutes } from "@/lib/payments/route-orchestrator";
 import { getCircleChain } from "@/lib/server/circle";
+import { circleTestnetUsdcNetworks } from "@/lib/wallet/networks";
 
 export const dynamic = "force-dynamic";
 const TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
@@ -36,18 +36,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
     return NextResponse.json({ error: "missing_asset_parameters" }, { status: 400 });
   }
 
-  const supabase = await createSupabaseServerClient();
-  const tokenHash = createHash("sha256").update(token, "utf8").digest("hex");
+  const { context: invoice, error: ctxError } = await lookupPublicPaymentContext(token);
 
-  const { data: contextRows, error: ctxError } = await supabase.rpc("lookup_shared_payment_context", {
-    p_token_hash: tokenHash,
-  });
-
-  if (ctxError || !contextRows || contextRows.length === 0) {
+  if (ctxError || !invoice) {
     return NextResponse.json({ error: "invoice_unavailable" }, { status: 404 });
   }
-
-  const invoice = contextRows[0];
   if (!invoice || (invoice.invoice_status !== "open" && invoice.invoice_status !== "overdue")) {
     return NextResponse.json({ error: "invoice_not_payable" }, { status: 409 });
   }
@@ -56,12 +49,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
     return NextResponse.json({ error: "receiving_destination_not_configured" }, { status: 400 });
   }
 
-  const baseSepolia = getCircleChain("base-sepolia", true);
-  const arbSepolia = getCircleChain("arbitrum-sepolia", true);
-  if (sourceNetwork !== "base-sepolia" || sourceAssetId !== "base-sepolia:usdc"
+  const sourceNetworkOption = circleTestnetUsdcNetworks.find((network) => network.key === sourceNetwork);
+  const sourceCircle = sourceNetworkOption ? getCircleChain(sourceNetwork, true) : null;
+  const destinationNetworkOption = circleTestnetUsdcNetworks.find((network) => network.key === invoice.receiving_network);
+  const destinationCircle = destinationNetworkOption ? getCircleChain(invoice.receiving_network, true) : null;
+  if (!sourceNetworkOption || !sourceCircle || !destinationNetworkOption || !destinationCircle
+    || sourceAssetId !== `${sourceNetwork}:usdc`
     || sourceSymbol.toUpperCase() !== "USDC" || sourceDecimals !== 6
-    || sourceContractAddress?.toLowerCase() !== baseSepolia?.usdcAddress.toLowerCase()
-    || invoice.receiving_network !== "arbitrum-sepolia" || !baseSepolia || !arbSepolia) {
+    || sourceContractAddress?.toLowerCase() !== sourceCircle.usdcAddress.toLowerCase()) {
     return NextResponse.json({ error: "unsupported_circle_testnet_payment_route" }, { status: 400 });
   }
 

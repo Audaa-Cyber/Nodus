@@ -45,6 +45,8 @@ export type VerifiedCctpSource = {
   message: string;
   messageBody: string;
   finalityThresholdExecuted: number;
+  sourceBlockNumber: string;
+  sourceBlockHash: string;
 };
 
 /** Independently verify the Base Sepolia burn and bind its V2 message to IRIS. */
@@ -138,6 +140,8 @@ export async function verifyCctpV2SourceTransaction(input: {
     message: input.attestedMessage,
     messageBody: correlation.bodyHex,
     finalityThresholdExecuted: correlation.finalityThresholdExecuted,
+    sourceBlockNumber: receipt.blockNumber.toString(),
+    sourceBlockHash: receipt.blockHash,
   };
 }
 
@@ -150,7 +154,7 @@ export async function verifyCctpV2DestinationTransaction(input: {
   recipient: string;
   minimumReceived: string;
   assetId: string;
-}): Promise<{ verified: boolean; finalityConfirmed: boolean; amount: string; transactionHashes: string[] }> {
+}): Promise<{ verified: boolean; finalityConfirmed: boolean; amount: string; transactionHashes: string[]; transactions: { transactionHash: string; blockNumber: string; blockHash: string }[] }> {
   if (!input.destinationTxHashes.length || input.destinationTxHashes.length > 2
     || input.destinationTxHashes.some((hash) => !HASH.test(hash))
     || new Set(input.destinationTxHashes.map((hash) => hash.toLowerCase())).size !== input.destinationTxHashes.length
@@ -228,5 +232,10 @@ export async function verifyCctpV2DestinationTransaction(input: {
     finalityConfirmed,
     amount: receivedAmount,
     transactionHashes: input.destinationTxHashes,
+    transactions: receipts.map(({ hash, receipt }) => ({
+      transactionHash: hash,
+      blockNumber: receipt.blockNumber.toString(),
+      blockHash: receipt.blockHash,
+    })),
   };
 }

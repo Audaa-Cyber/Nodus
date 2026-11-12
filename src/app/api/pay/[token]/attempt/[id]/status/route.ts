@@ -10,6 +10,7 @@ import {
 } from "@/lib/server/cctp-v2-chain";
 import { assetUnitsToInvoiceMinor } from "@/lib/payments/settlement-policy";
 import { verifyImmutableAttemptInvoiceBinding } from "@/lib/payments/cctp-v2-integrity";
+import { processNearSettlementOutbox } from "@/lib/server/near-settlement-outbox";
 
 export const dynamic = "force-dynamic";
 const TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
@@ -303,13 +304,20 @@ export async function GET(
         p_received_value_invoice_minor: receivedMinor,
         p_destination_tx_hashes: destinationProof.transactionHashes,
         p_evidence: {
-          sourceProof: { sourceTransactionHash: sourceProof.sourceTransactionHash, payer: sourceProof.payer, nonce: sourceProof.nonce, messageHash: sourceProof.messageHash },
+          sourceProof: {
+            sourceTransactionHash: sourceProof.sourceTransactionHash, payer: sourceProof.payer,
+            nonce: sourceProof.nonce, messageHash: sourceProof.messageHash,
+            sourceBlockNumber: sourceProof.sourceBlockNumber, sourceBlockHash: sourceProof.sourceBlockHash,
+          },
           destinationProof,
           circleStatus: { forwardState: cctp.forwardState, cctpVersion: cctp.cctpVersion },
           verifiedAt: new Date().toISOString(),
         },
       });
       if (recError || !recResult) throw new Error(recError?.message ?? "payment_reconciliation_failed");
+      // The verified reconciliation transaction and its DB trigger are authoritative.
+      // A best-effort immediate drain lowers latency; scheduled drains recover outages.
+      try { await processNearSettlementOutbox(5); } catch { /* PostgreSQL remains the source of truth. */ }
       await saveRecovery(supabaseAdmin, id, "SETTLED", {
         nonce: sourceProof.nonce, messageHash: sourceProof.messageHash,
         destinationTxHashes: destinationProof.transactionHashes,

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect, RedirectType } from "next/navigation";
 import { getBusinessContext, invalidateBusinessProfileCache } from "@/lib/auth/business-context";
+import { circleTestnetUsdcNetworks } from "@/lib/wallet/networks";
 import type { FormState } from "./auth";
 
 export async function updateBusinessProfileAction(_previous: FormState, formData: FormData): Promise<FormState> {
@@ -13,7 +14,9 @@ export async function updateBusinessProfileAction(_previous: FormState, formData
   if (Boolean(receivingNetwork) !== Boolean(receivingAddress)) return { error: "Enter both a receiving network and address, or leave both blank." };
   if (receivingNetwork && !/^[a-z0-9:_-]{1,64}$/.test(receivingNetwork)) return { error: "Use a valid network identifier." };
   if (receivingAddress && (receivingAddress.length > 256 || /\s/.test(receivingAddress))) return { error: "Enter a valid receiving address without spaces." };
-  if (["base", "ethereum", "eth"].includes(receivingNetwork) && !/^0x[a-fA-F0-9]{40}$/.test(receivingAddress)) return { error: "Enter a valid EVM address for this network." };
+  const isEvmReceivingNetwork = ["base", "ethereum", "eth"].includes(receivingNetwork)
+    || circleTestnetUsdcNetworks.some((network) => network.key === receivingNetwork);
+  if (isEvmReceivingNetwork && !/^0x[a-fA-F0-9]{40}$/.test(receivingAddress)) return { error: "Enter a valid EVM address for this network." };
   if (["solana", "sol"].includes(receivingNetwork) && !/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(receivingAddress)) return { error: "Enter a valid Solana address for this network." };
 
   const { supabase, user } = await getBusinessContext();

@@ -2,6 +2,8 @@
 
 import { useState, useTransition, useCallback } from "react";
 import { updateBusinessProfileAction } from "@/app/actions/profile";
+import { MerchantCircleWalletCard } from "@/components/merchant-circle-wallet-card";
+import { circleTestnetUsdcNetworks } from "@/lib/wallet/networks";
 
 interface ProfileFormProps {
   businessName: string;
@@ -169,30 +171,41 @@ export default function ProfileForm({
                 Saved for future payment quotes. A configured destination does not mean this network or route is live or verified.
               </p>
 
-              {/* Network Identifier */}
+              {/* Circle User-Controlled Wallet Option */}
+              <MerchantCircleWalletCard
+                currentReceivingAddress={receivingAddress}
+                onAddressConnected={(addr, net) => {
+                  setReceivingAddress(addr);
+                  setReceivingNetwork(net);
+                  setKineticStatus("Circle wallet connected & destination updated ✓");
+                }}
+              />
+
+              {/* Network choice for the saved receiving address */}
               <div className="mb-4">
                 <label htmlFor="networkInput" className="block text-xs font-semibold mb-2 text-slate-800">
-                  Network identifier
+                  Receiving network
                 </label>
                 <div className="nodus-input-wrap">
-                  <input
+                  <select
                     id="networkInput"
                     name="receivingNetwork"
-                    type="text"
                     value={receivingNetwork}
-                    onChange={(e) => setReceivingNetwork(e.target.value.toLowerCase())}
-                    placeholder="For example: base"
-                    maxLength={64}
+                    onChange={(e) => setReceivingNetwork(e.target.value)}
                     className="nodus-input font-medium"
-                  />
-                  <span
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 flex items-center gap-1.5 text-[11px] font-mono-code px-2 py-0.5 rounded-md pointer-events-none"
-                    style={{ background: "var(--pill-bg)", color: "var(--text-secondary)" }}
                   >
-                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-                    L2
-                  </span>
+                    {!receivingNetwork && <option value="">Choose a network</option>}
+                    {receivingNetwork && !circleTestnetUsdcNetworks.some((network) => network.key === receivingNetwork) && (
+                      <option value={receivingNetwork}>Current setting: {receivingNetwork}</option>
+                    )}
+                    {circleTestnetUsdcNetworks.map((network) => (
+                      <option key={network.key} value={network.key}>{network.label}</option>
+                    ))}
+                  </select>
                 </div>
+                <p className="mt-2 text-xs" style={{ color: "var(--text-secondary)" }}>
+                  Choose the network where this address should receive USDC. Testnet checkout supports the listed networks.
+                </p>
               </div>
 
               {/* Wallet Address */}

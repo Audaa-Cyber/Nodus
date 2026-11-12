@@ -14,8 +14,13 @@
   "dependencies": {
     "@circle-fin/adapter-viem-v2": "^1.20.1",
     "@circle-fin/app-kit": "^1.21.0",
+    "@circle-fin/user-controlled-wallets": "^10.8.1",
+    "@circle-fin/w3s-pw-web-sdk": "^1.1.11",
     "@near-js/accounts": "^2.5.1",
     "@near-js/crypto": "^2.5.1",
+    "@near-js/providers": "2.5.1",
+    "@near-js/signers": "2.5.1",
+    "@near-js/transactions": "2.5.1",
     "@solana/kit": "^8.6.0",
     "@solana/kit-plugin-rpc": "^0.23.0",
     "@solana/kit-plugin-wallet": "^0.23.0",
