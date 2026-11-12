@@ -49,7 +49,7 @@ The account had `10 NEAR` before deployment. After deployment, initialization, i
 
 ## Remaining backend integration
 
-- Independently verify Base Sepolia USDC transfer/burn, Circle CCTP message, Arbitrum Sepolia destination receipt, recipient, amount, and finality before attesting.
+- Independently verify canonical USDC transfer/burn, Circle CCTP message, destination receipt, recipient, amount, and finality on the source and destination testnets before attesting. The current contract allowlist is Ethereum Sepolia, Base Sepolia, Arbitrum Sepolia, and Optimism Sepolia.
 - Deliver attestations from the authorized backend signer using an idempotent outbox keyed by reconciliation ID.
 - On uncertain RPC outcomes, query `get_settlement` before retrying; retry only the same canonical payload.
 - Keep PostgreSQL as the application source of truth and reconcile it against NEAR; this deployment does not change Supabase or Circle payment code.

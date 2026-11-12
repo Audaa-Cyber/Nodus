@@ -205,11 +205,6 @@ export async function GET(
 
     if (snapshot.type !== "circle_cctp") return NextResponse.json({ attempt: publicAttempt(attempt), pending: true });
 
-    if (attempt.destination_network !== "arbitrum-sepolia"
-      || attempt.source_network !== "base-sepolia") {
-      return NextResponse.json({ attempt: publicAttempt(attempt), pending: true });
-    }
-
     const cctp = await fetchCircleCctpStatus({
       sourceNetwork: attempt.source_network,
       sourceTxHash,
@@ -241,6 +236,7 @@ export async function GET(
 
     try {
       const sourceProof = await verifyCctpV2SourceTransaction({
+        sourceNetwork: attempt.source_network,
         sourceTxHash,
         payer,
         destinationNetwork: attempt.destination_network,

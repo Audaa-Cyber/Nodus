@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { lookupPublicPaymentContext } from "@/lib/payments/public-payment-context";
 import { discoverPaymentRoutes } from "@/lib/payments/route-orchestrator";
 import { getCircleChain } from "@/lib/server/circle";
+import { CircleQuoteValidationError, circleUsdcToBaseUnits, fetchCircleReceiveExactQuote } from "@/lib/server/circle-quote-validation";
 import { circleTestnetUsdcNetworks } from "@/lib/wallet/networks";
 
 export const dynamic = "force-dynamic";
@@ -79,10 +80,59 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
     return NextResponse.json({ error: result.error }, { status: 400 });
   }
 
+  const routes: typeof result.routes = [];
+  for (const route of result.routes) {
+    if (route.provider !== "circle_cctp") {
+      routes.push(route);
+      continue;
+    }
+    const source = getCircleChain(route.sourceNetwork, true);
+    const destination = getCircleChain(route.destinationNetwork, true);
+    if (!source || !destination) continue;
+    try {
+      const quote = await fetchCircleReceiveExactQuote({
+        source,
+        destination,
+        amountBaseUnits: route.expectedReceivedAmount,
+      });
+      routes.push({
+        ...route,
+        requestedAmount: circleUsdcToBaseUnits(quote.totalDebit) ?? route.requestedAmount,
+        quoteExpiresAt: quote.expiresAt,
+        fees: {
+          protocolFeeUsd: quote.feeTotal,
+          networkFeeEstimate: "Read from connected wallet before authorization",
+        },
+        quoteSnapshot: {
+          type: "circle_cctp",
+          invoiceId: route.quoteSnapshot.invoiceId,
+          amountMinor: route.quoteSnapshot.amountMinor,
+          requiredBaseUnits: route.expectedReceivedAmount,
+          sourceNetwork: route.sourceNetwork,
+          destinationNetwork: route.destinationNetwork,
+          sourceCctpDomain: source.cctpDomainId,
+          destinationCctpDomain: destination.cctpDomainId,
+          recipientAddress: route.recipientAddress,
+          quote: quote.quote,
+          amountReceived: quote.amountReceived,
+          feeTotal: quote.feeTotal,
+          feeItems: quote.feeItems,
+          totalDebit: quote.totalDebit,
+          quoteExpiresAt: quote.expiresAt,
+        },
+      });
+    } catch (error) {
+      if (error instanceof CircleQuoteValidationError && error.code === "unavailable") {
+        return NextResponse.json({ error: "circle_quote_provider_unavailable" }, { status: 503 });
+      }
+      return NextResponse.json({ error: "circle_quote_unavailable_for_route" }, { status: 422 });
+    }
+  }
+
   return NextResponse.json(
     {
       success: true,
-      routes: result.routes,
+      routes,
       invoice: {
         id: invoice.invoice_id,
         invoiceNumber: invoice.invoice_number,

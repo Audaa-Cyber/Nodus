@@ -34,7 +34,10 @@ export async function middleware(request: NextRequest) {
 
   const allCookies = request.cookies.getAll();
   const hasAuthCookie = allCookies.some(
-    (c) => c.name.startsWith("sb-") && c.name.endsWith("-auth-token")
+    (c) =>
+      c.name.startsWith("sb-") &&
+      (c.name.includes("-auth-token") || c.name.includes("-token")) &&
+      !c.name.includes("-code-verifier")
   );
 
   // Fast path for unauthenticated users: avoid blocking remote network calls to Supabase
@@ -44,7 +47,9 @@ export async function middleware(request: NextRequest) {
 
   if (isDashboard && !hasAuthCookie) {
     const redirectUrl = new URL(`/login?next=${encodeURIComponent(request.nextUrl.pathname)}`, request.url);
-    return NextResponse.redirect(redirectUrl);
+    const redirectResponse = NextResponse.redirect(redirectUrl);
+    response.cookies.getAll().forEach((c) => redirectResponse.cookies.set(c));
+    return redirectResponse;
   }
 
   let user = null;

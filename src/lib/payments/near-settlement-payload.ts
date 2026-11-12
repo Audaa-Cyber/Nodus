@@ -1,7 +1,11 @@
 import { createHash } from "node:crypto";
 
-const BASE_SEPOLIA_CHAIN_ID = 84_532;
-const ARBITRUM_SEPOLIA_CHAIN_ID = 421_614;
+const TESTNET_USDC_CHAINS: Record<string, { chainId: number; token: string }> = {
+  sepolia: { chainId: 11155111, token: "0x1c7d4b196cb0c7b01d743fbc6116a902379c7238" },
+  "base-sepolia": { chainId: 84532, token: "0x036cbd53842c5426634e7929541ec2318f3dcf7e" },
+  "arbitrum-sepolia": { chainId: 421614, token: "0x75faf114eafb1bdbe2f0316df893fd58ce46aa4d" },
+  "optimism-sepolia": { chainId: 11155420, token: "0x5fd84259d66cd46123540766be93dfe6d43130d7" },
+};
 const VERIFIER_POLICY_VERSION = 1;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const HASH = /^0x[0-9a-f]{64}$/;
@@ -158,13 +162,16 @@ export function buildNearSettlementPayload(input: {
     invalid("near_settlement_record_ineligible");
   }
   const snapshot = map(attempt.quote_snapshot);
+  const sourceNetwork = text(attempt.source_network);
+  const destinationNetwork = text(attempt.destination_network);
+  const sourceChain = TESTNET_USDC_CHAINS[sourceNetwork];
+  const destinationChain = TESTNET_USDC_CHAINS[destinationNetwork];
   if (text(snapshot.type) !== "circle_cctp" || text(attempt.mode) !== "live"
-    || text(attempt.source_network) !== "base-sepolia"
-    || text(attempt.destination_network) !== "arbitrum-sepolia"
-    || text(attempt.source_asset_id) !== "base-sepolia:usdc"
-    || text(attempt.destination_asset_id) !== "arbitrum-sepolia:usdc"
-    || text(settlement.destination_network) !== "arbitrum-sepolia"
-    || text(settlement.destination_asset_id) !== "arbitrum-sepolia:usdc") {
+    || !sourceChain || !destinationChain || sourceNetwork === destinationNetwork
+    || text(attempt.source_asset_id) !== `${sourceNetwork}:usdc`
+    || text(attempt.destination_asset_id) !== `${destinationNetwork}:usdc`
+    || text(settlement.destination_network) !== destinationNetwork
+    || text(settlement.destination_asset_id) !== `${destinationNetwork}:usdc`) {
     invalid("near_settlement_route_unsupported");
   }
   if (text(invoice.currency).toUpperCase() !== "USD") invalid("near_invoice_currency_unsupported");
@@ -194,6 +201,9 @@ export function buildNearSettlementPayload(input: {
   if (destinationTransactionHash !== destinationHashes[0]) invalid("near_destination_transaction_mismatch");
 
   const tokenAddress = canonicalAddress(input.canonicalTokenAddress);
+  if (tokenAddress !== destinationChain.token || sourceChain.token !== text(snapshot.sourceUsdc).toLowerCase()) {
+    invalid("near_route_token_mismatch");
+  }
   const merchantRecipient = canonicalAddress(attempt.recipient_address);
   if (canonicalAddress(settlement.recipient_address) !== merchantRecipient) invalid("near_recipient_mismatch");
   if (Number(settlement.received_asset_decimals) !== 6) invalid("near_token_decimals_unsupported");
@@ -202,7 +212,7 @@ export function buildNearSettlementPayload(input: {
   const terms = {
     currency: "USD" as const,
     amount_minor: baseMinor,
-    destination_chain_id: ARBITRUM_SEPOLIA_CHAIN_ID,
+    destination_chain_id: destinationChain.chainId,
     token_decimals: 6 as const,
     token_address: tokenAddress,
     merchant_recipient: merchantRecipient,
@@ -213,13 +223,13 @@ export function buildNearSettlementPayload(input: {
   const digestInput: Omit<NearAttestationInput, "evidence_digest"> = {
     reconciliation_id: reconciliationId,
     attempt_id: attemptId,
-    source_chain_id: BASE_SEPOLIA_CHAIN_ID,
+    source_chain_id: sourceChain.chainId,
     source_transaction_hash: sourceTransactionHash,
     source_block_number: sourceBlockNumber,
     source_block_hash: canonicalHash(sourceProof.sourceBlockHash),
     cctp_message_nonce: nonce,
     cctp_message_hash: canonicalHash(sourceProof.messageHash),
-    destination_chain_id: ARBITRUM_SEPOLIA_CHAIN_ID,
+    destination_chain_id: destinationChain.chainId,
     destination_transaction_hash: destinationTransactionHash,
     destination_block_number: destinationBlockNumber,
     destination_block_hash: canonicalHash(destinationTransaction.blockHash),
@@ -231,7 +241,7 @@ export function buildNearSettlementPayload(input: {
   };
   return {
     invoiceArgs: { invoice_id: invoiceId, terms },
-    attemptArgs: { attempt_id: attemptId, invoice_id: invoiceId, source_chain_id: BASE_SEPOLIA_CHAIN_ID },
+    attemptArgs: { attempt_id: attemptId, invoice_id: invoiceId, source_chain_id: sourceChain.chainId },
     attestationArgs: { input: { ...digestInput, evidence_digest: nearEvidenceDigest(invoiceId, digestInput) } },
   };
 }

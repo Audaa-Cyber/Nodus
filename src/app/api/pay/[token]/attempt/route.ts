@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { isServerSupabaseConfigured } from "@/config/env.server";
 import { circleTestnetUsdcNetworks } from "@/lib/wallet/networks";
+import { CircleQuoteValidationError, validateCircleSignedQuote } from "@/lib/server/circle-quote-validation";
 import type { Json } from "@/types/database";
 
 export const dynamic = "force-dynamic";
@@ -101,12 +102,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
   let quoteSnapshot: Record<string, unknown>;
 
   if (quoteType === "circle_cctp") {
-    const sourceCircle = sourceNetwork === "base-sepolia" ? getCircleChain(sourceNetwork, true) : null;
-    if (!sourceCircle || sourceNetwork !== "base-sepolia"
-        || destinationNetwork !== "arbitrum-sepolia" || context.receiving_network !== "arbitrum-sepolia"
+    const sourceNetworkOption = circleTestnetUsdcNetworks.find((network) => network.key === sourceNetwork);
+    const sourceCircle = sourceNetworkOption ? getCircleChain(sourceNetwork, true) : null;
+    if (!sourceCircle || sourceNetwork === destinationNetwork
+        || destinationNetwork !== context.receiving_network
         || requestedRecipient.toLowerCase() !== context.receiving_address.toLowerCase()
         || expectedReceivedAmount !== amountBaseUnits || destinationAssetId !== `${context.receiving_network}:usdc`
-        || sourceAssetId !== "base-sepolia:usdc") {
+        || sourceAssetId !== `${sourceNetwork}:usdc`) {
       return NextResponse.json({ error: "invoice_payment_terms_mismatch" }, { status: 409 });
     }
     const quotedReceived = usdcToUnits(quoteSnapshotInput.amountReceived);
@@ -120,6 +122,24 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
         || usdcToUnits((item as Record<string, unknown>).amount) === null)) {
       return NextResponse.json({ error: "circle_quote_terms_invalid" }, { status: 409 });
     }
+    try {
+      await validateCircleSignedQuote({
+        source: sourceCircle,
+        destination: destinationCircle,
+        payer: senderAddress,
+        recipient: context.receiving_address,
+        amountBaseUnits: amountBaseUnits,
+        quote: String(quoteSnapshotInput.quote),
+        feeTotal: String(quoteSnapshotInput.feeTotal),
+        feeItems: quoteSnapshotInput.feeItems as Array<{ type: string; amount: string }>,
+        expiresAt: quoteExpiresAt,
+      });
+    } catch (error) {
+      if (error instanceof CircleQuoteValidationError && error.code === "unavailable") {
+        return NextResponse.json({ error: "circle_quote_validation_unavailable" }, { status: 503 });
+      }
+      return NextResponse.json({ error: "circle_quote_terms_invalid" }, { status: 409 });
+    }
     depositAddress = sourceCircle.tokenMessengerAddress;
     quoteSnapshot = {
       type: "circle_cctp",
@@ -127,8 +147,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
       invoiceAmountMinor: String(context.amount_minor),
       invoiceCurrency: String(context.currency),
       payer: senderAddress.toLowerCase(),
-      sourceNetwork: "base-sepolia",
-      sourceAssetId: "base-sepolia:usdc",
+      sourceNetwork,
+      sourceAssetId: `${sourceNetwork}:usdc`,
       sourceUsdc: sourceCircle.usdcAddress,
       sourceDomain: sourceCircle.cctpDomainId,
       destinationNetwork: context.receiving_network,
@@ -183,8 +203,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
     const { data, error } = await supabaseAdmin.rpc("create_committed_payment_attempt", {
       p_token_hash: tokenHash,
       p_idempotency_key: idempotencyKey,
-      p_source_asset_id: quoteType === "circle_cctp" ? "base-sepolia:usdc" : `${context.receiving_network}:usdc`,
-      p_source_network: quoteType === "circle_cctp" ? "base-sepolia" : context.receiving_network,
+      p_source_asset_id: quoteType === "circle_cctp" ? `${sourceNetwork}:usdc` : `${context.receiving_network}:usdc`,
+      p_source_network: quoteType === "circle_cctp" ? sourceNetwork : context.receiving_network,
       p_destination_asset_id: `${context.receiving_network}:usdc`,
       p_destination_network: context.receiving_network,
       p_recipient_address: context.receiving_address,

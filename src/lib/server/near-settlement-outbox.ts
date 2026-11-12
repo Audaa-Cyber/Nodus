@@ -34,8 +34,13 @@ export async function processNearSettlementOutbox(limit = 10): Promise<{ claimed
           admin.from("invoices").select("*").eq("id", outbox.invoice_id).single(),
         ]);
         if (settlementResult.error || attemptResult.error || invoiceResult.error) throw new Error("near_settlement_source_unavailable");
-        const destination = getCircleChain("arbitrum-sepolia", true);
+        const destinationNetwork = settlementResult.data.destination_network;
+        const sourceNetwork = attemptResult.data.source_network;
+        if (!destinationNetwork || !sourceNetwork) throw new Error("near_route_chain_missing");
+        const destination = getCircleChain(destinationNetwork, true);
+        const sourceChain = getCircleChain(sourceNetwork, true);
         if (!destination) throw new Error("near_destination_chain_configuration_missing");
+        if (!sourceChain) throw new Error("near_source_chain_configuration_missing");
         const payload = buildNearSettlementPayload({
           settlement: settlementResult.data,
           attempt: attemptResult.data,
@@ -43,7 +48,7 @@ export async function processNearSettlementOutbox(limit = 10): Promise<{ claimed
           canonicalTokenAddress: destination.usdcAddress,
         });
         const evidence = settlementResult.data.evidence as Record<string, unknown>;
-        const source = evidence.sourceProof as Record<string, unknown>;
+        const sourceProof = evidence.sourceProof as Record<string, unknown>;
         const destinationProof = evidence.destinationProof as Record<string, unknown>;
         const transaction = (destinationProof.transactions as Record<string, unknown>[])[0];
         const input = payload.attestationArgs.input;
@@ -51,7 +56,7 @@ export async function processNearSettlementOutbox(limit = 10): Promise<{ claimed
           reconciliation_id: input.reconciliation_id,
           invoice_id: settlementResult.data.invoice_id,
           attempt_id: settlementResult.data.payment_attempt_id,
-          source_transaction_hash: String(source.sourceTransactionHash),
+          source_transaction_hash: String(sourceProof.sourceTransactionHash),
           destination_transaction_hash: String(transaction.transactionHash),
           amount_base_units: String(destinationProof.amount),
           evidence_digest: input.evidence_digest,
@@ -94,11 +99,17 @@ export async function processNearSettlementOutbox(limit = 10): Promise<{ claimed
         }
         const attempt = payload.attemptArgs as NearSettlementPayload["attemptArgs"];
         const existingAttempt = await near.view<Record<string, unknown>>("get_attempt", { attempt_id: attempt.attempt_id });
+        const sourceTokenByChainId: Record<number, string> = {
+          11155111: "0x1c7d4b196cb0c7b01d743fbc6116a902379c7238",
+          84532: "0x036cbd53842c5426634e7929541ec2318f3dcf7e",
+          421614: "0x75faf114eafb1bdbe2f0316df893fd58ce46aa4d",
+          11155420: "0x5fd84259d66cd46123540766be93dfe6d43130d7",
+        };
         if (existingAttempt) {
           if (getString(existingAttempt, "attempt_id") !== attempt.attempt_id
             || getString(existingAttempt, "invoice_id") !== attempt.invoice_id
             || Number(existingAttempt.source_chain_id) !== attempt.source_chain_id
-            || String(existingAttempt.source_token_address).toLowerCase() !== "0x036cbd53842c5426634e7929541ec2318f3dcf7e") {
+            || String(existingAttempt.source_token_address).toLowerCase() !== sourceTokenByChainId[attempt.source_chain_id]) {
             throw new PermanentNearOutboxError("near_attempt_registry_mismatch");
           }
         } else {

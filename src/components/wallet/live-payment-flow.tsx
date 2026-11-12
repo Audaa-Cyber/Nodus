@@ -3,10 +3,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAccount, useSendTransaction, useSwitchChain } from "wagmi";
 import { formatMoney } from "@/lib/invoices";
-import { baseSepoliaChain, getWalletNetwork } from "@/lib/wallet/networks";
+import { evmWalletChains, getWalletNetwork } from "@/lib/wallet/networks";
 import { createPublicClient, custom, formatEther, http, parseAbi } from "viem";
 import { executeCircleBridgeAfterFreshReservation } from "@/lib/payments/circle-execution-reservation";
-import { estimateCircleSourceGas } from "@/lib/payments/circle-gas-estimation";
+import { estimateCircleSourceGas, CIRCLE_TESTNET_TOKEN_MESSENGER_WITH_FEES } from "@/lib/payments/circle-gas-estimation";
 import type { WalletAsset } from "@/lib/wallet/types";
 import type { StandardizedRouteQuote } from "@/lib/payments/route-orchestrator";
 
@@ -195,35 +195,60 @@ export function LivePaymentFlow({
 
     if (selectedRoute.provider === "circle_cctp" && !circleQuote) {
       setStage("authorizing");
-      setStatusMessage("Requesting a live Circle receive-exact quote…");
+      setStatusMessage("Checking the server verified Circle quote and source-chain balances…");
       try {
         if (!connector) throw new Error("Wallet connector unavailable.");
-        if (evmChainId !== 84532) {
-          setStatusMessage("Switch to Base Sepolia to request the Circle quote.");
-          await switchChainAsync({ chainId: 84532 });
+        const sourceNetwork = getWalletNetwork(selectedRoute.sourceNetwork);
+        const sourceChain = sourceNetwork?.chainId
+          ? evmWalletChains.find((chain) => chain.id === sourceNetwork.chainId)
+          : undefined;
+        if (!sourceNetwork || !sourceChain || !selectedAsset.contractAddress) {
+          throw new Error("The selected source network is not configured for Circle USDC bridging.");
         }
-        const provider = (await connector.getProvider()) as { request: (args: unknown) => Promise<unknown> };
-        const { createViemAdapterFromProvider } = await import("@circle-fin/adapter-viem-v2");
-        const { AppKit } = await import("@circle-fin/app-kit");
-        const adapter = await createViemAdapterFromProvider({ provider: provider as never });
-        const kit = new AppKit();
-        const estimate = await kit.estimateBridge({
-          from: { adapter, chain: "Base_Sepolia" },
-          to: { chain: "Arbitrum_Sepolia", recipientAddress: selectedRoute.recipientAddress, useForwarder: true },
-          amount: (amountMinor / 100).toFixed(2),
-          token: "USDC",
-          config: { feePayment: "source" },
+        if (evmChainId !== sourceChain.id) {
+          setStatusMessage(`Switch to ${sourceNetwork.label} to check the source wallet balance.`);
+          await switchChainAsync({ chainId: sourceChain.id });
+        }
+        const quoteSnapshot = selectedRoute.quoteSnapshot;
+        const signedQuote = quoteSnapshot.quote;
+        const amountReceived = quoteSnapshot.amountReceived;
+        const feeTotal = quoteSnapshot.feeTotal;
+        const totalDebit = quoteSnapshot.totalDebit;
+        const quoteExpiresAt = quoteSnapshot.quoteExpiresAt;
+        const feeItems = quoteSnapshot.feeItems;
+        if (typeof signedQuote !== "string" || !/^0x(?:[0-9a-fA-F]{2})+$/.test(signedQuote)
+          || typeof amountReceived !== "string" || typeof feeTotal !== "string"
+          || typeof totalDebit !== "string" || typeof quoteExpiresAt !== "string"
+          || !Array.isArray(feeItems) || !/^\d+$/.test(selectedRoute.requestedAmount)
+          || usdcToBaseUnits(totalDebit) !== selectedRoute.requestedAmount
+          || usdcToBaseUnits(amountReceived) !== selectedRoute.expectedReceivedAmount) {
+          throw new Error("The server did not return a complete Circle quote for this route. Retry route discovery.");
+        }
+        const normalizedFeeItems = feeItems.map((item) => {
+          if (!item || typeof item !== "object"
+            || typeof (item as Record<string, unknown>).type !== "string"
+            || typeof (item as Record<string, unknown>).amount !== "string") {
+            throw new Error("Circle returned invalid itemized fee terms.");
+          }
+          return { type: (item as Record<string, string>).type, amount: (item as Record<string, string>).amount };
         });
-        if (!("amountReceived" in estimate) || typeof estimate.quote !== "string" || !estimate.quote) {
-          throw new Error("Circle did not return a signed receive-exact quote.");
+        const expiresAtMs = Date.parse(quoteExpiresAt);
+        if (!Number.isFinite(expiresAtMs) || expiresAtMs <= Date.now() + 30_000) {
+          throw new Error("The Circle quote is close to expiry. Retry route discovery for a fresh quote.");
         }
-        const requiredUsdc = usdcToBaseUnits(estimate.totalDebit);
+
+        const provider = (await connector.getProvider()) as { request: (args: unknown) => Promise<unknown> };
+        const requiredUsdc = usdcToBaseUnits(totalDebit);
         const requiredUsdcBaseUnits = BigInt(requiredUsdc);
-        const publicClient = createPublicClient({ chain: baseSepoliaChain, transport: custom(provider as never) });
+        const publicClient = createPublicClient({ chain: sourceChain, transport: custom(provider as never) });
         const gasEstimate = await estimateCircleSourceGas({
           payerAddress: activeAddress as `0x${string}`,
           amountBaseUnits: requiredUsdcBaseUnits,
           publicClient,
+          fallbackChain: sourceChain,
+          fallbackRpcUrl: sourceChain.rpcUrls.default.http[0],
+          usdcAddress: selectedAsset.contractAddress as `0x${string}`,
+          tokenMessengerWithFeesAddress: CIRCLE_TESTNET_TOKEN_MESSENGER_WITH_FEES,
         });
         const estimatedGasWei = gasEstimate.estimatedGasWei;
         let usdcBalance: bigint;
@@ -231,7 +256,7 @@ export function LivePaymentFlow({
         try {
           [usdcBalance, nativeBalance] = await Promise.all([
             publicClient.readContract({
-              address: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+              address: selectedAsset.contractAddress as `0x${string}`,
               abi: parseAbi(["function balanceOf(address) view returns (uint256)"]),
               functionName: "balanceOf",
               args: [activeAddress as `0x${string}`],
@@ -239,10 +264,10 @@ export function LivePaymentFlow({
             publicClient.getBalance({ address: activeAddress as `0x${string}` }),
           ]);
         } catch {
-          const fallbackClient = createPublicClient({ chain: baseSepoliaChain, transport: http("https://sepolia.base.org") });
+          const fallbackClient = createPublicClient({ chain: sourceChain, transport: http(sourceChain.rpcUrls.default.http[0]) });
           [usdcBalance, nativeBalance] = await Promise.all([
             fallbackClient.readContract({
-              address: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+              address: selectedAsset.contractAddress as `0x${string}`,
               abi: parseAbi(["function balanceOf(address) view returns (uint256)"]),
               functionName: "balanceOf",
               args: [activeAddress as `0x${string}`],
@@ -250,21 +275,15 @@ export function LivePaymentFlow({
             fallbackClient.getBalance({ address: activeAddress as `0x${string}` }),
           ]);
         }
-        if (usdcBalance < requiredUsdcBaseUnits) throw new Error("Insufficient Base Sepolia USDC for the Circle quote.");
-        if (nativeBalance < estimatedGasWei) throw new Error("Insufficient Base Sepolia ETH for the estimated bridge gas.");
-        const expiry = estimate.quoteExpiry;
-        if (expiry.mode !== "TIMESTAMP") {
-          throw new Error("Circle returned a block-based quote expiry that cannot be safely disclosed yet.");
-        }
-        const expiresAt = new Date(expiry.expiresAt * 1000).toISOString();
-        if (Date.parse(expiresAt) <= Date.now()) throw new Error("Circle returned an expired quote.");
+        if (usdcBalance < requiredUsdcBaseUnits) throw new Error(`Insufficient ${sourceNetwork.label} USDC for the Circle quote.`);
+        if (nativeBalance < estimatedGasWei) throw new Error(`Insufficient ${sourceNetwork.label} ${sourceChain.nativeCurrency.symbol} for estimated bridge gas.`);
         setCircleQuote({
-          quote: estimate.quote,
-          amountReceived: estimate.amountReceived,
-          feeTotal: estimate.feeTotal,
-          totalDebit: estimate.totalDebit,
-          feeItems: estimate.feeItems.map(({ type, amount }) => ({ type, amount })),
-          expiresAt,
+          quote: signedQuote,
+          amountReceived,
+          feeTotal,
+          totalDebit,
+          feeItems: normalizedFeeItems,
+          expiresAt: quoteExpiresAt,
           gasWei: estimatedGasWei.toString(),
         });
         setStage("idle");
@@ -563,7 +582,7 @@ export function LivePaymentFlow({
 
   async function attachRecoveredSourceTransaction() {
     if (!attemptId || !/^0x[0-9a-fA-F]{64}$/.test(recoveryTxHash.trim())) {
-      setFlowError("Enter the source CCTP transaction hash from the payer wallet or Base Sepolia explorer.");
+      setFlowError(`Enter the source CCTP transaction hash from the payer wallet or ${getWalletNetwork(selectedRoute?.sourceNetwork ?? "")?.label ?? "source chain"} explorer.`);
       return;
     }
     setSubmittingRecovery(true);
@@ -704,7 +723,7 @@ export function LivePaymentFlow({
                 <div><dt>Circle fees total</dt><dd>{circleQuote.feeTotal} USDC</dd></div>
               )}
               <div><dt>Quote expires</dt><dd>{new Date(circleQuote.expiresAt).toLocaleString()}</dd></div>
-              <div><dt>Estimated Base Sepolia gas</dt><dd>{formatEther(BigInt(circleQuote.gasWei))} ETH</dd></div>
+              <div><dt>Estimated {getWalletNetwork(selectedRoute.sourceNetwork)?.label ?? selectedRoute.sourceNetwork} gas</dt><dd>{formatEther(BigInt(circleQuote.gasWei))} {evmWalletChains.find((chain) => chain.id === getWalletNetwork(selectedRoute.sourceNetwork)?.chainId)?.nativeCurrency.symbol ?? "native token"}</dd></div>
             </>}
             {circleQuote ? <>
               <div>
@@ -762,8 +781,8 @@ export function LivePaymentFlow({
               </p>
               <p className="wallet-recovery-copy">Enter the source burn transaction only. A USDC approval transaction hash cannot substitute for the CCTP burn hash.</p>
               {activeAddress && (
-                <a className="wallet-explorer-link" href={`https://sepolia.basescan.org/address/${encodeURIComponent(activeAddress)}`} target="_blank" rel="noreferrer">
-                  View payer address on Base Sepolia explorer
+                <a className="wallet-explorer-link" href={`${evmWalletChains.find((chain) => chain.id === getWalletNetwork(selectedRoute?.sourceNetwork ?? "")?.chainId)?.blockExplorers?.default.url ?? "#"}/address/${encodeURIComponent(activeAddress)}`} target="_blank" rel="noreferrer">
+                  View payer address on {getWalletNetwork(selectedRoute?.sourceNetwork ?? "")?.label ?? "source chain"} explorer
                 </a>
               )}
               {depositTxHash && (

@@ -35,22 +35,27 @@ test("Circle fee disclosure avoids a duplicated total and separates expected fro
   assert.match(flow, /!circleQuote && <div><dt>Network fees<\/dt>/);
 });
 
-test("manual recovery requests only a source burn hash and links to Base Sepolia when the payer is known", () => {
+test("manual recovery requests only a source burn hash and links to the selected source explorer", () => {
   const recovery = flow.slice(flow.indexOf("async function attachRecoveredSourceTransaction"), flow.indexOf("const busy ="));
   assert.match(flow, /Source CCTP burn transaction hash/);
-  assert.match(flow, /View payer address on Base Sepolia explorer/);
-  assert.match(flow, /sepolia\.basescan\.org\/address/);
+  assert.match(flow, /View payer address on \{getWalletNetwork\(selectedRoute\?\.sourceNetwork/);
+  assert.match(flow, /blockExplorers\?\.default\.url/);
+  assert.doesNotMatch(flow, /sepolia\.basescan\.org\/address/);
   assert.match(flow, /A USDC approval transaction hash cannot substitute for the CCTP burn hash/);
   assert.doesNotMatch(recovery, /approvalTransactionHash/);
   assert.doesNotMatch(flow, /Optional USDC approval transaction hash/);
   assert.match(styles, /\.wallet-recovery-panel/);
 });
 
-test("Circle checkout estimates source gas safely without relying on empty AppKit gasFees and guards ETH balance fail-closed", () => {
+test("Circle checkout uses the server quote and estimates source gas for the selected network", () => {
   assert.match(flow, /import\s*\{[^}]*estimateCircleSourceGas[^}]*\}\s*from\s*"@\/lib\/payments\/circle-gas-estimation"/);
   assert.match(flow, /const gasEstimate = await estimateCircleSourceGas\(\{[\s\S]*?payerAddress: activeAddress as `0x\$\{string\}`,\s*amountBaseUnits: requiredUsdcBaseUnits,\s*publicClient,/);
-  assert.match(flow, /if \(nativeBalance < estimatedGasWei\) throw new Error\("Insufficient Base Sepolia ETH for the estimated bridge gas\."\);/);
-  assert.match(flow, /if \(usdcBalance < requiredUsdcBaseUnits\) throw new Error\("Insufficient Base Sepolia USDC for the Circle quote\."\);/);
+  assert.match(flow, /const signedQuote = quoteSnapshot\.quote/);
+  assert.match(flow, /fallbackChain: sourceChain/);
+  assert.match(flow, /address: selectedAsset\.contractAddress as `0x\$\{string\}`/);
+  assert.match(flow, /if \(nativeBalance < estimatedGasWei\) throw new Error\(`Insufficient \$\{sourceNetwork\.label\}/);
+  assert.match(flow, /if \(usdcBalance < requiredUsdcBaseUnits\) throw new Error\(`Insufficient \$\{sourceNetwork\.label\} USDC/);
   assert.doesNotMatch(flow, /estimate\.gasFees\.filter/);
-  assert.match(flow, /<div><dt>Estimated Base Sepolia gas<\/dt><dd>\{formatEther\(BigInt\(circleQuote\.gasWei\)\)\} ETH<\/dd><\/div>/);
+  assert.doesNotMatch(flow, /kit\.estimateBridge/);
+  assert.match(flow, /Estimated \{getWalletNetwork\(selectedRoute\.sourceNetwork\)/);
 });

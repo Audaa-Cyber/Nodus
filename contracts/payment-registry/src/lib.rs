@@ -8,10 +8,20 @@ const EVIDENCE_DOMAIN: &[u8] = b"NODUS_CCTP_SETTLEMENT_EVIDENCE_V1\0";
 const EVENT_STANDARD: &str = "nodus_payment_registry";
 const EVENT_VERSION: &str = "1.0.0";
 const UUID_LEN: usize = 36;
+const ETHEREUM_SEPOLIA_CHAIN_ID: u64 = 11_155_111;
 const BASE_SEPOLIA_CHAIN_ID: u64 = 84_532;
 const ARBITRUM_SEPOLIA_CHAIN_ID: u64 = 421_614;
-const BASE_SEPOLIA_USDC: &str = "0x036cbd53842c5426634e7929541ec2318f3dcf7e";
-const ARBITRUM_SEPOLIA_USDC: &str = "0x75faf114eafb1bdbe2f0316df893fd58ce46aa4d";
+const OPTIMISM_SEPOLIA_CHAIN_ID: u64 = 11_155_420;
+
+fn testnet_usdc_for_chain(chain_id: u64) -> Option<&'static str> {
+    match chain_id {
+        ETHEREUM_SEPOLIA_CHAIN_ID => Some("0x1c7d4b196cb0c7b01d743fbc6116a902379c7238"),
+        BASE_SEPOLIA_CHAIN_ID => Some("0x036cbd53842c5426634e7929541ec2318f3dcf7e"),
+        ARBITRUM_SEPOLIA_CHAIN_ID => Some("0x75faf114eafb1bdbe2f0316df893fd58ce46aa4d"),
+        OPTIMISM_SEPOLIA_CHAIN_ID => Some("0x5fd84259d66cd46123540766be93dfe6d43130d7"),
+        _ => None,
+    }
+}
 
 #[near(serializers = [json, borsh])]
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -192,11 +202,9 @@ impl Contract {
             .get(&invoice_id)
             .expect("invoice_not_registered");
         assert_eq!(invoice.status, InvoiceStatus::Open, "invoice_not_open");
-        assert_eq!(
-            source_chain_id, BASE_SEPOLIA_CHAIN_ID,
-            "unsupported_source_chain"
-        );
-        let source_token_address = BASE_SEPOLIA_USDC.to_string();
+        let source_token_address = testnet_usdc_for_chain(source_chain_id)
+            .expect("unsupported_source_chain")
+            .to_string();
         let commitment = attempt_terms_commitment(
             &attempt_id,
             &invoice_id,
@@ -491,13 +499,11 @@ fn validate_terms(terms: &InvoiceTerms) {
         terms.amount_minor.0 > 0 && terms.amount_minor.0 <= 999_999_999_999,
         "invalid_invoice_amount"
     );
-    assert_eq!(
-        terms.destination_chain_id, ARBITRUM_SEPOLIA_CHAIN_ID,
-        "unsupported_destination_chain"
-    );
+    let expected_token = testnet_usdc_for_chain(terms.destination_chain_id)
+        .expect("unsupported_destination_chain");
     assert_eq!(terms.token_decimals, 6, "unsupported_token_decimals");
     assert_eq!(
-        terms.token_address, ARBITRUM_SEPOLIA_USDC,
+        terms.token_address.to_lowercase(), expected_token,
         "unsupported_destination_token"
     );
     assert_address(&terms.token_address);

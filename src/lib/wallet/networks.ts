@@ -92,12 +92,18 @@ export const evmWalletChains = [
   optimismSepoliaChain,
 ] as const;
 
-// Circle checkout currently lists USDC on these testnets. Other chains remain
-// available to the broader wallet UI but are not presented as live checkout routes.
+// Circle checkout currently supports CCTP USDC across these EVM testnets.
 export const circleTestnetUsdcNetworks = [
+  { key: "sepolia", label: "Ethereum Sepolia", chainId: sepoliaChain.id },
   { key: "base-sepolia", label: "Base Sepolia", chainId: baseSepoliaChain.id },
   { key: "arbitrum-sepolia", label: "Arbitrum Sepolia", chainId: arbitrumSepoliaChain.id },
+  { key: "optimism-sepolia", label: "Optimism Sepolia", chainId: optimismSepoliaChain.id },
 ] as const;
+
+export function getCircleTestnetUsdcNetworkForChainId(chainId: number | undefined) {
+  if (chainId === undefined) return undefined;
+  return circleTestnetUsdcNetworks.find((network) => network.chainId === chainId);
+}
 
 export type WalletNetwork = {
   key: string;

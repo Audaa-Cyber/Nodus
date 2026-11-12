@@ -4,6 +4,12 @@ import { createHash, randomUUID } from "node:crypto";
 import { spawn, spawnSync } from "node:child_process";
 
 const databaseUrl = process.env.NODUS_TEST_DATABASE_URL;
+const circleTestnetUsdc = {
+  sepolia: { token: "0x1c7d4b196cb0c7b01d743fbc6116a902379c7238", domain: 0 },
+  "base-sepolia": { token: "0x036cbd53842c5426634e7929541ec2318f3dcf7e", domain: 6 },
+  "arbitrum-sepolia": { token: "0x75faf114eafb1bdbe2f0316df893fd58ce46aa4d", domain: 3 },
+  "optimism-sepolia": { token: "0x5fd84259d66cd46123540766be93dfe6d43130d7", domain: 2 },
+};
 const psqlAvailable = spawnSync("psql", ["--version"], { encoding: "utf8" }).status === 0;
 let localDatabase = false;
 try {
@@ -42,7 +48,10 @@ function sqlLiteral(value) {
   return `'${String(value).replaceAll("'", "''")}'`;
 }
 
-async function createAttempt({ status = "PENDING_DEPOSIT", expired = false } = {}) {
+async function createAttempt({ status = "PENDING_DEPOSIT", expired = false, sourceNetwork = "base-sepolia", destinationNetwork = "arbitrum-sepolia" } = {}) {
+  const source = circleTestnetUsdc[sourceNetwork];
+  const destination = circleTestnetUsdc[destinationNetwork];
+  assert.ok(source && destination, "test fixture networks must be supported Circle USDC testnets");
   const attemptId = randomUUID();
   const invoiceId = randomUUID();
   const userId = randomUUID();
@@ -59,7 +68,7 @@ async function createAttempt({ status = "PENDING_DEPOSIT", expired = false } = {
     values (${sqlLiteral(userId)}::uuid, 'authenticated', 'authenticated', ${sqlLiteral(email)}, '',
       statement_timestamp(), '{}'::jsonb, '{}'::jsonb, statement_timestamp(), statement_timestamp());
     update public.business_profiles set receiving_address = ${sqlLiteral(recipient)},
-      receiving_network = 'arbitrum-sepolia'
+      receiving_network = ${sqlLiteral(destinationNetwork)}
     where owner_user_id = ${sqlLiteral(userId)}::uuid;
     insert into public.invoices (id, business_id, invoice_number, customer_name, description,
       amount_minor, currency, issue_date, status, share_token_hash, share_token_expires_at)
@@ -70,14 +79,15 @@ async function createAttempt({ status = "PENDING_DEPOSIT", expired = false } = {
     insert into public.payment_attempts (id, invoice_id, business_id, mode, source_asset_id,
       source_network, destination_asset_id, destination_network, recipient_address, idempotency_key,
       requested_amount, expected_received_amount, deposit_address, quote_expires_at, quote_snapshot, status)
-    select ${sqlLiteral(attemptId)}::uuid, i.id, i.business_id, 'live', 'base-sepolia:usdc',
-      'base-sepolia', 'arbitrum-sepolia:usdc', 'arbitrum-sepolia', ${sqlLiteral(recipient)},
+    select ${sqlLiteral(attemptId)}::uuid, i.id, i.business_id, 'live', ${sqlLiteral(`${sourceNetwork}:usdc`)},
+      ${sqlLiteral(sourceNetwork)}, ${sqlLiteral(`${destinationNetwork}:usdc`)}, ${sqlLiteral(destinationNetwork)}, ${sqlLiteral(recipient)},
       ${sqlLiteral(idempotencyKey)}::uuid, '100010000', '100000000', '0x8745D906D67C346E5eb1aEEED38Eb87F34DF0C0A',
       ${sqlLiteral(expiresAt)}::timestamptz,
       jsonb_build_object('type','circle_cctp','invoiceId',i.id::text,'invoiceAmountMinor','10000',
-        'invoiceCurrency','USD','payer',lower(${sqlLiteral(payer)}),'sourceNetwork','base-sepolia',
-        'sourceAssetId','base-sepolia:usdc','destinationNetwork','arbitrum-sepolia',
-        'destinationAssetId','arbitrum-sepolia:usdc','recipient',lower(${sqlLiteral(recipient)}),
+        'invoiceCurrency','USD','payer',lower(${sqlLiteral(payer)}),'sourceNetwork',${sqlLiteral(sourceNetwork)},
+        'sourceAssetId',${sqlLiteral(`${sourceNetwork}:usdc`)},'sourceUsdc',${sqlLiteral(source.token)},'sourceDomain',${source.domain},
+        'destinationNetwork',${sqlLiteral(destinationNetwork)},'destinationAssetId',${sqlLiteral(`${destinationNetwork}:usdc`)},
+        'destinationUsdc',${sqlLiteral(destination.token)},'destinationDomain',${destination.domain},'recipient',lower(${sqlLiteral(recipient)}),
         'amountReceived','100','totalDebit','100.01','feeTotal','0.01',
         'minimumReceived','100000000','quoteExpiresAt',${sqlLiteral(expiresAt)},'quote','0x1234'),
       ${sqlLiteral(status)}::public.payment_attempt_status
@@ -115,6 +125,22 @@ postgresTest("PostgreSQL permits the first reservation and rejects the second re
     const second = await psql(reserveSql(fixture));
     assertRpcRejected(second, "circle_execution_already_reserved");
   } finally { await cleanup(fixture); }
+});
+
+postgresTest("PostgreSQL reserves every distinct enabled Circle testnet USDC route", async (t) => {
+  for (const sourceNetwork of Object.keys(circleTestnetUsdc)) {
+    for (const destinationNetwork of Object.keys(circleTestnetUsdc)) {
+      if (sourceNetwork === destinationNetwork) continue;
+      await t.test(`${sourceNetwork} to ${destinationNetwork}`, async () => {
+        const fixture = await createAttempt({ sourceNetwork, destinationNetwork });
+        try {
+          const result = await psql(reserveSql(fixture));
+          assert.equal(result.code, 0, result.stderr);
+          assert.equal(result.stdout, "PROCESSING|t");
+        } finally { await cleanup(fixture); }
+      });
+    }
+  }
 });
 
 postgresTest("PostgreSQL rejects an unreserved PROCESSING attempt", async () => {

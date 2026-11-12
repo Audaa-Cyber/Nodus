@@ -30,6 +30,7 @@ mock.module(new URL("../src/lib/supabase/server.ts", import.meta.url).href, {
 
 const { lookupPublicPaymentContext } = await import("../src/lib/payments/public-payment-context.ts");
 const routeSource = await readFile(new URL("../src/app/api/pay/[token]/routes/route.ts", import.meta.url), "utf8");
+const attemptSource = await readFile(new URL("../src/app/api/pay/[token]/attempt/route.ts", import.meta.url), "utf8");
 const invoicePageSource = await readFile(new URL("../src/app/pay/[token]/page.tsx", import.meta.url), "utf8");
 const checkoutSource = await readFile(new URL("../src/components/wallet/invoice-wallet-checkout.tsx", import.meta.url), "utf8");
 const liveFlowSource = await readFile(new URL("../src/components/wallet/live-payment-flow.tsx", import.meta.url), "utf8");
@@ -67,4 +68,12 @@ test("payer and merchant can select supported testnet networks without a Base-to
   assert.match(routeSource, /sourceContractAddress\?\.toLowerCase\(\) !== sourceCircle\.usdcAddress\.toLowerCase\(\)/);
   assert.doesNotMatch(routeSource, /sourceNetwork !== "base-sepolia"/);
   assert.doesNotMatch(routeSource, /invoice\.receiving_network !== "arbitrum-sepolia"/);
+});
+
+test("CCTP routes carry a server fetched Circle quote and attempts revalidate it with Circle", () => {
+  assert.match(routeSource, /fetchCircleReceiveExactQuote/);
+  assert.match(routeSource, /routes\.push\(\{[\s\S]*?quoteSnapshot:[\s\S]*?quote: quote\.quote/);
+  assert.doesNotMatch(routeSource, /routes:\s*result\.routes/);
+  assert.match(attemptSource, /validateCircleSignedQuote/);
+  assert.match(attemptSource, /circle_quote_validation_unavailable/);
 });

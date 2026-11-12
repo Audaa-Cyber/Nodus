@@ -138,10 +138,10 @@ export async function discoverPaymentRoutes(
     candidateRoutes.push(directQuote);
   }
 
-  // This phase exposes only the supported Circle CCTP testnet pair.
+  // The currently enabled multichain corridor is native USDC over Circle CCTP
+  // between distinct EVM testnets represented in Circle's supported chain map.
   // =========================================================================
-  if (!isSameChain && isSourceUsdc && sourceNetwork.toLowerCase() === "base-sepolia"
-    && destinationNetwork.toLowerCase() === "arbitrum-sepolia" && isTestnet
+  if (!isSameChain && isSourceUsdc && isTestnet
     && isCctpRouteSupported(sourceNetwork, destinationNetwork, isTestnet)) {
     const sourceCircle = getCircleChain(sourceNetwork, isTestnet);
     const depositMessenger = sourceCircle?.tokenMessengerAddress ?? recipientAddress;

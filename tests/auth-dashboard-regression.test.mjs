@@ -75,3 +75,19 @@ test("auth callback route sets cookies directly on redirect response and wraps e
   assert.match(callbackRoute, /error=expired/, "gracefully handles expired or already consumed PKCE codes");
 });
 
+test("middleware recognizes chunked Supabase auth cookies and does not reject them as unauthenticated", async () => {
+  const middlewareCode = await read("../middleware.ts");
+
+  assert.ok(
+    middlewareCode.includes("c.name.includes(\"-auth-token\")") ||
+    middlewareCode.includes("includes(\"-token\")"),
+    "middleware must match chunked Supabase auth cookies (e.g. sb-*-auth-token.0)"
+  );
+  assert.doesNotMatch(
+    middlewareCode,
+    /c\.name\.endsWith\("-auth-token"\)/,
+    "middleware must not strictly require endsWith('-auth-token') which drops chunked cookies"
+  );
+});
+
+

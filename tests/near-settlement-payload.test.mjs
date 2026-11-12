@@ -56,7 +56,7 @@ function fixture(overrides = {}) {
       destination_asset_id: "arbitrum-sepolia:usdc",
       recipient_address: recipient,
       transaction_hash: sourceHash,
-      quote_snapshot: { type: "circle_cctp" },
+      quote_snapshot: { type: "circle_cctp", sourceUsdc: "0x036cbd53842c5426634e7929541ec2318f3dcf7e" },
     },
     invoice: {
       id: invoiceId,
@@ -117,6 +117,33 @@ test("rejects evidence that was not destination-verified and final", () => {
       evidence: { ...fixture().settlement.evidence, destinationProof: { verified: true, finalityConfirmed: false } },
     },
   }), /near_destination_evidence_unverified/);
+});
+
+test("builds NEAR attestations for each supported testnet source and destination pair", () => {
+  const supported = {
+    sepolia: { chainId: 11155111, token: "0x1c7d4b196cb0c7b01d743fbc6116a902379c7238" },
+    "base-sepolia": { chainId: 84532, token: "0x036cbd53842c5426634e7929541ec2318f3dcf7e" },
+    "arbitrum-sepolia": { chainId: 421614, token: "0x75faf114eafb1bdbe2f0316df893fd58ce46aa4d" },
+    "optimism-sepolia": { chainId: 11155420, token: "0x5fd84259d66cd46123540766be93dfe6d43130d7" },
+  };
+  for (const [sourceNetwork, source] of Object.entries(supported)) {
+    for (const [destinationNetwork, destination] of Object.entries(supported)) {
+      if (sourceNetwork === destinationNetwork) continue;
+      const input = fixture();
+      input.attempt.source_network = sourceNetwork;
+      input.attempt.destination_network = destinationNetwork;
+      input.attempt.source_asset_id = `${sourceNetwork}:usdc`;
+      input.attempt.destination_asset_id = `${destinationNetwork}:usdc`;
+      input.attempt.quote_snapshot.sourceUsdc = source.token;
+      input.settlement.destination_network = destinationNetwork;
+      input.settlement.destination_asset_id = `${destinationNetwork}:usdc`;
+      input.canonicalTokenAddress = destination.token;
+      const payload = buildNearSettlementPayload(input);
+      assert.equal(payload.attemptArgs.source_chain_id, source.chainId, `${sourceNetwork} source chain`);
+      assert.equal(payload.invoiceArgs.terms.destination_chain_id, destination.chainId, `${destinationNetwork} destination chain`);
+      assert.equal(payload.invoiceArgs.terms.token_address, destination.token);
+    }
+  }
 });
 
 test("rejects multiple destination transactions because the deployed ABI attests one destination hash", () => {

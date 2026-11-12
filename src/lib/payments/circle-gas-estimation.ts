@@ -1,5 +1,6 @@
 import {
   type PublicClient,
+  type Chain,
   createPublicClient,
   http,
   parseAbi,
@@ -8,7 +9,8 @@ import { baseSepoliaChain } from "../wallet/networks.ts";
 
 export const BASE_SEPOLIA_CHAIN_ID = 84532;
 export const BASE_SEPOLIA_USDC_ADDRESS = "0x036CbD53842c5426634e7929541eC2318f3dCF7e" as const;
-export const BASE_SEPOLIA_TOKEN_MESSENGER_WITH_FEES = "0x8745D906D67C346E5eb1aEEED38Eb87F34DF0C0A" as const;
+export const CIRCLE_TESTNET_TOKEN_MESSENGER_WITH_FEES = "0x8745D906D67C346E5eb1aEEED38Eb87F34DF0C0A" as const;
+export const BASE_SEPOLIA_TOKEN_MESSENGER_WITH_FEES = CIRCLE_TESTNET_TOKEN_MESSENGER_WITH_FEES;
 
 /**
  * Standard gas unit benchmarks matching Circle CCTP V2 EVM forwarder path.
@@ -30,6 +32,9 @@ export interface EstimateCircleSourceGasParams {
   publicClient?: PublicClient;
   fallbackClient?: PublicClient;
   fallbackRpcUrl?: string;
+  fallbackChain?: Chain;
+  usdcAddress?: `0x${string}`;
+  tokenMessengerWithFeesAddress?: `0x${string}`;
   timeoutMs?: number;
 }
 
@@ -70,12 +75,14 @@ export async function withTimeout<T>(
 export async function fetchCircleAllowance(
   client: PublicClient,
   payerAddress: `0x${string}`,
+  usdcAddress: `0x${string}` = BASE_SEPOLIA_USDC_ADDRESS,
+  spenderAddress: `0x${string}` = BASE_SEPOLIA_TOKEN_MESSENGER_WITH_FEES,
 ): Promise<bigint> {
   const result = await client.readContract({
-    address: BASE_SEPOLIA_USDC_ADDRESS,
+    address: usdcAddress,
     abi: ERC20_ALLOWANCE_ABI,
     functionName: "allowance",
-    args: [payerAddress, BASE_SEPOLIA_TOKEN_MESSENGER_WITH_FEES],
+    args: [payerAddress, spenderAddress],
   });
   if (typeof result !== "bigint") {
     throw new Error("Invalid allowance result");
@@ -120,11 +127,13 @@ async function queryClient(
   payerAddress: `0x${string}`,
   timeoutMs: number,
   clientLabel: string,
+  usdcAddress: `0x${string}`,
+  spenderAddress: `0x${string}`,
 ): Promise<ClientQueryResult> {
   return await withTimeout(
     (async () => {
       const [allowance, gasPriceWei] = await Promise.all([
-        fetchCircleAllowance(client, payerAddress),
+        fetchCircleAllowance(client, payerAddress, usdcAddress, spenderAddress),
         fetchCircleGasPriceWei(client),
       ]);
       return { allowance, gasPriceWei };
@@ -135,7 +144,7 @@ async function queryClient(
 }
 
 /**
- * Estimates Base Sepolia source gas required for a Circle CCTP bridge transaction.
+ * Estimates source-chain gas required for a Circle CCTP bridge transaction.
  *
  * Guarantees:
  * 1. Checks on-chain allowance of payer for TokenMessengerWithFees.
@@ -153,6 +162,9 @@ export async function estimateCircleSourceGas(
     publicClient,
     fallbackClient,
     fallbackRpcUrl = DEFAULT_BASE_SEPOLIA_RPC,
+    fallbackChain = baseSepoliaChain,
+    usdcAddress = BASE_SEPOLIA_USDC_ADDRESS,
+    tokenMessengerWithFeesAddress = BASE_SEPOLIA_TOKEN_MESSENGER_WITH_FEES,
     timeoutMs = DEFAULT_GAS_ESTIMATE_TIMEOUT_MS,
   } = params;
 
@@ -175,7 +187,7 @@ export async function estimateCircleSourceGas(
   // 2. Try primary client if provided
   if (publicClient) {
     try {
-      queryResult = await queryClient(publicClient, normalizedPayer, timeoutMs, "primary RPC");
+      queryResult = await queryClient(publicClient, normalizedPayer, timeoutMs, "primary RPC", usdcAddress, tokenMessengerWithFeesAddress);
       rpcUsed = "primary";
     } catch {
       queryResult = null;
@@ -188,10 +200,10 @@ export async function estimateCircleSourceGas(
       const activeFallbackClient =
         fallbackClient ??
         createPublicClient({
-          chain: baseSepoliaChain,
+          chain: fallbackChain,
           transport: http(fallbackRpcUrl, { timeout: timeoutMs, retryCount: 0 }),
         });
-      queryResult = await queryClient(activeFallbackClient, normalizedPayer, timeoutMs, "fallback RPC");
+      queryResult = await queryClient(activeFallbackClient, normalizedPayer, timeoutMs, "fallback RPC", usdcAddress, tokenMessengerWithFeesAddress);
       rpcUsed = "fallback";
     } catch (fallbackError) {
       // Both failed or timed out: strict fail-closed

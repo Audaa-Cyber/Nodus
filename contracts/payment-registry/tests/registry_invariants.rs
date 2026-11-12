@@ -164,6 +164,39 @@ fn attempt_is_bound_to_invoice_terms_and_base_sepolia_usdc() {
 }
 
 #[test]
+fn accepts_circle_testnet_usdc_sources_and_destinations() {
+    let cases = [
+        (11_155_111, "0x1c7d4b196cb0c7b01d743fbc6116a902379c7238"),
+        (84_532, "0x036cbd53842c5426634e7929541ec2318f3dcf7e"),
+        (421_614, "0x75faf114eafb1bdbe2f0316df893fd58ce46aa4d"),
+        (11_155_420, "0x5fd84259d66cd46123540766be93dfe6d43130d7"),
+    ];
+    for (index, (chain_id, token)) in cases.into_iter().enumerate() {
+        let mut contract = setup("registrar.near");
+        let invoice_id = format!("00000000-0000-4000-8000-{:012}", index + 1);
+        let mut invoice_terms = terms();
+        invoice_terms.destination_chain_id = chain_id;
+        invoice_terms.token_address = token.to_string();
+        contract.register_invoice(invoice_id.clone(), invoice_terms);
+        let attempt_id = format!("00000000-0000-4000-8000-{:012}", index + 2);
+        contract.register_attempt(attempt_id.clone(), invoice_id, chain_id);
+        assert_eq!(contract.get_attempt(attempt_id).unwrap().source_token_address, token);
+    }
+}
+
+#[test]
+#[should_panic(expected = "unsupported_source_chain")]
+fn rejects_source_chains_without_circle_testnet_usdc() {
+    let mut contract = setup("registrar.near");
+    register_invoice(&mut contract);
+    contract.register_attempt(
+        "00000000-0000-4000-8000-000000000099".to_string(),
+        "00000000-0000-4000-8000-000000000001".to_string(),
+        1,
+    );
+}
+
+#[test]
 fn invoice_and_attempt_commitments_bind_the_registered_terms() {
     let mut contract = setup("registrar.near");
     register_invoice(&mut contract);

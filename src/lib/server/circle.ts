@@ -71,6 +71,7 @@ export const TESTNET_CIRCLE_CHAINS: Record<string, CircleChainInfo> = {
     usdcAddress: "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
     tokenMessengerAddress: "0x8FE6B999Dc680CcFDD5Bf7EB0974218be2542DAA",
     messageTransmitterV2: "0xE737e5cEBEEBa77EFE34D4aa090756590b1CE275",
+    tokenMessengerWithFees: "0x8745D906D67C346E5eb1aEEED38Eb87F34DF0C0A",
   },
   avalanche: {
     networkKey: "avalanche",
@@ -87,6 +88,8 @@ export const TESTNET_CIRCLE_CHAINS: Record<string, CircleChainInfo> = {
     cctpDomainId: 2,
     usdcAddress: "0x5fd84259d66Cd46123540766Be93DFE6D43130D7",
     tokenMessengerAddress: "0x8FE6B999Dc680CcFDD5Bf7EB0974218be2542DAA",
+    messageTransmitterV2: "0xE737e5cEBEEBa77EFE34D4aa090756590b1CE275",
+    tokenMessengerWithFees: "0x8745D906D67C346E5eb1aEEED38Eb87F34DF0C0A",
   },
   arbitrum: {
     networkKey: "arbitrum",
@@ -96,6 +99,7 @@ export const TESTNET_CIRCLE_CHAINS: Record<string, CircleChainInfo> = {
     usdcAddress: "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d",
     tokenMessengerAddress: "0x8FE6B999Dc680CcFDD5Bf7EB0974218be2542DAA",
     messageTransmitterV2: "0xE737e5cEBEEBa77EFE34D4aa090756590b1CE275",
+    tokenMessengerWithFees: "0x8745D906D67C346E5eb1aEEED38Eb87F34DF0C0A",
   },
   base: {
     networkKey: "base",

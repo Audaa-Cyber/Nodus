@@ -9,7 +9,7 @@ import {
   isCctpRouteSupported,
   isDirectUsdcTransferSupported,
 } from "../src/lib/server/circle.ts";
-import { circleTestnetUsdcNetworks } from "../src/lib/wallet/networks.ts";
+import { circleTestnetUsdcNetworks, getCircleTestnetUsdcNetworkForChainId } from "../src/lib/wallet/networks.ts";
 
 const recipient = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8";
 const sender = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
@@ -63,7 +63,7 @@ test("route discovery: same-chain USDC selects circle_direct with zero protocol 
   assert.equal(topRoute.depositAddress, recipient);
 });
 
-test("route discovery: the Phase 1 Base Sepolia to Arbitrum Sepolia pair selects Circle CCTP", async () => {
+test("route discovery: Base Sepolia to Arbitrum Sepolia selects Circle CCTP", async () => {
   const result = await discoverPaymentRoutes({
     invoiceId: "inv-test-cctp-1",
     amountMinor: 2500, // $25.00
@@ -98,7 +98,7 @@ test("route discovery: the Phase 1 Base Sepolia to Arbitrum Sepolia pair selects
 
 test("route discovery: payer and merchant can choose any listed same-network testnet for direct USDC", async () => {
   assert.deepEqual(circleTestnetUsdcNetworks.map((network) => network.key), [
-    "base-sepolia", "arbitrum-sepolia",
+    "sepolia", "base-sepolia", "arbitrum-sepolia", "optimism-sepolia",
   ]);
 
   for (const network of circleTestnetUsdcNetworks) {
@@ -124,6 +124,41 @@ test("route discovery: payer and merchant can choose any listed same-network tes
   }
 });
 
+test("connected-wallet network suggestion resolves only enabled Circle checkout networks", () => {
+  for (const network of circleTestnetUsdcNetworks) {
+    assert.equal(getCircleTestnetUsdcNetworkForChainId(network.chainId)?.key, network.key);
+  }
+  assert.equal(getCircleTestnetUsdcNetworkForChainId(1), undefined);
+  assert.equal(getCircleTestnetUsdcNetworkForChainId(undefined), undefined);
+});
+
+test("route discovery: CCTP is available for every distinct supported testnet USDC pair", async () => {
+  const supported = circleTestnetUsdcNetworks.map((network) => network.key);
+  let routeCount = 0;
+  for (const sourceNetwork of supported) {
+    for (const destinationNetwork of supported) {
+      if (sourceNetwork === destinationNetwork) continue;
+      const sourceCircle = getCircleChain(sourceNetwork, true);
+      const result = await discoverPaymentRoutes({
+        invoiceId: `invoice-${sourceNetwork}-${destinationNetwork}`,
+        amountMinor: 1000,
+        currency: "USD",
+        destinationNetwork,
+        recipientAddress: recipient,
+        sourceAssetId: `${sourceNetwork}:usdc`,
+        sourceNetwork,
+        sourceSymbol: "USDC",
+        sourceDecimals: 6,
+        sourceContractAddress: sourceCircle?.usdcAddress ?? null,
+        isTestnet: true,
+      });
+      assert.equal(result.routes[0]?.provider, "circle_cctp", `${sourceNetwork} to ${destinationNetwork}`);
+      routeCount += result.routes.length;
+    }
+  }
+  assert.equal(routeCount, 12);
+});
+
 test("route discovery: unsupported cross-network choices do not invent a route", async () => {
   const result = await discoverPaymentRoutes({
     invoiceId: "invoice-unsupported-cross-chain",
@@ -131,11 +166,11 @@ test("route discovery: unsupported cross-network choices do not invent a route",
     currency: "USD",
     destinationNetwork: "optimism-sepolia",
     recipientAddress: recipient,
-    sourceAssetId: "base-sepolia:usdc",
-    sourceNetwork: "base-sepolia",
+    sourceAssetId: "bsc:usdc",
+    sourceNetwork: "bsc",
     sourceSymbol: "USDC",
     sourceDecimals: 6,
-    sourceContractAddress: getCircleChain("base-sepolia", true).usdcAddress,
+    sourceContractAddress: null,
     isTestnet: true,
   });
 

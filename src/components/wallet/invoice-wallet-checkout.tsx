@@ -7,6 +7,7 @@ import {
   DEFAULT_RECOMMENDED_CHAIN_ID,
   DEFAULT_RECOMMENDED_CHAIN_NAME,
   circleTestnetUsdcNetworks,
+  getCircleTestnetUsdcNetworkForChainId,
   getEvmWalletNetwork,
   getWalletNetwork,
 } from "@/lib/wallet/networks";
@@ -70,6 +71,7 @@ function InvoiceWalletCheckoutContent({
   const [assets, setAssets] = useState<WalletAsset[]>([]);
   const [selectedSymbol, setSelectedSymbol] = useState("USDC");
   const [selectedSourceNetworkKey, setSelectedSourceNetworkKey] = useState<string>("base-sepolia");
+  const [sourceNetworkManuallySelected, setSourceNetworkManuallySelected] = useState(false);
   const [showAdvancedNetworks, setShowAdvancedNetworks] = useState(false);
   const [switchError, setSwitchError] = useState("");
   const [loadingAssets, setLoadingAssets] = useState(true);
@@ -133,6 +135,15 @@ function InvoiceWalletCheckoutContent({
     if (!isEvmConnected) return null;
     return getEvmWalletNetwork(evmChainId) ?? null;
   }, [isEvmConnected, evmChainId]);
+
+  useEffect(() => {
+    if (sourceNetworkManuallySelected) return;
+    const connectedChainId = walletMethod === "circle"
+      ? evmConnection.network?.chainId
+      : isEvmConnected ? evmChainId : undefined;
+    const suggestedNetwork = getCircleTestnetUsdcNetworkForChainId(connectedChainId);
+    if (suggestedNetwork) setSelectedSourceNetworkKey(suggestedNetwork.key);
+  }, [evmChainId, evmConnection.network?.chainId, isEvmConnected, sourceNetworkManuallySelected, walletMethod]);
 
   const selectedSourceNetwork = useMemo(
     () => circleTestnetUsdcNetworks.find((network) => network.key === selectedSourceNetworkKey) ?? circleTestnetUsdcNetworks[1],
@@ -328,6 +339,7 @@ function InvoiceWalletCheckoutContent({
               id="payerSourceNetwork"
               value={selectedSourceNetwork.key}
               onChange={(event) => {
+                setSourceNetworkManuallySelected(true);
                 setSelectedSourceNetworkKey(event.target.value);
                 setAttempt(null);
                 setFlowError("");
@@ -485,6 +497,7 @@ function InvoiceWalletCheckoutContent({
                           className={`network-switch-pill ${network.key === selectedSourceNetwork.key ? "is-active" : ""}`}
                           disabled={isSwitchingChain}
                           onClick={() => {
+                            setSourceNetworkManuallySelected(true);
                             setSelectedSourceNetworkKey(network.key);
                             setAttempt(null);
                             void handleSwitchToNetwork(network.chainId);

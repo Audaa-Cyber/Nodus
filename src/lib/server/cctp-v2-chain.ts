@@ -49,8 +49,9 @@ export type VerifiedCctpSource = {
   sourceBlockHash: string;
 };
 
-/** Independently verify the Base Sepolia burn and bind its V2 message to IRIS. */
+/** Independently verify the source-chain burn and bind its V2 message to IRIS. */
 export async function verifyCctpV2SourceTransaction(input: {
+  sourceNetwork: string;
   sourceTxHash: string;
   payer: string;
   destinationNetwork: string;
@@ -61,11 +62,11 @@ export async function verifyCctpV2SourceTransaction(input: {
 }): Promise<VerifiedCctpSource> {
   if (!HASH.test(input.sourceTxHash) || !/^0x[0-9a-fA-F]{40}$/.test(input.payer)
     || !/^[1-9][0-9]*$/.test(input.expectedBurnAmount)) throw new Error("invalid_cctp_source_proof_request");
-  const source = getCircleChain("base-sepolia", true);
+  const source = getCircleChain(input.sourceNetwork, true);
   const destination = getCircleChain(input.destinationNetwork, true);
   if (!source?.messageTransmitterV2 || !source.tokenMessengerWithFees
     || !destination?.messageTransmitterV2) throw new Error("cctp_v2_chain_configuration_missing");
-  const client = clientFor("base-sepolia");
+  const client = clientFor(input.sourceNetwork);
   const hash = input.sourceTxHash as Hash;
   const [transaction, receipt] = await Promise.all([
     client.getTransaction({ hash }),
