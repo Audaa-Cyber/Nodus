@@ -9,6 +9,7 @@ import { executeCircleBridgeAfterFreshReservation } from "@/lib/payments/circle-
 import { estimateCircleSourceGas, CIRCLE_TESTNET_TOKEN_MESSENGER_WITH_FEES } from "@/lib/payments/circle-gas-estimation";
 import type { WalletAsset } from "@/lib/wallet/types";
 import type { StandardizedRouteQuote } from "@/lib/payments/route-orchestrator";
+import { buildPaymentRoutesRequest } from "@/lib/payments/route-request";
 
 interface LivePaymentFlowProps {
   shareToken: string;
@@ -131,14 +132,7 @@ export function LivePaymentFlow({
       const response = await fetch(`/api/pay/${encodeURIComponent(shareToken)}/routes`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sourceAssetId: selectedAsset.assetId,
-          sourceNetwork: selectedAsset.network.key,
-          sourceSymbol: selectedAsset.symbol,
-          sourceDecimals: selectedAsset.decimals,
-          sourceContractAddress: selectedAsset.contractAddress,
-          senderAddress: activeAddress,
-        }),
+        body: JSON.stringify(buildPaymentRoutesRequest(selectedAsset, activeAddress)),
       });
 
       const data = await response.json();
