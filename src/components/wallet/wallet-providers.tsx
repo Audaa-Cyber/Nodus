@@ -4,7 +4,6 @@ import { useState, type ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createConfig, http, WagmiProvider } from "wagmi";
 import { injected } from "wagmi/connectors/injected";
-import { circleWalletConnector } from "@/lib/wallet/circle-wagmi-connector";
 import {
   arbitrum,
   arbitrumSepoliaChain,
@@ -26,7 +25,8 @@ import { ClientProvider } from "@solana/react";
 
 const evmConfig = createConfig({
   chains: evmWalletChains,
-  connectors: [injected(), circleWalletConnector()],
+  connectors: [injected()],
+  multiInjectedProviderDiscovery: true,
   transports: {
     [mainnet.id]: http(),
     [arbitrum.id]: http(),

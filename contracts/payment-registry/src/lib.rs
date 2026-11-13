@@ -187,6 +187,8 @@ struct CctpV2NonceRecord {
 
 #[near(contract_state)]
 #[derive(PanicOnDefault)]
+/// Preserve this persisted field order for deployed contracts. CCTP V2 nonce
+/// records live under a separate LookupMap prefix to keep existing state bytes readable.
 pub struct Contract {
     owner_id: AccountId,
     registrar_id: AccountId,

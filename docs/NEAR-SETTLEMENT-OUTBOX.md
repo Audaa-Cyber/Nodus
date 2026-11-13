@@ -27,6 +27,8 @@ Configure these server-side variables in the deployment secret manager. The chec
 
 Schedule an authenticated `POST /api/internal/near-settlement-outbox` every minute or as appropriate for the host. Send `Authorization: Bearer <NEAR_OUTBOX_WORKER_SECRET>`. The CCTP verified settlement handler also attempts a small immediate drain, but the scheduled worker is required for reliable recovery after process or RPC failures. Do not put the worker secret in browser code or logs.
 
+Issued invoices are durably queued by the invoice trigger in `near_invoice_registration_outbox`. The invoice action makes a best-effort immediate drain after saving; schedule authenticated `POST /api/internal/near-invoice-registration-outbox` with the same bearer secret for retries and recovery. Invoice registration has its own `pending`, `submitting`, `registered`, and `failed` state on the invoice. A `registered` state requires a final NEAR transaction and a matching `get_invoice` readback. Failed invoices can be requeued by their owner from the invoice detail page. Only invoice terms and the merchant's receiving address are written on-chain; customer details remain in Supabase.
+
 The currently deployed testnet configuration places owner, registrar and attestor roles on the same NODUS testnet account. This is a centralized testnet trust arrangement for integration testing, not production separation of duties. The backend must retain its PostgreSQL-first reconciliation and must not treat a NEAR attestation as the payment source of truth.
 
 ## Validation

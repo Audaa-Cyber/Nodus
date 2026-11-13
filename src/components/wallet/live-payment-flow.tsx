@@ -114,7 +114,6 @@ export function LivePaymentFlow({
   const [walletRejected, setWalletRejected] = useState(false);
   const [depositTxHash, setDepositTxHash] = useState<string | null>(null);
   const [approvalTxHash, setApprovalTxHash] = useState<string | null>(null);
-  const [addressCopyFeedback, setAddressCopyFeedback] = useState("");
   const [destinationReceipts, setDestinationReceipts] = useState<
     Array<{ receipt_number: string; issued_at: string }>
   >([]);
@@ -134,21 +133,6 @@ export function LivePaymentFlow({
     () => routes[selectedRouteIndex] ?? null,
     [routes, selectedRouteIndex]
   );
-  const activeWalletNetwork = getWalletNetwork(selectedRoute?.sourceNetwork ?? "");
-  const activeWalletExplorer = evmWalletChains.find(
-    (chain) => chain.id === (activeWalletNetwork?.chainId ?? evmChainId),
-  )?.blockExplorers?.default.url;
-
-  async function copyActiveWalletAddress() {
-    if (!activeAddress) return;
-    try {
-      await navigator.clipboard.writeText(activeAddress);
-      setAddressCopyFeedback("Circle wallet address copied.");
-    } catch {
-      setAddressCopyFeedback("Clipboard access is unavailable. Select the address to copy it.");
-    }
-  }
-
   // 1. Fetch available routes from backend orchestrator
   const fetchRoutes = useCallback(async () => {
     if (!selectedAsset || !activeAddress) return;
@@ -802,35 +786,6 @@ export function LivePaymentFlow({
                   ? "Payment complete & verified"
                   : "Payment incomplete"}
       </h3>
-
-      {connector?.id === "circle-user-controlled" && activeAddress && (
-        <section className="circle-wallet-address-panel" aria-labelledby="circle-source-address-title">
-          <div className="circle-wallet-address-heading">
-            <div>
-              <p className="wallet-eyebrow">CIRCLE EMBEDDED WALLET</p>
-              <h4 id="circle-source-address-title">Your wallet address</h4>
-            </div>
-            <button type="button" className="wallet-secondary-button" onClick={() => void copyActiveWalletAddress()}>
-              Copy address
-            </button>
-          </div>
-          <code className="circle-wallet-address-value">{activeAddress}</code>
-          {activeWalletExplorer && (
-            <a
-              className="wallet-explorer-link"
-              href={`${activeWalletExplorer}/address/${encodeURIComponent(activeAddress)}`}
-              target="_blank"
-              rel="noreferrer"
-            >
-              View wallet activity on {activeWalletNetwork?.label ?? "the connected network"} explorer
-            </a>
-          )}
-          <p className="wallet-description">
-            Open wallet activity to find the USDC transfer and its transaction hash.
-          </p>
-          {addressCopyFeedback && <p className="wallet-inline-status" role="status">{addressCopyFeedback}</p>}
-        </section>
-      )}
 
       {loadingRoutes ? (
         <p className="wallet-description">Checking Circle USDC payment routes…</p>

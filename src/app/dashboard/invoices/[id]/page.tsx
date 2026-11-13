@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import CancelInvoiceForm from "@/components/cancel-invoice-form";
 import InvoiceSharePanel from "@/components/invoice-share-panel";
+import { retryNearInvoiceRegistrationAction } from "@/app/actions/invoices";
 import { getBusinessContext } from "@/lib/auth/business-context";
 import { effectiveStatus, formatMoney, formatUtcDate } from "@/lib/invoices";
 import { withTransitionDelay } from "@/lib/utils/timing";
@@ -108,6 +109,7 @@ export default async function InvoiceDetailPage({
     { data: settlements },
     { data: attempts },
     { data: nearOutbox },
+    { data: nearInvoiceRegistration },
   ] = await withTransitionDelay(
     Promise.all([
       supabase
@@ -147,6 +149,12 @@ export default async function InvoiceDetailPage({
           "id,payment_attempt_id,source_transaction_hash,status,near_transaction_hash,last_error_code,submitted_at,created_at,attempt_count"
         )
         .eq("invoice_id", id),
+
+      supabase
+        .from("near_invoice_registration_outbox")
+        .select("id,status,attempt_count,near_transaction_hash,failure_reason,registered_at")
+        .eq("invoice_id", id)
+        .maybeSingle(),
     ]),
     700
   );
@@ -279,6 +287,32 @@ export default async function InvoiceDetailPage({
           expiresAt={invoice.share_token_expires_at}
           canShare={canShare}
         />
+      )}
+
+      {invoice.status !== "draft" && nearInvoiceRegistration && (
+        <section className="invoice-detail-sheet" aria-label="NEAR invoice registration" style={{ marginTop: 18, padding: 18 }}>
+          <p className="eyebrow" style={{ margin: "0 0 8px" }}>NEAR INVOICE REGISTRATION</p>
+          <p style={{ margin: 0, fontSize: 13 }}>
+            {invoice.near_registration_status === "registered"
+              ? "Registered on NEAR"
+              : invoice.near_registration_status === "submitting"
+                ? "Registration transaction is being verified"
+                : invoice.near_registration_status === "failed"
+                  ? `Registration failed${invoice.near_registration_failure_reason ? `: ${invoice.near_registration_failure_reason}` : "."}`
+                  : "Registration is queued"}
+          </p>
+          {invoice.near_registration_status === "registered" && invoice.near_registration_transaction_hash && (
+            <a className="form-help" href={`https://nearblocks.io/txns/${invoice.near_registration_transaction_hash}`} target="_blank" rel="noopener noreferrer">
+              View registration transaction
+            </a>
+          )}
+          {invoice.near_registration_status === "failed" && (
+            <form action={retryNearInvoiceRegistrationAction} style={{ marginTop: 12 }}>
+              <input type="hidden" name="invoiceId" value={invoice.id} />
+              <button type="submit" className="button button-secondary">Retry NEAR registration</button>
+            </form>
+          )}
+        </section>
       )}
 
       {/* ═══════════════════════════════════════════════════════

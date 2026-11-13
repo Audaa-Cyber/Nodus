@@ -53,6 +53,7 @@ export async function deliverClaimedNearSettlement<TPayload>(
     getSettlement: (reconciliationId: string) => Promise<NearSettlementRecord | null>;
     ensureInvoiceAndAttempt: (payload: NearSettlementDeliveryPayload<TPayload>) => Promise<void>;
     attestSettlement: (input: TPayload) => Promise<string>;
+    recordSubmission: (job: NearOutboxJob, transactionHash: string) => Promise<void>;
     markSubmitted: (job: NearOutboxJob, transactionHash: string | null) => Promise<void>;
     scheduleRetry: (job: NearOutboxJob, errorCode: string) => Promise<void>;
     markBlocked: (job: NearOutboxJob, errorCode: string) => Promise<void>;
@@ -99,6 +100,22 @@ export async function deliverClaimedNearSettlement<TPayload>(
 
   try {
     const transactionHash = await dependencies.attestSettlement(payload.attestationArgs.input);
+    await dependencies.recordSubmission(job, transactionHash);
+    let verified: NearSettlementRecord | null;
+    try {
+      verified = await dependencies.getSettlement(job.reconciliation_id);
+    } catch {
+      await dependencies.scheduleRetry(job, "near_readback_unavailable");
+      return "retry";
+    }
+    if (!verified) {
+      await dependencies.scheduleRetry(job, "near_readback_pending");
+      return "retry";
+    }
+    if (!settlementMatches(payload.settlementRecord, verified)) {
+      await dependencies.markBlocked(job, "near_existing_settlement_mismatch");
+      return "blocked";
+    }
     await dependencies.markSubmitted(job, transactionHash);
     return "submitted";
   } catch (error) {

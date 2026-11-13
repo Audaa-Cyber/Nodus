@@ -1,16 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useAccount, useConnect, useDisconnect, useSwitchChain } from "wagmi";
-import { DEFAULT_RECOMMENDED_CHAIN_ID, evmWalletChains, getEvmWalletNetwork } from "@/lib/wallet/networks";
-import type { WalletConnectionSnapshot } from "@/lib/wallet/types";
+import { DEFAULT_RECOMMENDED_CHAIN_ID, evmWalletChains } from "@/lib/wallet/networks";
 
-export function EvmWalletCard({
-  selectedChainId,
-  onConnectionChange,
-}: {
+export function EvmWalletCard({ selectedChainId }: {
   selectedChainId?: number;
-  onConnectionChange: (connection: WalletConnectionSnapshot) => void;
 }) {
   const { address, chainId, isConnected } = useAccount();
   const { connectors, connectAsync, isPending } = useConnect();
@@ -19,13 +14,6 @@ export function EvmWalletCard({
   const [message, setMessage] = useState("");
   const activeChain = evmWalletChains.find((chain) => chain.id === chainId);
   const selectedChain = evmWalletChains.find((chain) => chain.id === selectedChainId);
-
-  useEffect(() => {
-    onConnectionChange({
-      address: isConnected && address ? address : null,
-      network: isConnected ? getEvmWalletNetwork(chainId) ?? null : null,
-    });
-  }, [address, chainId, isConnected, onConnectionChange]);
 
   async function connect(connectorId: string) {
     setMessage("");
@@ -36,8 +24,15 @@ export function EvmWalletCard({
         return;
       }
       await connectAsync({ connector });
-    } catch {
-      setMessage("Wallet connection was declined or could not be completed.");
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : "";
+      if (/user rejected|user denied|request rejected|user cancelled|user canceled|4001/i.test(detail)) {
+        setMessage("The wallet connection was declined. Choose Connect when you are ready to continue.");
+      } else if (/provider not found|no provider|not found|not available/i.test(detail)) {
+        setMessage("No compatible browser wallet was found. Install or unlock MetaMask, Rabby, or another injected EVM wallet, then refresh this page.");
+      } else {
+        setMessage("Wallet connection could not be completed. Unlock your wallet and try again.");
+      }
     }
   }
 
@@ -118,6 +113,11 @@ export function EvmWalletCard({
               </button>
             ))}
           </div>
+          {connectors.length === 0 && (
+            <p className="wallet-description" role="status">
+              No compatible browser wallet was detected. Install or unlock MetaMask, Rabby, or another injected EVM wallet, then refresh this page.
+            </p>
+          )}
         </>
       )}
       {message && <p className="wallet-error" role="alert">{message}</p>}

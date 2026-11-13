@@ -4,7 +4,6 @@ import {
   Blockchain,
   type Wallet,
   type Challenge,
-  type TokenBlockchain,
 } from "@circle-fin/user-controlled-wallets";
 
 let cachedClient: CircleUserControlledWalletsClient | null = null;
@@ -154,68 +153,6 @@ export async function getCircleUserChallenge(params: {
     challengeId: params.challengeId,
   });
   return response.data?.challenge || null;
-}
-
-/**
- * Creates a transaction transfer challenge.
- */
-export async function createCircleTransferChallenge(params: {
-  userToken: string;
-  walletId: string;
-  destinationAddress: string;
-  amount: string;
-  tokenAddress?: string;
-  blockchain?: TokenBlockchain;
-}): Promise<{ challengeId: string }> {
-  const client = getCircleWalletsClient();
-  const response = await client.createTransaction({
-    userToken: params.userToken,
-    walletId: params.walletId,
-    destinationAddress: params.destinationAddress,
-    amounts: [params.amount],
-    fee: { type: "level", config: { feeLevel: "MEDIUM" } },
-    ...(params.tokenAddress
-      ? {
-          tokenAddress: params.tokenAddress,
-          blockchain: params.blockchain ?? ("BASE-SEPOLIA" as TokenBlockchain),
-        }
-      : {}),
-  });
-
-  const challengeId = response.data?.challengeId;
-  if (!challengeId) {
-    throw new Error("Circle did not return a valid challenge ID for the transfer.");
-  }
-
-  return { challengeId };
-}
-
-/**
- * Creates a smart contract interaction challenge (e.g., ERC-20 approve or CCTP burn).
- */
-export async function createCircleContractExecutionChallenge(params: {
-  userToken: string;
-  walletId: string;
-  contractAddress: string;
-  callData: string;
-  amount?: string;
-}): Promise<{ challengeId: string }> {
-  const client = getCircleWalletsClient();
-  const response = await client.createUserTransactionContractExecutionChallenge({
-    userToken: params.userToken,
-    walletId: params.walletId,
-    contractAddress: params.contractAddress,
-    callData: params.callData as `0x${string}`,
-    fee: { type: "level", config: { feeLevel: "MEDIUM" } },
-    ...(params.amount ? { amount: params.amount } : {}),
-  });
-
-  const challengeId = response.data?.challengeId;
-  if (!challengeId) {
-    throw new Error("Circle did not return a challenge ID for smart contract execution.");
-  }
-
-  return { challengeId };
 }
 
 export { Blockchain };

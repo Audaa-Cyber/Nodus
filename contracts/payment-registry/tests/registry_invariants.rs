@@ -667,3 +667,33 @@ fn cctp_v2_replay_scope_uses_source_domain_and_legacy_u64_settlements_remain_rea
     assert_eq!(legacy_view.cctp_message_nonce, None);
     assert_eq!(legacy_view.outcome, SettlementOutcome::Verified);
 }
+
+#[test]
+fn mixed_legacy_and_full_width_settlements_preserve_both_read_models() {
+    let mut contract = setup("registrar.near");
+    register_invoice(&mut contract);
+    register_attempt(&mut contract, "00000000-0000-4000-8000-000000000002");
+    register_attempt(&mut contract, "00000000-0000-4000-8000-000000000008");
+    testing_env!(VMContextBuilder::new()
+        .predecessor_account_id(account("attestor.near"))
+        .build());
+
+    let full_nonce = "0x4ee259295b1fcf171b082ba2a1b0d46a9b0b5bc9fa55ff3d2178f5574c05ebba";
+    contract.attest_settlement_v2(v2_attestation(
+        "00000000-0000-4000-8000-000000000002", 40_000_000, "b", full_nonce,
+    ));
+    let legacy_input = attestation("00000000-0000-4000-8000-000000000008", 60_000_000, "d");
+    let legacy_id = legacy_input.reconciliation_id.clone();
+    contract.attest_settlement(legacy_input);
+
+    let v2_view = contract.get_settlement("00000000-0000-4000-8000-00000000000b".to_string()).unwrap();
+    assert_eq!(v2_view.cctp_source_domain, Some(6));
+    assert_eq!(v2_view.cctp_message_nonce.as_deref(), Some(full_nonce));
+    let legacy_view = contract.get_settlement(legacy_id).unwrap();
+    assert_eq!(legacy_view.cctp_message_nonce, None);
+    assert_eq!(legacy_view.outcome, SettlementOutcome::Verified);
+    assert_eq!(
+        contract.get_invoice("00000000-0000-4000-8000-000000000001".to_string()).unwrap().status,
+        InvoiceStatus::Paid,
+    );
+}

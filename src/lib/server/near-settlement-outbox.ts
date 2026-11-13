@@ -126,6 +126,12 @@ export async function processNearSettlementOutbox(limit = 10): Promise<{ claimed
         }
       },
       attestSettlement: (input) => near.call("attest_settlement_v2", { input }),
+      recordSubmission: async (claimed, transactionHash) => {
+        const { error: recordError } = await admin.rpc("record_near_settlement_submission", {
+          p_id: claimed.id, p_lock_token: claimed.lock_token, p_near_transaction_hash: transactionHash,
+        });
+        if (recordError) throw new Error("near_outbox_submission_record_failed");
+      },
       markSubmitted: async (claimed, transactionHash) => {
         const { error: finishError } = await admin.rpc("finish_near_settlement_outbox", {
           p_id: claimed.id, p_lock_token: claimed.lock_token, p_near_transaction_hash: transactionHash,

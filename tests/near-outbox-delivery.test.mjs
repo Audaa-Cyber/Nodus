@@ -44,6 +44,7 @@ function dependencies(overrides = {}) {
     getSettlement: async () => null,
     ensureInvoiceAndAttempt: async () => {},
     attestSettlement: async () => "near-tx-1",
+    recordSubmission: async () => {},
     markSubmitted: async () => {},
     scheduleRetry: async () => {},
     markBlocked: async () => {},
@@ -66,13 +67,16 @@ test("reconciles an existing matching settlement without submitting a duplicate"
 
 test("synchronizes invoice and attempt before attestation", async () => {
   const calls = [];
+  let reads = 0;
   const result = await deliverClaimedNearSettlement(job, dependencies({
+    getSettlement: async () => { calls.push("readback"); return reads++ === 0 ? null : record(); },
     ensureInvoiceAndAttempt: async () => { calls.push("registry"); },
     attestSettlement: async () => { calls.push("attest"); return "near-tx-1"; },
+    recordSubmission: async () => { calls.push("record-tx"); },
     markSubmitted: async (_job, txHash) => { calls.push(`submitted:${txHash}`); },
   }));
   assert.equal(result, "submitted");
-  assert.deepEqual(calls, ["registry", "attest", "submitted:near-tx-1"]);
+  assert.deepEqual(calls, ["readback", "registry", "attest", "record-tx", "readback", "submitted:near-tx-1"]);
 });
 
 test("recovers an uncertain submission by querying get_settlement before retry", async () => {

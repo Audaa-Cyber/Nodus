@@ -29,7 +29,7 @@ The business dashboard uses Supabase Auth and the public anon key with owner-sco
 
 ## Customer wallet preview
 
-Public open and overdue invoices can connect EVM wallets and Solana Wallet Standard wallets. EVM support currently covers Ethereum, Arbitrum, Base, Optimism, Polygon, BNB Smart Chain, and Avalanche. The public `/api/wallet/assets` endpoint returns the supported payment tokens across wallet adapters and networks. A listed asset is not a guaranteed route; a future payment phase must request a live quote for the configured invoice destination.
+Public open and overdue invoices connect to injected EVM wallets discovered through EIP-6963, including MetaMask, Rabby, and other compatible wallets. Supported EVM networks include Ethereum, Arbitrum, Base, Optimism, Polygon, BNB Smart Chain, and Avalanche. The public `/api/wallet/assets` endpoint returns the supported payment tokens across wallet adapters and networks. A listed asset is not a guaranteed route; checkout requests a live quote for the configured invoice destination.
 
 EVM connection uses installed browser wallet providers; on mobile, customers can use a supported wallet's in-app browser. `NEXT_PUBLIC_SOLANA_RPC_URL` optionally selects a managed Solana Mainnet RPC endpoint; otherwise the public Mainnet endpoint is used. Wallet addresses are kept in browser wallet state and are not saved to Supabase. This phase does not request quotes, sign or send transactions, or move funds.
 

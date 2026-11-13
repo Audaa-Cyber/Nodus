@@ -1,0 +1,11 @@
+C:\Users\Nimox\OneDrive\Documents\nodus\Nodus\.codex/cargo-target\debug\deps\zeroize-30802b644ad03170.d: C:\Users\Nimox\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\zeroize-1.9.1\src\lib.rs C:\Users\Nimox\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\zeroize-1.9.1\src\x86.rs C:\Users\Nimox\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\zeroize-1.9.1\src\barrier.rs C:\Users\Nimox\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\zeroize-1.9.1\src\stack.rs C:\Users\Nimox\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\zeroize-1.9.1\src\../README.md
+
+C:\Users\Nimox\OneDrive\Documents\nodus\Nodus\.codex/cargo-target\debug\deps\libzeroize-30802b644ad03170.rlib: C:\Users\Nimox\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\zeroize-1.9.1\src\lib.rs C:\Users\Nimox\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\zeroize-1.9.1\src\x86.rs C:\Users\Nimox\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\zeroize-1.9.1\src\barrier.rs C:\Users\Nimox\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\zeroize-1.9.1\src\stack.rs C:\Users\Nimox\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\zeroize-1.9.1\src\../README.md
+
+C:\Users\Nimox\OneDrive\Documents\nodus\Nodus\.codex/cargo-target\debug\deps\libzeroize-30802b644ad03170.rmeta: C:\Users\Nimox\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\zeroize-1.9.1\src\lib.rs C:\Users\Nimox\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\zeroize-1.9.1\src\x86.rs C:\Users\Nimox\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\zeroize-1.9.1\src\barrier.rs C:\Users\Nimox\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\zeroize-1.9.1\src\stack.rs C:\Users\Nimox\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\zeroize-1.9.1\src\../README.md
+
+C:\Users\Nimox\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\zeroize-1.9.1\src\lib.rs:
+C:\Users\Nimox\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\zeroize-1.9.1\src\x86.rs:
+C:\Users\Nimox\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\zeroize-1.9.1\src\barrier.rs:
+C:\Users\Nimox\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\zeroize-1.9.1\src\stack.rs:
+C:\Users\Nimox\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\zeroize-1.9.1\src\../README.md:

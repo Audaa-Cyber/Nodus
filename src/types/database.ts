@@ -10,9 +10,9 @@ export interface Database {
         Relationships: [];
       };
       invoices: {
-        Row: { id: string; business_id: string; invoice_number: string; customer_name: string; customer_email: string | null; description: string; amount_minor: number; currency: string; issue_date: string; due_date: string | null; status: "draft" | "open" | "paid" | "cancelled" | "overdue"; share_token_hash: string | null; share_token_expires_at: string | null; created_at: string; updated_at: string };
-        Insert: { id?: string; business_id: string; invoice_number: string; customer_name: string; customer_email?: string | null; description: string; amount_minor: number; currency: string; issue_date: string; due_date?: string | null; status?: "draft" | "open" | "cancelled"; share_token_hash?: string | null; share_token_expires_at?: string | null; created_at?: string; updated_at?: string };
-        Update: { invoice_number?: string; customer_name?: string; customer_email?: string | null; description?: string; amount_minor?: number; currency?: string; issue_date?: string; due_date?: string | null; status?: "draft" | "open" | "paid" | "cancelled" | "overdue"; share_token_hash?: string | null; share_token_expires_at?: string | null; updated_at?: string };
+        Row: { id: string; business_id: string; invoice_number: string; customer_name: string; customer_email: string | null; description: string; amount_minor: number; currency: string; issue_date: string; due_date: string | null; status: "draft" | "open" | "paid" | "cancelled" | "overdue"; near_registration_status: "pending" | "submitting" | "registered" | "failed"; near_registration_transaction_hash: string | null; near_invoice_reference: string | null; near_registered_at: string | null; near_registration_failure_reason: string | null; share_token_hash: string | null; share_token_expires_at: string | null; created_at: string; updated_at: string };
+        Insert: { id?: string; business_id: string; invoice_number: string; customer_name: string; customer_email: string | null; description: string; amount_minor: number; currency: string; issue_date: string; due_date?: string | null; status?: "draft" | "open" | "cancelled"; near_registration_status?: "pending" | "submitting" | "registered" | "failed"; near_registration_transaction_hash?: string | null; near_invoice_reference?: string | null; near_registered_at?: string | null; near_registration_failure_reason?: string | null; share_token_hash?: string | null; share_token_expires_at?: string | null; created_at?: string; updated_at?: string };
+        Update: { invoice_number?: string; customer_name?: string; customer_email?: string | null; description?: string; amount_minor?: number; currency?: string; issue_date?: string; due_date?: string | null; status?: "draft" | "open" | "paid" | "cancelled" | "overdue"; near_registration_status?: "pending" | "submitting" | "registered" | "failed"; near_registration_transaction_hash?: string | null; near_invoice_reference?: string | null; near_registered_at?: string | null; near_registration_failure_reason?: string | null; share_token_hash?: string | null; share_token_expires_at?: string | null; updated_at?: string };
         Relationships: [{ foreignKeyName: "invoices_business_id_fkey"; columns: ["business_id"]; isOneToOne: false; referencedRelation: "business_profiles"; referencedColumns: ["id"] }];
       };
       payment_attempts: {
@@ -31,6 +31,10 @@ export interface Database {
       };
       near_settlement_outbox: {
         Row: { id: string; payment_settlement_id: string; reconciliation_id: string; invoice_id: string; payment_attempt_id: string; source_transaction_hash: string; destination_tx_hashes: Json; status: "pending" | "processing" | "submitted" | "blocked"; attempt_count: number; next_attempt_at: string; lock_token: string | null; locked_until: string | null; near_transaction_hash: string | null; last_error_code: string | null; created_at: string; updated_at: string; submitted_at: string | null };
+        Insert: never; Update: never; Relationships: [];
+      };
+      near_invoice_registration_outbox: {
+        Row: { id: string; invoice_id: string; status: "pending" | "processing" | "registered" | "failed"; attempt_count: number; next_attempt_at: string; lock_token: string | null; locked_until: string | null; near_transaction_hash: string | null; onchain_invoice_reference: string | null; failure_reason: string | null; created_at: string; updated_at: string; submitted_at: string | null; registered_at: string | null };
         Insert: never; Update: never; Relationships: [];
       };
     };
@@ -54,8 +58,15 @@ export interface Database {
       lookup_shared_payment_receipts: { Args: { p_token_hash: string }; Returns: { receipt_number: string; invoice_number: string; business_name: string | null; outcome: Database["public"]["Enums"]["payment_settlement_outcome"]; destination_asset_id: string | null; destination_network: string | null; received_amount_base_units: string | null; received_asset_decimals: number | null; destination_tx_hashes: Json; issued_at: string }[] };
       claim_near_settlement_outbox: { Args: { p_limit?: number }; Returns: Database["public"]["Tables"]["near_settlement_outbox"]["Row"][] };
       finish_near_settlement_outbox: { Args: { p_id: string; p_lock_token: string; p_near_transaction_hash?: string | null }; Returns: boolean };
+      record_near_settlement_submission: { Args: { p_id: string; p_lock_token: string; p_near_transaction_hash: string }; Returns: boolean };
       retry_near_settlement_outbox: { Args: { p_id: string; p_lock_token: string; p_error_code: string }; Returns: boolean };
       block_near_settlement_outbox: { Args: { p_id: string; p_lock_token: string; p_error_code: string }; Returns: boolean };
+      claim_near_invoice_registration_outbox: { Args: { p_limit?: number }; Returns: Database["public"]["Tables"]["near_invoice_registration_outbox"]["Row"][] };
+      finish_near_invoice_registration: { Args: { p_id: string; p_lock_token: string; p_transaction_hash: string | null; p_invoice_reference: string }; Returns: boolean };
+      mark_near_invoice_registration_submitted: { Args: { p_id: string; p_lock_token: string; p_transaction_hash: string }; Returns: boolean };
+      retry_near_invoice_registration: { Args: { p_id: string; p_lock_token: string; p_failure_reason: string }; Returns: boolean };
+      fail_near_invoice_registration: { Args: { p_id: string; p_lock_token: string; p_failure_reason: string }; Returns: boolean };
+      requeue_near_invoice_registration: { Args: { p_invoice_id: string }; Returns: boolean };
     };
     Enums: {
       payment_attempt_status: "MOCK_QUOTE_READY" | "QUOTE_EXPIRED" | "PENDING_DEPOSIT" | "KNOWN_DEPOSIT_TX" | "PROCESSING" | "SUCCESS" | "REFUNDED" | "FAILED" | "INCOMPLETE_DEPOSIT";

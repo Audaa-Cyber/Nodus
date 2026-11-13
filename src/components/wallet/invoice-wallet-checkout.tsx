@@ -11,9 +11,8 @@ import {
   getEvmWalletNetwork,
   getWalletNetwork,
 } from "@/lib/wallet/networks";
-import type { WalletAsset, WalletConnectionSnapshot } from "@/lib/wallet/types";
+import type { WalletAsset } from "@/lib/wallet/types";
 import { EvmWalletCard } from "./evm-wallet-card";
-import { CircleGuestWalletCard } from "./circle-guest-wallet-card";
 import { WalletProviders } from "./wallet-providers";
 import { LivePaymentFlow } from "./live-payment-flow";
 
@@ -62,7 +61,7 @@ function InvoiceWalletCheckoutContent({
   destinationNetwork,
   recipientAddress,
 }: InvoiceWalletCheckoutProps) {
-  const { chainId: evmChainId, isConnected: isEvmConnected } = useAccount();
+  const { address: evmAddress, chainId: evmChainId, isConnected: isEvmConnected } = useAccount();
   const { switchChainAsync, isPending: isSwitchingChain } = useSwitchChain();
 
   const [attempt, setAttempt] = useState<{ id: string; status: string } | null>(null);
@@ -83,11 +82,7 @@ function InvoiceWalletCheckoutContent({
   const [storedAttemptSettled, setStoredAttemptSettled] = useState(false);
   const [storedReceipts, setStoredReceipts] = useState<Array<{ receipt_number: string; issued_at: string }>>([]);
 
-  const [walletMethod, setWalletMethod] = useState<"external" | "circle">("external");
-  const [evmConnection, setEvmConnection] = useState<WalletConnectionSnapshot>({ address: null, network: null });
-
   const payable = status === "open" || status === "overdue";
-  const updateEvmConnection = useCallback((connection: WalletConnectionSnapshot) => setEvmConnection(connection), []);
 
   // Safe internal feature gate: only allow simulation in non-production when explicitly enabled
   const allowSimulation = process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_ENABLE_PAYMENT_SIMULATION === "true";
@@ -138,12 +133,9 @@ function InvoiceWalletCheckoutContent({
 
   useEffect(() => {
     if (sourceNetworkManuallySelected) return;
-    const connectedChainId = walletMethod === "circle"
-      ? evmConnection.network?.chainId
-      : isEvmConnected ? evmChainId : undefined;
-    const suggestedNetwork = getCircleTestnetUsdcNetworkForChainId(connectedChainId);
+    const suggestedNetwork = getCircleTestnetUsdcNetworkForChainId(isEvmConnected ? evmChainId : undefined);
     if (suggestedNetwork) setSelectedSourceNetworkKey(suggestedNetwork.key);
-  }, [evmChainId, evmConnection.network?.chainId, isEvmConnected, sourceNetworkManuallySelected, walletMethod]);
+  }, [evmChainId, isEvmConnected, sourceNetworkManuallySelected]);
 
   const selectedSourceNetwork = useMemo(
     () => circleTestnetUsdcNetworks.find((network) => network.key === selectedSourceNetworkKey) ?? circleTestnetUsdcNetworks[1],
@@ -194,10 +186,10 @@ function InvoiceWalletCheckoutContent({
   }, [shareToken]);
 
   // Active wallet connection selection (EVM only)
-  const activeConnection = useMemo(() => {
-    if (evmConnection.address) return evmConnection;
-    return { address: null, network: null };
-  }, [evmConnection]);
+  const activeConnection = useMemo(() => ({
+    address: isEvmConnected && evmAddress ? evmAddress : null,
+    network: isEvmConnected ? getEvmWalletNetwork(evmChainId) ?? null : null,
+  }), [evmAddress, evmChainId, isEvmConnected]);
 
   // The payer chooses the source network. Wallet network detection only reports
   // whether the connected wallet is ready to use that choice.
@@ -431,43 +423,9 @@ function InvoiceWalletCheckoutContent({
             </div>
           )}
 
-          {/* 3. WALLET METHOD SELECTION & EVM CONNECTION */}
-          <div className="wallet-method-selector" style={{ marginBottom: "1rem" }}>
-            <div className="asset-selection-header" style={{ marginBottom: "0.5rem" }}>
-              <label>Wallet method</label>
-            </div>
-            <div style={{ display: "flex", gap: "0.5rem" }}>
-              <button
-                type="button"
-                className={`asset-choice-pill ${walletMethod === "external" ? "is-selected" : ""}`}
-                onClick={() => setWalletMethod("external")}
-              >
-                <span>Browser / External Wallet</span>
-                <span className="asset-tag" style={{ marginLeft: "0.5rem" }}>POPULAR</span>
-              </button>
-              <button
-                type="button"
-                className={`asset-choice-pill ${walletMethod === "circle" ? "is-selected" : ""}`}
-                onClick={() => setWalletMethod("circle")}
-              >
-                <span>Circle Wallet</span>
-                <span style={{ fontSize: "0.65rem", padding: "1px 6px", borderRadius: "4px", background: "rgba(0,0,0,0.06)", marginLeft: "0.5rem" }}>OPTIONAL</span>
-              </button>
-            </div>
-          </div>
-
+          {/* 3. CONNECT AN EXISTING EVM WALLET */}
           <div className="wallet-card-grid" style={{ gridTemplateColumns: "1fr" }}>
-            {walletMethod === "external" ? (
-              <EvmWalletCard
-                selectedChainId={selectedAsset?.network.chainId ?? DEFAULT_RECOMMENDED_CHAIN_ID}
-                onConnectionChange={updateEvmConnection}
-              />
-            ) : (
-              <CircleGuestWalletCard
-                selectedChainId={selectedAsset?.network.chainId ?? DEFAULT_RECOMMENDED_CHAIN_ID}
-                onConnectionChange={updateEvmConnection}
-              />
-            )}
+            <EvmWalletCard selectedChainId={selectedAsset?.network.chainId ?? DEFAULT_RECOMMENDED_CHAIN_ID} />
           </div>
 
           {/* 4. PROGRESSIVE DISCLOSURE: MANUAL NETWORK SWITCHING / ADVANCED */}
