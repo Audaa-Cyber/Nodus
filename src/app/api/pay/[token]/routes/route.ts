@@ -50,15 +50,19 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
     return NextResponse.json({ error: "receiving_destination_not_configured" }, { status: 400 });
   }
 
-  const sourceNetworkOption = circleTestnetUsdcNetworks.find((network) => network.key === sourceNetwork);
-  const sourceCircle = sourceNetworkOption ? getCircleChain(sourceNetwork, true) : null;
   const destinationNetworkOption = circleTestnetUsdcNetworks.find((network) => network.key === invoice.receiving_network);
   const destinationCircle = destinationNetworkOption ? getCircleChain(invoice.receiving_network, true) : null;
-  if (!sourceNetworkOption || !sourceCircle || !destinationNetworkOption || !destinationCircle
+  if (!destinationNetworkOption || !destinationCircle) {
+    return NextResponse.json({ error: "unsupported_circle_testnet_destination_network" }, { status: 400 });
+  }
+
+  const sourceNetworkOption = circleTestnetUsdcNetworks.find((network) => network.key === sourceNetwork);
+  const sourceCircle = sourceNetworkOption ? getCircleChain(sourceNetwork, true) : null;
+  if (!sourceNetworkOption || !sourceCircle
     || sourceAssetId !== `${sourceNetwork}:usdc`
     || sourceSymbol.toUpperCase() !== "USDC" || sourceDecimals !== 6
     || sourceContractAddress?.toLowerCase() !== sourceCircle.usdcAddress.toLowerCase()) {
-    return NextResponse.json({ error: "unsupported_circle_testnet_payment_route" }, { status: 400 });
+    return NextResponse.json({ error: "unsupported_circle_testnet_source_asset" }, { status: 400 });
   }
 
   const result = await discoverPaymentRoutes({

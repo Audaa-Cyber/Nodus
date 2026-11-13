@@ -48,12 +48,30 @@ export async function POST(
 
   try {
     if (hasTxHash) {
-      const { data, error } = await supabaseAdmin.rpc("submit_circle_broadcast_references", {
+      const { data: attemptRows, error: attemptError } = await supabaseAdmin.rpc("get_shared_live_attempt", {
         p_token_hash: tokenHash,
         p_attempt_id: id,
-        p_source_tx_hash: rawTxHash,
-        p_approval_tx_hash: hasApprovalHash ? rawApprovalHash : null,
       });
+      if (attemptError || !attemptRows?.length) {
+        return NextResponse.json({ error: "attempt_unavailable" }, { status: 404 });
+      }
+
+      const quoteSnapshot = attemptRows[0].quote_snapshot as Record<string, unknown> | null;
+      const isDirectRoute = quoteSnapshot?.type === "circle_direct";
+      const isCctpRoute = quoteSnapshot?.type === "circle_cctp";
+      if (!isDirectRoute && !isCctpRoute) {
+        return NextResponse.json({ error: "attempt_unavailable" }, { status: 404 });
+      }
+
+      const { data, error } = await supabaseAdmin.rpc(
+        isDirectRoute ? "submit_circle_direct_broadcast_reference" : "submit_circle_broadcast_references",
+        {
+          p_token_hash: tokenHash,
+          p_attempt_id: id,
+          p_source_tx_hash: rawTxHash,
+          p_approval_tx_hash: hasApprovalHash ? rawApprovalHash : null,
+        },
+      );
 
       if (error || !data?.[0]) {
         return NextResponse.json({ error: error?.message || "failed_to_update_attempt" }, { status: 409 });

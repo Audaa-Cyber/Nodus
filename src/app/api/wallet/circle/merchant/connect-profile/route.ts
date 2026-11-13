@@ -6,6 +6,7 @@ import {
   getOrCreateCircleUserToken,
   listCircleUserWallets,
 } from "@/lib/server/circle-wallets";
+import { circleTestnetUsdcNetworks } from "@/lib/wallet/networks";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +33,9 @@ export async function POST(request: Request) {
 
   if (!walletAddress || !/^0x[a-fA-F0-9]{40}$/.test(walletAddress)) {
     return NextResponse.json({ error: "Invalid EVM wallet address." }, { status: 400 });
+  }
+  if (!circleTestnetUsdcNetworks.some((network) => network.key === networkKey)) {
+    return NextResponse.json({ error: "Choose a supported Circle testnet receiving network." }, { status: 400 });
   }
 
   // If Circle is configured, verify that the address actually belongs to the merchant's Circle wallets

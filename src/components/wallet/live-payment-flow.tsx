@@ -64,6 +64,16 @@ function shortHash(hash: string): string {
   return hash.length > 18 ? `${hash.slice(0, 10)}…${hash.slice(-8)}` : hash;
 }
 
+function getRouteDiscoveryErrorMessage(code: unknown): string {
+  if (code === "unsupported_circle_testnet_destination_network") {
+    return "This invoice's receiving network is not enabled for testnet checkout. The merchant must choose Sepolia, Base Sepolia, Arbitrum Sepolia, or Optimism Sepolia in their business profile.";
+  }
+  if (code === "unsupported_circle_testnet_source_asset") {
+    return "The selected token is not a supported Circle testnet USDC asset. Choose USDC on one of the supported testnet networks.";
+  }
+  return typeof code === "string" && code ? code : "No route found for this token.";
+}
+
 function isWalletUserRejection(error: unknown, seen = new Set<object>()): boolean {
   if (!error || typeof error !== "object" || seen.has(error)) return false;
   seen.add(error);
@@ -104,6 +114,7 @@ export function LivePaymentFlow({
   const [walletRejected, setWalletRejected] = useState(false);
   const [depositTxHash, setDepositTxHash] = useState<string | null>(null);
   const [approvalTxHash, setApprovalTxHash] = useState<string | null>(null);
+  const [addressCopyFeedback, setAddressCopyFeedback] = useState("");
   const [destinationReceipts, setDestinationReceipts] = useState<
     Array<{ receipt_number: string; issued_at: string }>
   >([]);
@@ -123,6 +134,20 @@ export function LivePaymentFlow({
     () => routes[selectedRouteIndex] ?? null,
     [routes, selectedRouteIndex]
   );
+  const activeWalletNetwork = getWalletNetwork(selectedRoute?.sourceNetwork ?? "");
+  const activeWalletExplorer = evmWalletChains.find(
+    (chain) => chain.id === (activeWalletNetwork?.chainId ?? evmChainId),
+  )?.blockExplorers?.default.url;
+
+  async function copyActiveWalletAddress() {
+    if (!activeAddress) return;
+    try {
+      await navigator.clipboard.writeText(activeAddress);
+      setAddressCopyFeedback("Circle wallet address copied.");
+    } catch {
+      setAddressCopyFeedback("Clipboard access is unavailable. Select the address to copy it.");
+    }
+  }
 
   // 1. Fetch available routes from backend orchestrator
   const fetchRoutes = useCallback(async () => {
@@ -138,7 +163,7 @@ export function LivePaymentFlow({
 
       const data = await response.json();
       if (!response.ok || !data.success || !Array.isArray(data.routes)) {
-        throw new Error(data.error || "No route found for this token.");
+        throw new Error(getRouteDiscoveryErrorMessage(data.error));
       }
 
       setRoutes(data.routes);
@@ -157,10 +182,14 @@ export function LivePaymentFlow({
 
   useEffect(() => {
     const savedAttemptId = window.localStorage.getItem(`nodus:live-attempt:${shareToken}`);
+    const savedTxHash = window.localStorage.getItem(`nodus:live-tx:${shareToken}`);
     if (!attemptId && savedAttemptId && /^[0-9a-f-]{36}$/i.test(savedAttemptId)) {
       setAttemptId(savedAttemptId);
       setStage("verifying");
       setStatusMessage("Resuming verification for the payment attempt saved in this browser.");
+    }
+    if (savedTxHash && /^0x[0-9a-f]{64}$/i.test(savedTxHash)) {
+      setDepositTxHash(savedTxHash);
     }
   }, [attemptId, shareToken]);
 
@@ -317,6 +346,8 @@ export function LivePaymentFlow({
     setStatusMessage("Validating route and network parameters…");
     let circleExecutionStarted = false;
     let circleStartResponse: { ok: boolean; data: unknown } | null = null;
+    let broadcastTxHash: string | null = null;
+    let currentAttemptIdForRecovery: string | null = null;
 
     try {
       // Step A: Ensure wallet is on the correct source network
@@ -362,6 +393,7 @@ export function LivePaymentFlow({
       }
 
       const currentAttemptId = attemptData.attempt.id as string;
+      currentAttemptIdForRecovery = currentAttemptId;
       window.localStorage.setItem(`nodus:live-attempt:${shareToken}`, currentAttemptId);
       setAttemptId(currentAttemptId);
 
@@ -492,6 +524,8 @@ export function LivePaymentFlow({
                 if (/burn|depositforburn/i.test(step.name) && step.txHash) {
                   sourceBurnHashObserved = true;
                   eventBurnHash = step.txHash;
+                  broadcastTxHash = step.txHash;
+                  window.localStorage.setItem(`nodus:live-tx:${shareToken}`, step.txHash);
                   setDepositTxHash(step.txHash);
                   void fetch(`/api/pay/${encodeURIComponent(shareToken)}/attempt/${currentAttemptId}/submit`, {
                     method: "POST",
@@ -599,6 +633,8 @@ export function LivePaymentFlow({
         throw new Error("Transaction was broadcast but hash could not be retrieved.");
       }
 
+      broadcastTxHash = txHash;
+      window.localStorage.setItem(`nodus:live-tx:${shareToken}`, txHash);
       setDepositTxHash(txHash);
       setStage("broadcasting");
       setStatusMessage("Transaction submitted! Registering broadcast with NODUS…");
@@ -633,6 +669,13 @@ export function LivePaymentFlow({
         setStatusMessage(wasRejected
           ? "Your wallet rejected a request. The server execution reservation remains active while NODUS checks for a source burn. Do not retry or start another payment."
           : "Circle execution status is uncertain after reservation. A source burn may have broadcast; do not retry or start another payment while NODUS checks the source chain.");
+      } else if (broadcastTxHash) {
+        if (currentAttemptIdForRecovery) setAttemptId(currentAttemptIdForRecovery);
+        setStage("verifying");
+        setRecoveryRequired(true);
+        setDepositTxHash(broadcastTxHash);
+        setStatusMessage("Your transaction may already be on-chain. NODUS is retrying its reference save; do not authorize another payment.");
+        setWalletRejected(false);
       } else {
         setStage("error");
         setWalletRejected(false);
@@ -657,9 +700,24 @@ export function LivePaymentFlow({
         const data = await res.json();
         if (cancelled) return;
 
+        if (!data.attempt?.transaction_hash) {
+          const savedTxHash = window.localStorage.getItem(`nodus:live-tx:${shareToken}`);
+          if (savedTxHash && /^0x[0-9a-f]{64}$/i.test(savedTxHash)) {
+            setDepositTxHash(savedTxHash);
+            await fetch(`/api/pay/${encodeURIComponent(shareToken)}/attempt/${attemptId}/submit`, {
+              method: "POST",
+              cache: "no-store",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ transactionHash: savedTxHash }),
+            });
+            return;
+          }
+        }
+
         if (data.settled || data.attempt?.status === "SUCCESS") {
           clearInterval(interval);
           window.localStorage.removeItem(`nodus:live-attempt:${shareToken}`);
+          window.localStorage.removeItem(`nodus:live-tx:${shareToken}`);
           setStage("settled");
           setWalletRejected(false);
           setStatusMessage("Payment settled and verified on destination chain!");
@@ -744,6 +802,35 @@ export function LivePaymentFlow({
                   ? "Payment complete & verified"
                   : "Payment incomplete"}
       </h3>
+
+      {connector?.id === "circle-user-controlled" && activeAddress && (
+        <section className="circle-wallet-address-panel" aria-labelledby="circle-source-address-title">
+          <div className="circle-wallet-address-heading">
+            <div>
+              <p className="wallet-eyebrow">CIRCLE EMBEDDED WALLET</p>
+              <h4 id="circle-source-address-title">Your wallet address</h4>
+            </div>
+            <button type="button" className="wallet-secondary-button" onClick={() => void copyActiveWalletAddress()}>
+              Copy address
+            </button>
+          </div>
+          <code className="circle-wallet-address-value">{activeAddress}</code>
+          {activeWalletExplorer && (
+            <a
+              className="wallet-explorer-link"
+              href={`${activeWalletExplorer}/address/${encodeURIComponent(activeAddress)}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              View wallet activity on {activeWalletNetwork?.label ?? "the connected network"} explorer
+            </a>
+          )}
+          <p className="wallet-description">
+            Open wallet activity to find the USDC transfer and its transaction hash.
+          </p>
+          {addressCopyFeedback && <p className="wallet-inline-status" role="status">{addressCopyFeedback}</p>}
+        </section>
+      )}
 
       {loadingRoutes ? (
         <p className="wallet-description">Checking Circle USDC payment routes…</p>

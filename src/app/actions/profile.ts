@@ -19,8 +19,14 @@ export async function updateBusinessProfileAction(_previous: FormState, formData
   if (isEvmReceivingNetwork && !/^0x[a-fA-F0-9]{40}$/.test(receivingAddress)) return { error: "Enter a valid EVM address for this network." };
   if (["solana", "sol"].includes(receivingNetwork) && !/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(receivingAddress)) return { error: "Enter a valid Solana address for this network." };
 
-  const { supabase, user } = await getBusinessContext();
+  const { supabase, user, business } = await getBusinessContext();
   if (!user) redirect("/login", RedirectType.replace);
+  const isSupportedCircleTestnet = circleTestnetUsdcNetworks.some((network) => network.key === receivingNetwork);
+  const isExistingLegacyNetwork = receivingNetwork !== "" && receivingNetwork === business?.receiving_network;
+  if (receivingNetwork && !isSupportedCircleTestnet && !isExistingLegacyNetwork) {
+    return { error: "Choose Sepolia, Base Sepolia, Arbitrum Sepolia, or Optimism Sepolia for live testnet checkout." };
+  }
+
   const { data, error } = await supabase.from("business_profiles").update({
     business_name: businessName,
     receiving_network: receivingNetwork || null,

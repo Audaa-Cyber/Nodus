@@ -45,6 +45,7 @@ export interface Database {
       get_shared_live_attempt: { Args: { p_token_hash: string; p_attempt_id: string }; Returns: Database["public"]["Tables"]["payment_attempts"]["Row"][] };
       update_live_attempt_status: { Args: { p_token_hash: string; p_attempt_id: string; p_status: Database["public"]["Enums"]["payment_attempt_status"]; p_transaction_hash?: string | null }; Returns: Database["public"]["Tables"]["payment_attempts"]["Row"][] };
       submit_circle_broadcast_references: { Args: { p_token_hash: string; p_attempt_id: string; p_source_tx_hash: string; p_approval_tx_hash?: string | null }; Returns: Database["public"]["Tables"]["payment_attempts"]["Row"][] };
+      submit_circle_direct_broadcast_reference: { Args: { p_token_hash: string; p_attempt_id: string; p_source_tx_hash: string; p_approval_tx_hash?: string | null }; Returns: Database["public"]["Tables"]["payment_attempts"]["Row"][] };
       mark_circle_execution_started: { Args: { p_token_hash: string; p_attempt_id: string; p_expected_payer: string }; Returns: Database["public"]["Tables"]["payment_attempts"]["Row"][] };
       record_circle_recovery_progress: { Args: { p_attempt_id: string; p_state: string; p_message_nonce?: string | null; p_message_hash?: string | null; p_destination_tx_hashes?: Json }; Returns: undefined };
       record_circle_sdk_progress: { Args: { p_token_hash: string; p_attempt_id: string; p_result_state: "pending" | "success" | "error"; p_step?: Json | null }; Returns: Database["public"]["Tables"]["payment_attempts"]["Row"][] };

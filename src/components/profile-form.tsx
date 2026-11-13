@@ -31,7 +31,7 @@ export default function ProfileForm({
   updatedAt,
 }: ProfileFormProps) {
   const [businessName, setBusinessName] = useState(initialBusinessName || "");
-  const [receivingNetwork, setReceivingNetwork] = useState(initialReceivingNetwork || "base");
+  const [receivingNetwork, setReceivingNetwork] = useState(initialReceivingNetwork ?? "");
   const [receivingAddress, setReceivingAddress] = useState(initialReceivingAddress || "");
   const [copyFeedback, setCopyFeedback] = useState("Copy address");
   const [kineticStatus, setKineticStatus] = useState<string | null>(null);
@@ -42,6 +42,7 @@ export default function ProfileForm({
 
   const isEvmValid = /^0x[a-fA-F0-9]{40}$/.test(receivingAddress.trim());
   const isDestinationConfigured = Boolean(receivingAddress.trim());
+  const isCircleTestnetNetwork = circleTestnetUsdcNetworks.some((network) => network.key === receivingNetwork);
 
   // Copy address to clipboard
   const handleCopyWallet = useCallback(async () => {
@@ -154,10 +155,10 @@ export default function ProfileForm({
                     color: "var(--text-secondary)",
                   }}
                 >
-                  {isDestinationConfigured && (isEvmValid || !["base", "ethereum", "eth"].includes(receivingNetwork)) ? (
+                  {isDestinationConfigured && isEvmValid && isCircleTestnetNetwork ? (
                     <>
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                      <span className="text-emerald-600 font-semibold">Saved for quotes ✓</span>
+                      <span className="text-emerald-600 font-semibold">Testnet checkout configured ✓</span>
                     </>
                   ) : (
                     <>
@@ -168,7 +169,7 @@ export default function ProfileForm({
                 </span>
               </div>
               <p className="text-xs leading-relaxed mb-4" style={{ color: "var(--text-secondary)" }}>
-                Saved for future payment quotes. A configured destination does not mean this network or route is live or verified.
+                Live checkout currently supports USDC on Sepolia, Base Sepolia, Arbitrum Sepolia, and Optimism Sepolia.
               </p>
 
               {/* Circle User-Controlled Wallet Option */}
@@ -195,16 +196,21 @@ export default function ProfileForm({
                     className="nodus-input font-medium"
                   >
                     {!receivingNetwork && <option value="">Choose a network</option>}
-                    {receivingNetwork && !circleTestnetUsdcNetworks.some((network) => network.key === receivingNetwork) && (
-                      <option value={receivingNetwork}>Current setting: {receivingNetwork}</option>
+                    {receivingNetwork && !isCircleTestnetNetwork && (
+                      <option value={receivingNetwork}>Current setting: {receivingNetwork} (not enabled for testnet checkout)</option>
                     )}
                     {circleTestnetUsdcNetworks.map((network) => (
                       <option key={network.key} value={network.key}>{network.label}</option>
                     ))}
                   </select>
                 </div>
+                {receivingNetwork && !isCircleTestnetNetwork && (
+                  <p className="mt-2 text-xs text-amber-700" role="status">
+                    This saved network is not enabled for live testnet checkout. Choose a supported testnet above to use this payment flow.
+                  </p>
+                )}
                 <p className="mt-2 text-xs" style={{ color: "var(--text-secondary)" }}>
-                  Choose the network where this address should receive USDC. Testnet checkout supports the listed networks.
+                  Choose the exact network where this address should receive USDC. Do not select a testnet unless this address is intended to receive funds there.
                 </p>
               </div>
 

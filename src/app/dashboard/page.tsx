@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getBusinessContext } from "@/lib/auth/business-context";
 import { effectiveStatus, formatMoney, formatUtcDate } from "@/lib/invoices";
 import { withTransitionDelay } from "@/lib/utils/timing";
+import MerchantUsdcBalance from "@/components/merchant-usdc-balance";
 
 export default async function DashboardPage() {
   const { supabase, user, business } = await getBusinessContext();
@@ -77,7 +78,7 @@ export default async function DashboardPage() {
         </p>
       </div>
 
-      {/* Active Destination Card (Matches Executive View 2) */}
+      {/* Active Destination Card */}
       <div className="card-perspective stagger-item delay-2">
         <div className="aether-card p-6 sm:p-7">
           <div className="top-highlight" />
@@ -112,6 +113,9 @@ export default async function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* USDC Balance Widget — live balance for the merchant's receiving wallet */}
+      <MerchantUsdcBalance />
 
       {/* Metric Stats Grid */}
       <div className="stagger-item delay-3">

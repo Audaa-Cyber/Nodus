@@ -9,6 +9,33 @@ import {
 
 export const dynamic = "force-dynamic";
 
+function toCircleNativeAmount(value: unknown): string | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value !== "string") throw new Error("Invalid native transaction value.");
+
+  const normalized = value.trim();
+  if (!normalized) throw new Error("Invalid native transaction value.");
+
+  let wei: bigint;
+  if (/^0x[0-9a-f]+$/i.test(normalized)) {
+    wei = BigInt(normalized);
+  } else if (/^\d+$/.test(normalized)) {
+    wei = BigInt(normalized);
+  } else {
+    throw new Error("Invalid native transaction value.");
+  }
+
+  if (wei === 0n) return undefined;
+
+  const weiPerEther = 1_000_000_000_000_000_000n;
+  const whole = wei / weiPerEther;
+  const fractionalWei = wei % weiPerEther;
+  if (fractionalWei === 0n) return whole.toString();
+
+  const fraction = fractionalWei.toString().padStart(18, "0").replace(/0+$/, "");
+  return `${whole}.${fraction}`;
+}
+
 export async function POST(request: Request) {
   if (!isCircleWalletsConfigured()) {
     return NextResponse.json(
@@ -49,6 +76,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid destination address." }, { status: 400 });
   }
 
+  let nativeAmount: string | undefined;
+  try {
+    nativeAmount = toCircleNativeAmount(value);
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Invalid native transaction value." },
+      { status: 400 },
+    );
+  }
+
   try {
     const session = await getOrCreateCircleUserToken(guestUserId);
 
@@ -60,7 +97,7 @@ export async function POST(request: Request) {
         walletId,
         contractAddress: destination,
         callData: data,
-        amount: value,
+        amount: nativeAmount,
       });
       challengeId = res.challengeId;
     } else {
@@ -69,7 +106,7 @@ export async function POST(request: Request) {
         userToken: session.userToken,
         walletId,
         destinationAddress: destination,
-        amount: amount || value || "0",
+        amount: amount || nativeAmount || "0",
         tokenAddress,
       });
       challengeId = res.challengeId;

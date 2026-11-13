@@ -53,16 +53,19 @@ export async function generateInvoiceShareLinkAction(invoiceId: string): Promise
   const token = randomBytes(32).toString("base64url");
   const tokenHash = createHash("sha256").update(token, "utf8").digest("hex");
   const expiresAt = new Date(Date.now() + LINK_LIFETIME_MS).toISOString();
+  // Prevent share-link generation for paid or cancelled invoices
   const { data: updated, error } = await supabase
     .from("invoices")
     .update({ share_token_hash: tokenHash, share_token_expires_at: expiresAt })
     .eq("id", invoiceId)
     .eq("business_id", business.id)
     .neq("status", "draft")
+    .neq("status", "paid")
+    .neq("status", "cancelled")
     .select("id")
     .maybeSingle();
 
-  if (error || !updated) return { error: "A share link could not be created for this invoice." };
+  if (error || !updated) return { error: "A share link could not be created for this invoice. Paid and cancelled invoices cannot be reshared." };
   return { url: `${baseUrl}/pay/${token}`, expiresAt };
 }
 
