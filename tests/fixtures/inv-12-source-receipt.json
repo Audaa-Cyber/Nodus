@@ -1,0 +1,22 @@
+{
+  "sourceTransactionHash": "0xe6b936fb6bbe80082d76e1d38f5583be7b3293d5269fdda4086e436743444e92",
+  "chainId": 84532,
+  "payer": "0xb35188da23041addaa1c59a4834124996a9f9abf",
+  "feeWrapper": "0x8745d906d67c346e5eb1aeeed38eb87f34df0c0a",
+  "canonicalUsdc": "0x036cbd53842c5426634e7929541ec2318f3dcf7e",
+  "receiptStatus": "success",
+  "transfers": [
+    {
+      "token": "0x036cbd53842c5426634e7929541ec2318f3dcf7e",
+      "from": "0xB35188DA23041AdDAa1C59a4834124996a9F9ABf",
+      "to": "0x8745D906D67C346E5eb1aEEED38Eb87F34DF0C0A",
+      "amount": "85961"
+    },
+    {
+      "token": "0x036cbd53842c5426634e7929541ec2318f3dcf7e",
+      "from": "0xB35188DA23041AdDAa1C59a4834124996a9F9ABf",
+      "to": "0x8745D906D67C346E5eb1aEEED38Eb87F34DF0C0A",
+      "amount": "10000000"
+    }
+  ]
+}

@@ -4,14 +4,14 @@ import {
   createPublicClient, http, isAddressEqual, parseAbi, parseEventLogs,
   type Address, type Hash,
 } from "viem";
-import { evmWalletChains, getWalletNetwork } from "@/lib/wallet/networks";
-import { getCircleChain } from "@/lib/server/circle";
+import { evmWalletChains, getWalletNetwork } from "../wallet/networks.ts";
+import { getCircleChain } from "./circle.ts";
 import {
   addressToBytes32, verifyCctpV2DestinationMessage, verifyCctpV2SourceMessage,
   hasRequiredConfirmations, verifyCctpDestinationReceiptIdentity,
   verifyCctpSourceDebit, verifyCctpSourceTransactionIdentity, verifyUniqueMerchantTransfer,
   type DepositForBurnV2Evidence,
-} from "@/lib/payments/cctp-v2-integrity";
+} from "../payments/cctp-v2-integrity.ts";
 
 const depositAbi = parseAbi(["event DepositForBurn(address indexed burnToken,uint256 amount,address indexed depositor,bytes32 mintRecipient,uint32 destinationDomain,bytes32 destinationTokenMessenger,bytes32 destinationCaller,uint256 maxFee,uint32 indexed minFinalityThreshold,bytes hookData)"]);
 const sentAbi = parseAbi(["event MessageSent(bytes message)"]);
@@ -24,6 +24,50 @@ function envMap<T>(name: string): Record<string, T> {
     const value: unknown = JSON.parse(process.env[name] ?? "{}");
     return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, T> : {};
   } catch { return {}; }
+}
+
+export type CctpCorridorReadiness = {
+  ready: boolean;
+  sourceNetwork: string;
+  destinationNetwork: string;
+  sourceRpcConfigured: boolean;
+  destinationRpcConfigured: boolean;
+  confirmationsConfigured: boolean;
+  requiredConfirmations?: number;
+  reason?: string;
+};
+
+export function checkCctpCorridorReadiness(
+  sourceNetwork: string,
+  destinationNetwork: string,
+): CctpCorridorReadiness {
+  const rpcs = envMap<string>("SETTLEMENT_RPC_URLS_JSON");
+  const confs = envMap<number>("SETTLEMENT_CONFIRMATIONS_JSON");
+
+  const sourceRpc = rpcs[sourceNetwork];
+  const sourceRpcValid = Boolean(sourceRpc && /^https:\/\//i.test(sourceRpc));
+
+  const destRpc = rpcs[destinationNetwork];
+  const destRpcValid = Boolean(destRpc && /^https:\/\//i.test(destRpc));
+
+  const confirmations = confs[destinationNetwork];
+  const confsValid = Number.isInteger(confirmations) && confirmations >= 1 && confirmations <= 10_000;
+
+  const missing: string[] = [];
+  if (!sourceRpcValid) missing.push(`missing or invalid HTTPS RPC for source network ${sourceNetwork}`);
+  if (!destRpcValid) missing.push(`missing or invalid HTTPS RPC for destination network ${destinationNetwork}`);
+  if (!confsValid) missing.push(`missing or invalid confirmations count for destination network ${destinationNetwork}`);
+
+  return {
+    ready: missing.length === 0,
+    sourceNetwork,
+    destinationNetwork,
+    sourceRpcConfigured: sourceRpcValid,
+    destinationRpcConfigured: destRpcValid,
+    confirmationsConfigured: confsValid,
+    requiredConfirmations: confsValid ? confirmations : undefined,
+    reason: missing.length > 0 ? missing.join("; ") : undefined,
+  };
 }
 
 function clientFor(network: string) {
@@ -96,6 +140,7 @@ export async function verifyCctpV2SourceTransaction(input: {
     canonicalUsdc: source.usdcAddress,
     payer: input.payer,
     feeWrapper: source.tokenMessengerWithFees,
+    expectedPrincipal: input.expectedBurnAmount,
     expectedTotalDebit: input.expectedSourceDebitAmount,
   });
   const event = depositLogs[0];

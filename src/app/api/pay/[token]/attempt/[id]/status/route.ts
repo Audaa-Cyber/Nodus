@@ -1,16 +1,16 @@
 import { createHash } from "node:crypto";
-import { NextResponse } from "next/server";
-import { getSupabaseAdminClient } from "@/lib/supabase/admin";
-import { isServerSupabaseConfigured } from "@/config/env.server";
-import { getCircleChain, fetchCircleCctpStatus } from "@/lib/server/circle";
-import { verifyEvmDestinationTransfers } from "@/lib/server/settlement-chain";
+import { NextResponse } from "next/server.js";
+import { getSupabaseAdminClient } from "../../../../../../../lib/supabase/admin.ts";
+import { isServerSupabaseConfigured } from "../../../../../../../config/env.server.ts";
+import { getCircleChain, fetchCircleCctpStatus } from "../../../../../../../lib/server/circle.ts";
+import { verifyEvmDestinationTransfers } from "../../../../../../../lib/server/settlement-chain.ts";
 import {
   verifyCctpV2DestinationTransaction,
   verifyCctpV2SourceTransaction,
-} from "@/lib/server/cctp-v2-chain";
-import { assetUnitsToInvoiceMinor } from "@/lib/payments/settlement-policy";
-import { verifyImmutableAttemptInvoiceBinding } from "@/lib/payments/cctp-v2-integrity";
-import { processNearSettlementOutbox } from "@/lib/server/near-settlement-outbox";
+} from "../../../../../../../lib/server/cctp-v2-chain.ts";
+import { assetUnitsToInvoiceMinor } from "../../../../../../../lib/payments/settlement-policy.ts";
+import { verifyImmutableAttemptInvoiceBinding } from "../../../../../../../lib/payments/cctp-v2-integrity.ts";
+import { processNearSettlementOutbox } from "../../../../../../../lib/server/near-settlement-outbox.ts";
 
 export const dynamic = "force-dynamic";
 const TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
@@ -19,7 +19,38 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3
 function isPendingOrTransientError(error: unknown): boolean {
   if (!error) return false;
   const detail = error instanceof Error ? `${error.name} ${error.message}` : String(error);
-  return /transactionreceiptnotfound|transactionnotfound|blocknotfound|receipt.*(?:not found|could not be found)|could not be found|fetch failed|http request failed|timeout|timed out|network|connection|rate limit|too many requests|econnreset|etimedout|socket/i.test(detail);
+  return /transactionreceiptnotfound|transactionnotfound|blocknotfound|receipt.*(?:not found|could not be found)|could not be found|fetch failed|http request failed|timeout|timed out|network|connection|rate limit|too many requests|econnreset|etimedout|socket|bad gateway|service unavailable|gateway timeout|502|503|504|429|iris_api_status|cctp_attestation_lookup_failed|cctp_verification_rpc_not_configured|settlement_chain_not_configured/i.test(detail);
+}
+
+function classifyError(error: unknown): {
+  isTransient: boolean;
+  isOperatorConfig: boolean;
+  failureCode: string;
+  sanitizedMessage: string;
+} {
+  const message = error instanceof Error ? error.message : String(error);
+  if (/cctp_verification_rpc_not_configured|settlement_chain_not_configured/i.test(message)) {
+    return {
+      isTransient: true,
+      isOperatorConfig: true,
+      failureCode: "operator_rpc_not_configured",
+      sanitizedMessage: "Settlement verification RPC endpoint or confirmation count is not configured by operator.",
+    };
+  }
+  if (isPendingOrTransientError(error)) {
+    return {
+      isTransient: true,
+      isOperatorConfig: false,
+      failureCode: "transient_provider_error",
+      sanitizedMessage: "A temporary network or blockchain RPC delay occurred. Verification will retry automatically.",
+    };
+  }
+  return {
+    isTransient: false,
+    isOperatorConfig: false,
+    failureCode: message.slice(0, 50).replace(/[^a-zA-Z0-9_]/g, "_").toLowerCase(),
+    sanitizedMessage: "Payment verification encountered an unexpected state requiring operator review.",
+  };
 }
 
 function publicAttempt<T extends Record<string, unknown>>(attempt: T): Omit<T, "quote_snapshot"> {
@@ -127,20 +158,25 @@ export async function GET(
 
     const sourceTxHash = attempt.transaction_hash as string | null;
     if (!sourceTxHash && status === "PROCESSING") {
-      const updatedAt = Date.parse(attempt.circle_recovery_updated_at ?? attempt.updated_at);
-      const needsManualReview = Number.isFinite(updatedAt) && Date.now() - updatedAt >= 120_000;
-      if (needsManualReview && attempt.circle_recovery_state !== "MANUAL_REVIEW") {
-        await saveRecovery(supabaseAdmin, id, "MANUAL_REVIEW");
-      }
+      const hasApproval = Boolean(attempt.circle_approval_tx_hash);
+      const recoveryState = hasApproval ? "APPROVAL_CONFIRMED" : "AWAITING_SOURCE_BURN";
       return NextResponse.json({
-        attempt: publicAttempt({ ...attempt, circle_recovery_state: needsManualReview ? "MANUAL_REVIEW" : attempt.circle_recovery_state }),
+        attempt: publicAttempt({ ...attempt, circle_recovery_state: attempt.circle_recovery_state }),
         pending: true,
-        recoveryRequired: needsManualReview,
+        recoveryRequired: false,
+        recoveryState,
         sourceTransactionReferenceMissing: true,
+        executionStep: hasApproval ? "AWAITING_SOURCE_BURN" : "AWAITING_AUTHORIZATION",
+        providerProgress: {
+          provider: snapshot.type === "circle_cctp" ? "circle_cctp" : "circle_direct",
+          message: hasApproval
+            ? "USDC approval confirmed on Base Sepolia. Ready to authorize transfer."
+            : "Payment reserved. Ready for wallet authorization.",
+        },
       });
     }
     if (!sourceTxHash) {
-      return NextResponse.json({ attempt: publicAttempt(attempt), pending: true });
+      return NextResponse.json({ attempt: publicAttempt(attempt), pending: true, recoveryState: "AWAITING_SOURCE_BURN" });
     }
 
     if (snapshot.type === "circle_direct") {
@@ -212,17 +248,28 @@ export async function GET(
       isTestnet: true,
     });
     if (!cctp.message || cctp.cctpVersion !== 2) {
-      const recoveryState = cctp.status === "failed" || cctp.forwardState === "FAILED"
-        ? "MANUAL_REVIEW" : "AWAITING_IRIS";
-      await saveRecovery(supabaseAdmin, id, recoveryState);
+      const isIrisTransient = cctp.status === "pending" || isPendingOrTransientError(cctp.error);
+      const isTerminalFailed = !isIrisTransient && (cctp.status === "failed" || cctp.forwardState === "FAILED");
+      const dbState = isTerminalFailed ? "MANUAL_REVIEW" : "AWAITING_IRIS";
+      const recoveryState = isTerminalFailed ? "MANUAL_INVESTIGATION_REQUIRED" : "AWAITING_CIRCLE_ATTESTATION";
+      await saveRecovery(supabaseAdmin, id, dbState);
       await supabaseAdmin.rpc("update_live_attempt_status", {
         p_token_hash: tokenHash, p_attempt_id: id, p_status: "PROCESSING",
       });
       return NextResponse.json({
-        attempt: publicAttempt({ ...attempt, status: "PROCESSING", circle_recovery_state: recoveryState }),
+        attempt: publicAttempt({ ...attempt, status: "PROCESSING", circle_recovery_state: dbState }),
         pending: true,
-        recoveryRequired: recoveryState === "MANUAL_REVIEW",
-        providerProgress: { provider: "circle_cctp", forwardState: cctp.forwardState, message: "Waiting for CCTP V2 attestation and execution evidence." },
+        recoveryRequired: isTerminalFailed,
+        recoveryState,
+        executionStep: "AWAITING_CIRCLE_ATTESTATION",
+        failureCode: isTerminalFailed ? (cctp.error ?? "cctp_attestation_failed") : undefined,
+        providerProgress: {
+          provider: "circle_cctp",
+          forwardState: cctp.forwardState,
+          message: isTerminalFailed
+            ? "Circle cross-chain execution failed and requires manual review."
+            : "Waiting for Circle CCTP V2 message attestation.",
+        },
       });
     }
 
@@ -231,7 +278,13 @@ export async function GET(
     if (!expectedBurnAmount || expectedBurnAmount !== attempt.expected_received_amount
       || !expectedSourceDebitAmount || expectedSourceDebitAmount !== attempt.requested_amount) {
       await saveRecovery(supabaseAdmin, id, "MANUAL_REVIEW");
-      return NextResponse.json({ attempt: publicAttempt(attempt), pending: true, recoveryRequired: true });
+      return NextResponse.json({
+        attempt: publicAttempt(attempt),
+        pending: true,
+        recoveryRequired: true,
+        recoveryState: "MANUAL_INVESTIGATION_REQUIRED",
+        failureCode: "attempt_amount_mismatch",
+      });
     }
 
     try {
@@ -264,7 +317,18 @@ export async function GET(
         await supabaseAdmin.rpc("update_live_attempt_status", {
           p_token_hash: tokenHash, p_attempt_id: id, p_status: "PROCESSING",
         });
-        return NextResponse.json({ attempt: publicAttempt({ ...attempt, status: "PROCESSING" }), pending: true });
+        return NextResponse.json({
+          attempt: publicAttempt({ ...attempt, status: "PROCESSING", circle_recovery_state: "AWAITING_DESTINATION" }),
+          pending: true,
+          recoveryRequired: false,
+          recoveryState: "AWAITING_DESTINATION_EXECUTION",
+          executionStep: "AWAITING_DESTINATION_EXECUTION",
+          providerProgress: {
+            provider: "circle_cctp",
+            forwardState: cctp.forwardState,
+            message: "Source burn verified. Circle Orbit forwarder is executing destination transfer.",
+          },
+        });
       }
 
       const destinationProof = await verifyCctpV2DestinationTransaction({
@@ -282,7 +346,19 @@ export async function GET(
         destinationTxHashes: destinationProof.transactionHashes,
       });
       if (!destinationProof.finalityConfirmed) {
-        return NextResponse.json({ attempt: publicAttempt(attempt), pending: true, waitingForFinality: true });
+        return NextResponse.json({
+          attempt: publicAttempt({ ...attempt, circle_recovery_state: "AWAITING_FINALITY" }),
+          pending: true,
+          waitingForFinality: true,
+          recoveryRequired: false,
+          recoveryState: "AWAITING_FINALITY",
+          executionStep: "AWAITING_FINALITY",
+          providerProgress: {
+            provider: "circle_cctp",
+            forwardState: cctp.forwardState,
+            message: "Destination transfer delivered on Arbitrum Sepolia. Awaiting block confirmations.",
+          },
+        });
       }
 
       const receivedMinor = assetUnitsToInvoiceMinor(destinationProof.amount, 6);
@@ -321,22 +397,44 @@ export async function GET(
       const { data: receipts } = await supabaseAdmin.rpc("lookup_shared_payment_receipts", { p_token_hash: tokenHash });
       return NextResponse.json({
         attempt: publicAttempt({ ...attempt, status: "SUCCESS", circle_recovery_state: "SETTLED" }),
-        settled: true, reconciliation: recResult, receipts: receipts ?? [],
+        settled: true,
+        recoveryState: "DESTINATION_SETTLEMENT_VERIFIED",
+        executionStep: "SETTLED",
+        reconciliation: recResult,
+        receipts: receipts ?? [],
       });
     } catch (error) {
-      const isTransient = isPendingOrTransientError(error);
-      const isExplicitFailure = cctp.forwardState === "FAILED" || cctp.status === "failed";
-      const recoveryState = isExplicitFailure || !isTransient
-        ? "MANUAL_REVIEW" : "AWAITING_VERIFICATION";
-      await saveRecovery(supabaseAdmin, id, recoveryState);
+      const { isTransient, isOperatorConfig, failureCode, sanitizedMessage } = classifyError(error);
+      const isExplicitFailure = !isTransient && !isOperatorConfig && (cctp.forwardState === "FAILED" || cctp.status === "failed");
+      const dbRecoveryState = isExplicitFailure || (!isTransient && !isOperatorConfig)
+        ? "MANUAL_REVIEW"
+        : "AWAITING_VERIFICATION";
+      const apiRecoveryState = dbRecoveryState === "MANUAL_REVIEW"
+        ? "MANUAL_INVESTIGATION_REQUIRED"
+        : "RETRYABLE_PROVIDER_FAILURE";
+
+      await saveRecovery(supabaseAdmin, id, dbRecoveryState);
       await supabaseAdmin.rpc("update_live_attempt_status", {
         p_token_hash: tokenHash, p_attempt_id: id, p_status: "PROCESSING",
       });
       return NextResponse.json({
-        attempt: publicAttempt({ ...attempt, status: "PROCESSING", circle_recovery_state: recoveryState }),
+        attempt: publicAttempt({ ...attempt, status: "PROCESSING", circle_recovery_state: dbRecoveryState }),
         pending: true,
-        recoveryRequired: recoveryState === "MANUAL_REVIEW",
+        recoveryRequired: dbRecoveryState === "MANUAL_REVIEW",
+        recoveryState: apiRecoveryState,
         verificationPending: true,
+        failureCode,
+        diagnosticInfo: {
+          failureCode,
+          reason: sanitizedMessage,
+          isOperatorConfig,
+          isTransient,
+        },
+        providerProgress: {
+          provider: "circle_cctp",
+          forwardState: cctp.forwardState,
+          message: sanitizedMessage,
+        },
       });
     }
   } catch {

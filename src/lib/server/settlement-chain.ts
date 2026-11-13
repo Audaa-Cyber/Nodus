@@ -1,8 +1,8 @@
 import "server-only";
 
 import { createPublicClient, http, isAddress, isAddressEqual, parseAbi, parseEventLogs, type Address, type Hash } from "viem";
-import { evmWalletChains, getWalletNetwork } from "@/lib/wallet/networks";
-import type { DestinationTransferProof } from "@/lib/payments/settlement-policy";
+import { evmWalletChains, getWalletNetwork } from "../wallet/networks.ts";
+import type { DestinationTransferProof } from "../payments/settlement-policy.ts";
 
 const transferAbi = parseAbi(["event Transfer(address indexed from, address indexed to, uint256 value)"]);
 const HASH = /^0x[0-9a-fA-F]{64}$/;

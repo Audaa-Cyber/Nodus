@@ -35,14 +35,14 @@ test("Circle fee disclosure avoids a duplicated total and separates expected fro
   assert.match(flow, /!circleQuote && <div><dt>Network fees<\/dt>/);
 });
 
-test("manual recovery requests only a source burn hash and links to the selected source explorer", () => {
-  const recovery = flow.slice(flow.indexOf("async function attachRecoveredSourceTransaction"), flow.indexOf("const busy ="));
-  assert.match(flow, /Source CCTP burn transaction hash/);
-  assert.match(flow, /View payer address on \{getWalletNetwork\(selectedRoute\?\.sourceNetwork/);
-  assert.match(flow, /blockExplorers\?\.default\.url/);
-  assert.doesNotMatch(flow, /sepolia\.basescan\.org\/address/);
-  assert.match(flow, /A USDC approval transaction hash cannot substitute for the CCTP burn hash/);
-  assert.doesNotMatch(recovery, /approvalTransactionHash/);
+test("recovery automatically verifies the saved source hash without asking the payer to paste it", () => {
+  const recovery = flow.slice(flow.indexOf("{recoveryRequired && attemptId"), flow.indexOf("{destinationReceipts.length"));
+  assert.match(flow, /typeof data\.attempt\?\.transaction_hash === "string"/);
+  assert.match(flow, /setDepositTxHash\(data\.attempt\.transaction_hash\)/);
+  assert.match(flow, /\/progress`/);
+  assert.match(flow, /kit\.retryBridge\(bridgeRes, \{ from: adapter \}\)/);
+  assert.doesNotMatch(recovery, /<input|transaction hash below|Resume verification/);
+  assert.doesNotMatch(flow, /recoveryTxHash|attachRecoveredSourceTransaction/);
   assert.doesNotMatch(flow, /Optional USDC approval transaction hash/);
   assert.match(styles, /\.wallet-recovery-panel/);
 });

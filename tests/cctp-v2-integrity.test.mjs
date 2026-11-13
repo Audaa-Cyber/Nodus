@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import {
   parseCctpV2Message,
   verifyCctpV2DestinationMessage,
@@ -26,13 +27,13 @@ const maxFee = 25_000n;
 
 function uint(value, bytes) { return BigInt(value).toString(16).padStart(bytes * 2, "0"); }
 function addr32(value) { return value.slice(2).toLowerCase().padStart(64, "0"); }
-function message({ executedFinality = 1000, feeExecuted = 0n, expiry = 999999n, bodyOverride = null } = {}) {
+function message({ executedFinality = 1000, feeExecuted = 0n, expiry = 999999n, bodyOverride = null, nonceValue = 1n } = {}) {
   const body = bodyOverride ?? [
     uint(1, 4), addr32(sourceUsdc), addr32(merchant), uint(amount, 32), addr32(wrapper),
     uint(maxFee, 32), uint(feeExecuted, 32), uint(expiry, 32), hook.slice(2),
   ].join("");
   return `0x${[
-    uint(1, 4), uint(6, 4), uint(3, 4), uint(1, 32), addr32(sourceMessenger),
+    uint(1, 4), uint(6, 4), uint(3, 4), uint(nonceValue, 32), addr32(sourceMessenger),
     addr32(destinationMessenger), "0".repeat(64), uint(1000, 4), uint(executedFinality, 4), body,
   ].join("")}`;
 }
@@ -63,6 +64,13 @@ test("binds the source burn, payer-controlled wrapper call and IRIS V2 message",
   assert.equal(proof.nonce, nonce);
   assert.equal(proof.amount, amount.toString());
   assert.match(proof.messageHash, /^0x[0-9a-f]{64}$/);
+});
+
+test("accepts the CCTP V2 source event's zero nonce placeholder and binds the assigned IRIS nonce", () => {
+  const input = sourceInput({ sourceMessage: message({ executedFinality: 0, expiry: 0n, nonceValue: 0n }) });
+  assert.throws(() => parseCctpV2Message(input.sourceMessage), /unsupported_or_uninitialized_cctp_v2_message/);
+  const proof = verifyCctpV2SourceMessage(input);
+  assert.equal(proof.nonce, nonce);
 });
 
 test("checks the actual source transaction chain, payer, wrapper target and receipt status", () => {
@@ -106,6 +114,96 @@ test("checks source USDC debit against the payer-approved total and canonical wr
   assert.throws(() => verifyCctpSourceDebit({ ...expected, transfers: [
     { token: merchant, from: payer, to: wrapper, amount: 1_275_000n },
   ] }));
+});
+
+test("accepts INV-12 when principal and fee arrive as separate source transfers", () => {
+  const receipt = JSON.parse(readFileSync(new URL("./fixtures/inv-12-source-receipt.json", import.meta.url), "utf8"));
+  const inv12 = {
+    sourceTransactionHash: receipt.sourceTransactionHash,
+    payer: receipt.payer,
+    wrapper: receipt.feeWrapper,
+    usdc: receipt.canonicalUsdc,
+    receiptStatus: receipt.receiptStatus,
+    chainId: receipt.chainId,
+    invoicePrincipal: 10_000_000n,
+    burnAmount: 10_000_000n,
+    feeTotal: 85_961n,
+    totalDebit: 10_085_961n,
+  };
+
+  // Captured from the actual Base Sepolia receipt for INV-12; the payer's fee and principal are separate logs.
+  const realReceiptTransfers = receipt.transfers.map((transfer) => ({ ...transfer, amount: BigInt(transfer.amount) }));
+
+  // Invariant verification on real receipt data:
+  assert.equal(inv12.burnAmount, 10_000_000n);
+  assert.equal(inv12.invoicePrincipal + inv12.feeTotal, inv12.totalDebit);
+  assert.equal(inv12.sourceTransactionHash, "0xe6b936fb6bbe80082d76e1d38f5583be7b3293d5269fdda4086e436743444e92");
+  assert.equal(inv12.receiptStatus, "success");
+  assert.equal(inv12.chainId, 84532);
+
+  // Exact separate verification of principal and fee:
+  const verified = verifyCctpSourceDebit({
+    transfers: realReceiptTransfers,
+    canonicalUsdc: inv12.usdc,
+    payer: inv12.payer,
+    feeWrapper: inv12.wrapper,
+    expectedPrincipal: "10000000",
+    expectedFee: "85961",
+    expectedTotalDebit: "10085961",
+  });
+
+  assert.equal(verified.principal, 10_000_000n);
+  assert.equal(verified.fee, 85_961n);
+  assert.equal(verified.totalDebit, 10_085_961n);
+  assert.equal(verified.principal + verified.fee, verified.totalDebit);
+
+  // Rejection when fee does not match quoted terms:
+  assert.throws(() => verifyCctpSourceDebit({
+    transfers: realReceiptTransfers,
+    canonicalUsdc: inv12.usdc,
+    payer: inv12.payer,
+    feeWrapper: inv12.wrapper,
+    expectedPrincipal: "10000000",
+    expectedFee: "80000",
+    expectedTotalDebit: "10080000",
+  }), /cctp_source_fee_debit_mismatch|cctp_source_debit_mismatch/);
+
+  // Rejection when principal burn amount does not match:
+  assert.throws(() => verifyCctpSourceDebit({
+    transfers: realReceiptTransfers,
+    canonicalUsdc: inv12.usdc,
+    payer: inv12.payer,
+    feeWrapper: inv12.wrapper,
+    expectedPrincipal: "9000000",
+    expectedFee: "85961",
+    expectedTotalDebit: "9085961",
+  }), /cctp_source_principal_debit_mismatch|cctp_source_debit_mismatch/);
+
+  // Rejection when total debit does not equal principal + fees:
+  assert.throws(() => verifyCctpSourceDebit({
+    transfers: realReceiptTransfers,
+    canonicalUsdc: inv12.usdc,
+    payer: inv12.payer,
+    feeWrapper: inv12.wrapper,
+    expectedPrincipal: "10000000",
+    expectedFee: "85961",
+    expectedTotalDebit: "10099999",
+  }), /cctp_source_debit_terms_mismatch/);
+
+  // Rejection when payer has an unauthorized transfer to an arbitrary address:
+  const tamperedTransfers = [
+    ...realReceiptTransfers,
+    { token: inv12.usdc, from: inv12.payer, to: "0x9999999999999999999999999999999999999999", amount: 1000n },
+  ];
+  assert.throws(() => verifyCctpSourceDebit({
+    transfers: tamperedTransfers,
+    canonicalUsdc: inv12.usdc,
+    payer: inv12.payer,
+    feeWrapper: inv12.wrapper,
+    expectedPrincipal: "10000000",
+    expectedFee: "85961",
+    expectedTotalDebit: "10085961",
+  }), /cctp_source_debit_mismatch/);
 });
 
 for (const [name, changed] of [

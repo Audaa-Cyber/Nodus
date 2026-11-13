@@ -61,21 +61,107 @@ export function verifyCctpSourceTransactionIdentity(input: {
   }
 }
 
+export type CctpSourceDebitVerification = {
+  principal: bigint;
+  fee: bigint;
+  totalDebit: bigint;
+};
+
 export function verifyCctpSourceDebit(input: {
   transfers: Array<{ token: string; from: string; to: string; amount: bigint }>;
   canonicalUsdc: string;
   payer: string;
   feeWrapper: string;
   expectedTotalDebit: string;
-}): void {
+  expectedPrincipal?: string;
+  expectedFee?: string;
+}): CctpSourceDebitVerification {
   if (!/^[1-9][0-9]*$/.test(input.expectedTotalDebit)) throw new Error("invalid_expected_source_debit");
-  const matching = input.transfers.filter((transfer) =>
+  const expectedTotalDebitBn = BigInt(input.expectedTotalDebit);
+
+  let expectedPrincipalBn: bigint;
+  let expectedFeeBn: bigint;
+
+  if (input.expectedPrincipal !== undefined) {
+    if (!/^[1-9][0-9]*$/.test(input.expectedPrincipal)) throw new Error("invalid_expected_source_debit");
+    expectedPrincipalBn = BigInt(input.expectedPrincipal);
+
+    if (input.expectedFee !== undefined) {
+      if (!/^[0-9]+$/.test(input.expectedFee)) throw new Error("invalid_expected_source_debit");
+      expectedFeeBn = BigInt(input.expectedFee);
+      if (expectedPrincipalBn + expectedFeeBn !== expectedTotalDebitBn) {
+        throw new Error("cctp_source_debit_terms_mismatch");
+      }
+    } else {
+      if (expectedTotalDebitBn < expectedPrincipalBn) throw new Error("invalid_expected_source_debit");
+      expectedFeeBn = expectedTotalDebitBn - expectedPrincipalBn;
+    }
+  } else if (input.expectedFee !== undefined) {
+    if (!/^[0-9]+$/.test(input.expectedFee)) throw new Error("invalid_expected_source_debit");
+    expectedFeeBn = BigInt(input.expectedFee);
+    if (expectedTotalDebitBn < expectedFeeBn) throw new Error("invalid_expected_source_debit");
+    expectedPrincipalBn = expectedTotalDebitBn - expectedFeeBn;
+  } else {
+    expectedPrincipalBn = expectedTotalDebitBn;
+    expectedFeeBn = 0n;
+  }
+
+  // All canonical USDC transfers originating from payer
+  const payerTransfers = input.transfers.filter((transfer) =>
     transfer.token.toLowerCase() === input.canonicalUsdc.toLowerCase()
-    && transfer.from.toLowerCase() === input.payer.toLowerCase()
-    && transfer.to.toLowerCase() === input.feeWrapper.toLowerCase());
-  if (matching.length !== 1 || matching[0].amount !== BigInt(input.expectedTotalDebit)) {
+    && transfer.from.toLowerCase() === input.payer.toLowerCase());
+
+  // Fail closed if the payer was debited to any recipient other than the designated fee wrapper
+  const unauthorizedDebits = payerTransfers.filter((transfer) =>
+    transfer.to.toLowerCase() !== input.feeWrapper.toLowerCase());
+  if (unauthorizedDebits.length > 0) {
     throw new Error("cctp_source_debit_mismatch");
   }
+
+  const matching = payerTransfers.filter((transfer) =>
+    transfer.to.toLowerCase() === input.feeWrapper.toLowerCase());
+
+  const actualTotalDebit = matching.reduce((total, transfer) => total + transfer.amount, 0n);
+  if (matching.length === 0 || actualTotalDebit !== expectedTotalDebitBn) {
+    throw new Error("cctp_source_debit_mismatch");
+  }
+
+  // Separate principal and fee verification:
+  if (expectedFeeBn === 0n) {
+    if (matching.length === 1) {
+      if (matching[0].amount !== expectedPrincipalBn) {
+        throw new Error("cctp_source_principal_debit_mismatch");
+      }
+    } else {
+      if (actualTotalDebit !== expectedPrincipalBn) {
+        throw new Error("cctp_source_principal_debit_mismatch");
+      }
+    }
+    return { principal: expectedPrincipalBn, fee: 0n, totalDebit: expectedTotalDebitBn };
+  }
+
+  // When expectedFee > 0, verify principal transfer and fee transfer(s) separately
+  const principalIdx = matching.findIndex((t) => t.amount === expectedPrincipalBn);
+  if (principalIdx === -1) {
+    throw new Error("cctp_source_principal_debit_mismatch");
+  }
+
+  const feeTransfers = matching.filter((_, idx) => idx !== principalIdx);
+  const actualFeeTotal = feeTransfers.reduce((total, transfer) => total + transfer.amount, 0n);
+  if (actualFeeTotal !== expectedFeeBn) {
+    throw new Error("cctp_source_fee_debit_mismatch");
+  }
+
+  // Verify: principal + all source-side fees = exact total payer debit
+  if (expectedPrincipalBn + actualFeeTotal !== expectedTotalDebitBn) {
+    throw new Error("cctp_source_debit_mismatch");
+  }
+
+  return {
+    principal: expectedPrincipalBn,
+    fee: actualFeeTotal,
+    totalDebit: expectedTotalDebitBn,
+  };
 }
 
 export function verifyImmutableAttemptInvoiceBinding(input: {
@@ -110,7 +196,7 @@ export function verifyImmutableAttemptInvoiceBinding(input: {
 }
 
 /** Parse the canonical CCTP V2 MessageV2 and BurnMessageV2 layouts. */
-export function parseCctpV2Message(message: string): ParsedCctpV2Message {
+export function parseCctpV2Message(message: string, options: { allowUninitializedNonce?: boolean } = {}): ParsedCctpV2Message {
   if (!/^0x(?:[0-9a-fA-F]{2})+$/.test(message) || (message.length - 2) / 2 < 148 + 228) {
     throw new Error("malformed_cctp_v2_message");
   }
@@ -138,7 +224,8 @@ export function parseCctpV2Message(message: string): ParsedCctpV2Message {
       hookData: `0x${bodyHex.slice(2 + 228 * 2).toLowerCase()}`,
     },
   };
-  if (parsed.version !== 1 || parsed.body.version !== 1 || parsed.nonce === `0x${"0".repeat(64)}`) {
+  if (parsed.version !== 1 || parsed.body.version !== 1
+    || (!options.allowUninitializedNonce && parsed.nonce === `0x${"0".repeat(64)}`)) {
     throw new Error("unsupported_or_uninitialized_cctp_v2_message");
   }
   return parsed;
@@ -177,7 +264,9 @@ export function verifyCctpV2SourceMessage(input: {
   merchantRecipient: string;
   feeWrapper?: string;
 }): { nonce: string; messageHash: string; bodyHex: string; amount: string; finalityThresholdExecuted: number } {
-  const source = parseCctpV2Message(input.sourceMessage);
+  // CCTP V2's MessageSent source event may carry the zero nonce placeholder;
+  // IRIS later supplies the assigned nonce in the attested message.
+  const source = parseCctpV2Message(input.sourceMessage, { allowUninitializedNonce: true });
   const attested = parseCctpV2Message(input.attestedMessage);
   const deposit = input.deposit;
   const expectedSender = addressToBytes32(input.sourceTokenMessenger);
@@ -199,7 +288,7 @@ export function verifyCctpV2SourceMessage(input: {
       throw new Error("cctp_source_message_terms_mismatch");
     }
   }
-  if (source.nonce !== attested.nonce
+  if ((source.nonce !== `0x${"0".repeat(64)}` && source.nonce !== attested.nonce)
     || source.destinationCaller !== attested.destinationCaller
     || source.minFinalityThreshold !== attested.minFinalityThreshold
     || source.body.maxFee !== attested.body.maxFee
