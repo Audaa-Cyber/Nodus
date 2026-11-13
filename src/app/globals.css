@@ -61,7 +61,7 @@ p { text-wrap: pretty; }
 .hero-lede { max-width: 590px; margin: 0; color: #929eac; font-size: 15px; line-height: 1.75; }
 .hero-actions { display: flex; align-items: center; justify-content: center; gap: 28px; flex: 0 0 auto; }
 .button { min-height: 54px; display: inline-flex; align-items: center; justify-content: center; gap: 14px; padding: 0 20px 0 23px; border: 1px solid transparent; border-radius: 999px; font-size: 11px; font-weight: 500; user-select: none; -webkit-tap-highlight-color: transparent; transition: background 180ms ease, color 180ms ease, border-color 180ms ease, transform 120ms var(--ease); }
-.button:active:not(:disabled), button:active:not(:disabled), .pay-button:active:not(:disabled), .wallet-primary-button:active:not(:disabled), .wallet-secondary-button:active:not(:disabled) { transform: scale(0.985) translateY(1px) !important; transition-duration: 40ms !important; }
+.button:active:not(:disabled), button:active:not(:disabled):not(.password-toggle-btn), .pay-button:active:not(:disabled), .wallet-primary-button:active:not(:disabled), .wallet-secondary-button:active:not(:disabled) { transform: scale(0.985) translateY(1px) !important; transition-duration: 40ms !important; }
 .button:disabled, button:disabled, .pay-button:disabled, .wallet-primary-button:disabled, .wallet-secondary-button:disabled { opacity: 0.6 !important; cursor: wait !important; pointer-events: none !important; transform: none !important; }
 .button-spinner { display: inline-block; width: 13px; height: 13px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: button-spin 0.6s linear infinite; vertical-align: middle; flex-shrink: 0; }
 @keyframes button-spin { to { transform: rotate(360deg); } }
@@ -1207,7 +1207,7 @@ main > section:not(.binary-rain) > .nav {
   border: 1px solid var(--input-border);
   color: var(--text-primary);
   border-radius: 0.7rem;
-  padding: 1.05rem 2.35rem 0.32rem 2.35rem;
+  padding: 1.05rem 1rem 0.32rem 1rem;
   font-size: 0.8125rem;
   line-height: 1.15rem;
   outline: none;
@@ -1217,6 +1217,11 @@ main > section:not(.binary-rain) > .nav {
 .login-executive-page .premium-input:focus {
   border-color: var(--input-focus);
   box-shadow: 0 0 0 3px rgba(100, 116, 139, 0.12);
+}
+
+.login-executive-page .premium-input.has-action,
+.login-executive-page .premium-input#passwordInput {
+  padding-right: 2.85rem;
 }
 
 /* Microsoft Edge and legacy IE render a built-in password-reveal (and clear)
@@ -1232,7 +1237,7 @@ main > section:not(.binary-rain) > .nav {
 
 .login-executive-page .floating-label {
   position: absolute;
-  left: 2.35rem;
+  left: 1rem;
   top: 50%;
   transform: translateY(-50%);
   color: var(--text-muted);
@@ -1249,6 +1254,52 @@ main > section:not(.binary-rain) > .nav {
   color: var(--text-secondary);
   font-weight: 500;
   letter-spacing: 0.01em;
+}
+
+/* Hide/Show password button styling */
+.login-executive-page .password-toggle-btn {
+  position: absolute;
+  right: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 2rem;
+  height: 2rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.18s ease, background-color 0.18s ease, border-color 0.18s ease, transform 0.12s ease;
+  z-index: 2;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.login-executive-page .password-toggle-btn:hover {
+  color: var(--text-primary);
+  background: var(--pill-bg);
+  border-color: var(--card-border);
+}
+
+.login-executive-page .password-toggle-btn:active {
+  transform: translateY(-50%) scale(0.92);
+}
+
+.login-executive-page .password-toggle-btn:focus-visible {
+  outline: none;
+  border-color: var(--card-border);
+  box-shadow: 0 0 0 2px var(--input-focus);
+}
+
+.login-executive-page .input-group:has(.input-icon) .premium-input {
+  padding-left: 2.35rem;
+}
+
+.login-executive-page .input-group:has(.input-icon) .floating-label {
+  left: 2.35rem;
 }
 
 .login-executive-page .input-icon {

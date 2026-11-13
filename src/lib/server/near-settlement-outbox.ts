@@ -11,6 +11,7 @@ type NearRecord = {
   reconciliation_id: string; invoice_id: string; attempt_id: string;
   source_transaction_hash: string; destination_transaction_hash: string;
   amount_base_units: string; evidence_digest: string;
+  cctp_source_domain: number | null; cctp_message_nonce: string | null;
 };
 
 const getString = (object: Record<string, unknown>, key: string) => object[key] == null ? "" : String(object[key]);
@@ -60,6 +61,8 @@ export async function processNearSettlementOutbox(limit = 10): Promise<{ claimed
           destination_transaction_hash: String(transaction.transactionHash),
           amount_base_units: String(destinationProof.amount),
           evidence_digest: input.evidence_digest,
+          cctp_source_domain: input.cctp_source_domain,
+          cctp_message_nonce: input.cctp_message_nonce,
         };
         return { ...payload, settlementRecord };
       },
@@ -74,6 +77,8 @@ export async function processNearSettlementOutbox(limit = 10): Promise<{ claimed
           destination_transaction_hash: getString(value, "destination_transaction_hash"),
           amount_base_units: getString(value, "amount_base_units"),
           evidence_digest: getString(value, "evidence_digest"),
+          cctp_source_domain: value.cctp_source_domain == null ? null : Number(value.cctp_source_domain),
+          cctp_message_nonce: value.cctp_message_nonce == null ? null : getString(value, "cctp_message_nonce"),
         };
       },
       ensureInvoiceAndAttempt: async (payload) => {
@@ -120,7 +125,7 @@ export async function processNearSettlementOutbox(limit = 10): Promise<{ claimed
           }
         }
       },
-      attestSettlement: (input) => near.call("attest_settlement", { input }),
+      attestSettlement: (input) => near.call("attest_settlement_v2", { input }),
       markSubmitted: async (claimed, transactionHash) => {
         const { error: finishError } = await admin.rpc("finish_near_settlement_outbox", {
           p_id: claimed.id, p_lock_token: claimed.lock_token, p_near_transaction_hash: transactionHash,

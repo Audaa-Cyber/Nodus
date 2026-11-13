@@ -10,6 +10,7 @@ const DEFAULT_RPC = "https://rpc.testnet.near.org";
 const GAS = 30_000_000_000_000n;
 const CONTRACT_METHODS = new Set([
   "get_invoice", "register_invoice", "get_attempt", "register_attempt", "get_settlement", "attest_settlement",
+  "attest_settlement_v2",
 ]);
 
 export type NearSettlementClient = ReturnType<typeof createNearSettlementClient>;

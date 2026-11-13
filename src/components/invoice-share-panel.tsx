@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import Link from "next/link";
 import { QRCodeSVG } from "qrcode.react";
 import { generateInvoiceShareLinkAction, revokeInvoiceShareLinkAction } from "@/app/actions/sharing";
+import { formatUtcDate } from "@/lib/invoices";
 
 type ShareState = "active" | "expired" | "none";
 
@@ -82,7 +83,7 @@ export default function InvoiceSharePanel({ invoiceId, shareState, expiresAt, ca
 
   return <section className="share-panel" aria-labelledby="share-invoice-heading">
     <div className="share-panel-heading"><div><p className="eyebrow">CUSTOMER ACCESS</p><h2 id="share-invoice-heading">Share invoice</h2></div>{currentShareState === "active" && <span className="status status-open">Link active</span>}</div>
-    {currentShareState === "active" && !url && <p className="form-help">An active link is saved. To copy it again, generate a replacement; the previous link will stop working. This link expires {currentExpiry ? new Date(currentExpiry).toLocaleDateString() : "after one year"}.</p>}
+    {currentShareState === "active" && !url && <p className="form-help">An active link is saved. To copy it again, generate a replacement; the previous link will stop working. This link expires {currentExpiry ? formatUtcDate(currentExpiry) : "after one year"}.</p>}
     {currentShareState === "expired" && !url && <p className="form-help">The previous link has expired. Generate a new link to share this invoice.</p>}
     {currentShareState === "none" && !url && (canShare
       ? <p className="form-help">Create a secure public link and QR code for the customer to view this invoice.</p>

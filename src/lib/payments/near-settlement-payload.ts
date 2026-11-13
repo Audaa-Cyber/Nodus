@@ -1,10 +1,10 @@
 import { createHash } from "node:crypto";
 
-const TESTNET_USDC_CHAINS: Record<string, { chainId: number; token: string }> = {
-  sepolia: { chainId: 11155111, token: "0x1c7d4b196cb0c7b01d743fbc6116a902379c7238" },
-  "base-sepolia": { chainId: 84532, token: "0x036cbd53842c5426634e7929541ec2318f3dcf7e" },
-  "arbitrum-sepolia": { chainId: 421614, token: "0x75faf114eafb1bdbe2f0316df893fd58ce46aa4d" },
-  "optimism-sepolia": { chainId: 11155420, token: "0x5fd84259d66cd46123540766be93dfe6d43130d7" },
+const TESTNET_USDC_CHAINS: Record<string, { chainId: number; cctpDomainId: number; token: string }> = {
+  sepolia: { chainId: 11155111, cctpDomainId: 0, token: "0x1c7d4b196cb0c7b01d743fbc6116a902379c7238" },
+  "base-sepolia": { chainId: 84532, cctpDomainId: 6, token: "0x036cbd53842c5426634e7929541ec2318f3dcf7e" },
+  "arbitrum-sepolia": { chainId: 421614, cctpDomainId: 3, token: "0x75faf114eafb1bdbe2f0316df893fd58ce46aa4d" },
+  "optimism-sepolia": { chainId: 11155420, cctpDomainId: 2, token: "0x5fd84259d66cd46123540766be93dfe6d43130d7" },
 };
 const VERIFIER_POLICY_VERSION = 1;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -18,7 +18,8 @@ export type NearAttestationInput = {
   source_transaction_hash: string;
   source_block_number: number;
   source_block_hash: string;
-  cctp_message_nonce: number;
+  cctp_source_domain: number;
+  cctp_message_nonce: string;
   cctp_message_hash: string;
   destination_chain_id: number;
   destination_transaction_hash: string;
@@ -98,6 +99,19 @@ function safeU64(value: unknown): number {
   return Number(parsed);
 }
 
+function safeU32(value: unknown): number {
+  if (!Number.isInteger(value) || Number(value) < 0 || Number(value) > 0xffff_ffff) {
+    return invalid("near_evidence_source_domain_invalid");
+  }
+  return Number(value);
+}
+
+function canonicalCctpNonce(value: unknown): string {
+  const nonce = text(value);
+  if (!/^0x[0-9a-fA-F]{64}$/.test(nonce)) invalid("near_evidence_nonce_invalid");
+  return nonce.toLowerCase();
+}
+
 function uuidBytes(value: string): Buffer {
   return Buffer.from(value.replaceAll("-", ""), "hex");
 }
@@ -120,7 +134,7 @@ function uintBytes(value: number | string, length: number): Buffer {
 
 export function nearEvidenceDigest(invoiceId: string, input: Omit<NearAttestationInput, "evidence_digest">): string {
   const encoded = Buffer.concat([
-    Buffer.from("NODUS_CCTP_SETTLEMENT_EVIDENCE_V1\0", "utf8"),
+    Buffer.from("NODUS_CCTP_SETTLEMENT_EVIDENCE_V2\0", "utf8"),
     uuidBytes(invoiceId),
     uuidBytes(input.reconciliation_id),
     uuidBytes(input.attempt_id),
@@ -128,7 +142,8 @@ export function nearEvidenceDigest(invoiceId: string, input: Omit<NearAttestatio
     hexBytes(input.source_transaction_hash),
     uintBytes(input.source_block_number, 8),
     hexBytes(input.source_block_hash),
-    uintBytes(input.cctp_message_nonce, 8),
+    uintBytes(input.cctp_source_domain, 4),
+    hexBytes(input.cctp_message_nonce),
     hexBytes(input.cctp_message_hash),
     uintBytes(input.destination_chain_id, 8),
     hexBytes(input.destination_transaction_hash),
@@ -219,7 +234,9 @@ export function buildNearSettlementPayload(input: {
   };
   const sourceBlockNumber = safeU64(sourceProof.sourceBlockNumber);
   const destinationBlockNumber = safeU64(destinationTransaction.blockNumber);
-  const nonce = safeU64(sourceProof.nonce);
+  const nonce = canonicalCctpNonce(sourceProof.nonce);
+  const cctpSourceDomain = safeU32(sourceProof.sourceDomain ?? snapshot.sourceDomain);
+  if (cctpSourceDomain !== sourceChain.cctpDomainId) invalid("near_evidence_source_domain_mismatch");
   const digestInput: Omit<NearAttestationInput, "evidence_digest"> = {
     reconciliation_id: reconciliationId,
     attempt_id: attemptId,
@@ -227,6 +244,7 @@ export function buildNearSettlementPayload(input: {
     source_transaction_hash: sourceTransactionHash,
     source_block_number: sourceBlockNumber,
     source_block_hash: canonicalHash(sourceProof.sourceBlockHash),
+    cctp_source_domain: cctpSourceDomain,
     cctp_message_nonce: nonce,
     cctp_message_hash: canonicalHash(sourceProof.messageHash),
     destination_chain_id: destinationChain.chainId,

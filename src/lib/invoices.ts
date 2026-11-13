@@ -46,6 +46,18 @@ export function formatMoney(minor: number, currency: string): string {
   }
 }
 
+export function formatUtcDate(dateString: string): string {
+  try {
+    const iso = dateString.includes("T") ? dateString : `${dateString}T00:00:00Z`;
+    return new Intl.DateTimeFormat("en-US", {
+      dateStyle: "medium",
+      timeZone: "UTC",
+    }).format(new Date(iso));
+  } catch {
+    return dateString;
+  }
+}
+
 export function parseInvoiceForm(formData: FormData) {
   const get = (key: string) => String(formData.get(key) ?? "").trim();
   const invoiceNumber = get("invoiceNumber");

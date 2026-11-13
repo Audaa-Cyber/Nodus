@@ -6,6 +6,8 @@ export type NearSettlementRecord = {
   destination_transaction_hash: string;
   amount_base_units: string;
   evidence_digest: string;
+  cctp_source_domain: number | null;
+  cctp_message_nonce: string | null;
 };
 
 export type NearOutboxJob = { id: string; reconciliation_id: string; lock_token: string };
@@ -34,7 +36,9 @@ function settlementMatches(expected: NearSettlementRecord, actual: NearSettlemen
     && expected.source_transaction_hash.toLowerCase() === actual.source_transaction_hash.toLowerCase()
     && expected.destination_transaction_hash.toLowerCase() === actual.destination_transaction_hash.toLowerCase()
     && expected.amount_base_units === actual.amount_base_units
-    && expected.evidence_digest.toLowerCase() === actual.evidence_digest.toLowerCase();
+    && expected.evidence_digest.toLowerCase() === actual.evidence_digest.toLowerCase()
+    && expected.cctp_source_domain === actual.cctp_source_domain
+    && expected.cctp_message_nonce?.toLowerCase() === actual.cctp_message_nonce?.toLowerCase();
 }
 
 function isPermanent(error: unknown): error is PermanentNearOutboxError {

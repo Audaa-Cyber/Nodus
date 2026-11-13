@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getBusinessContext } from "@/lib/auth/business-context";
-import { effectiveStatus, formatMoney } from "@/lib/invoices";
+import { effectiveStatus, formatMoney, formatUtcDate } from "@/lib/invoices";
 import { withTransitionDelay } from "@/lib/utils/timing";
 
 export default async function InvoicesPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
@@ -92,10 +92,10 @@ export default async function InvoicesPage({ searchParams }: { searchParams: Pro
                               {invoice.customer_name}
                             </td>
                             <td className="py-3 px-4 font-mono-code text-[11px]" style={{ color: "var(--text-muted)" }}>
-                              {new Date(`${invoice.created_at.slice(0, 10)}T00:00:00`).toLocaleDateString()}
+                              {formatUtcDate(invoice.created_at)}
                             </td>
                             <td className="py-3 px-4 font-mono-code text-[11px]" style={{ color: "var(--text-muted)" }}>
-                              {invoice.due_date ? new Date(`${invoice.due_date}T00:00:00`).toLocaleDateString() : "—"}
+                              {invoice.due_date ? formatUtcDate(invoice.due_date) : "—"}
                             </td>
                             <td className="py-3 px-4 font-semibold text-slate-900 font-mono-code">
                               {formatMoney(invoice.amount_minor, invoice.currency)}

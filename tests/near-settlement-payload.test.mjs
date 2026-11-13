@@ -9,6 +9,7 @@ const sourceHash = `0x${"b".repeat(64)}`;
 const destinationHash = `0x${"c".repeat(64)}`;
 const recipient = `0x${"2".repeat(40)}`;
 const token = "0x75faf114eafb1bdbe2f0316df893fd58ce46aa4d";
+const inv12Nonce = "0x4ee259295b1fcf171b082ba2a1b0d46a9b0b5bc9fa55ff3d2178f5574c05ebba";
 
 function fixture(overrides = {}) {
   const sourceProof = {
@@ -17,7 +18,8 @@ function fixture(overrides = {}) {
     sourceBlockHash: `0x${"1".repeat(64)}`,
     payer: `0x${"3".repeat(40)}`,
     amount: "100000000",
-    nonce: "11",
+    sourceDomain: 6,
+    nonce: inv12Nonce,
     messageHash: sourceHash,
   };
   const destinationProof = {
@@ -94,7 +96,8 @@ test("builds the deployed ABI payload and the contract-compatible evidence diges
     source_transaction_hash: sourceHash,
     source_block_number: 100,
     source_block_hash: `0x${"1".repeat(64)}`,
-    cctp_message_nonce: 11,
+    cctp_source_domain: 6,
+    cctp_message_nonce: inv12Nonce,
     cctp_message_hash: sourceHash,
     destination_chain_id: 421614,
     destination_transaction_hash: destinationHash,
@@ -105,7 +108,7 @@ test("builds the deployed ABI payload and the contract-compatible evidence diges
     amount_base_units: "100000000",
     token_decimals: 6,
     verifier_policy_version: 1,
-    evidence_digest: "0x1c6d92fab5adfa93fcb918d3ebcd3a71cf192e1c506fd10891b4336a01884776",
+    evidence_digest: "0x629340847e8e8b346e3293636dbc207dc449b7fdf1343ffe409231c28a45b47b",
   });
 });
 
@@ -119,12 +122,47 @@ test("rejects evidence that was not destination-verified and final", () => {
   }), /near_destination_evidence_unverified/);
 });
 
+test("preserves the actual INV-12 full-width nonce in the V2 attestation", () => {
+  const payload = buildNearSettlementPayload(fixture());
+  assert.equal(payload.attestationArgs.input.cctp_message_nonce, inv12Nonce);
+  assert.equal(payload.attestationArgs.input.cctp_source_domain, 6);
+  assert.match(payload.attestationArgs.input.evidence_digest, /^0x[0-9a-f]{64}$/);
+});
+
+test("accepts the maximum-width CCTP V2 nonce without numeric conversion", () => {
+  const value = fixture();
+  const nonce = `0x${"ff".repeat(32)}`;
+  value.settlement.evidence.sourceProof.nonce = nonce;
+  const payload = buildNearSettlementPayload(value);
+  assert.equal(payload.attestationArgs.input.cctp_message_nonce, nonce);
+});
+
+test("rejects malformed CCTP V2 nonce hex", () => {
+  const value = fixture();
+  value.settlement.evidence.sourceProof.nonce = `0x${"g".repeat(64)}`;
+  assert.throws(() => buildNearSettlementPayload(value), /near_evidence_nonce_invalid/);
+});
+
+test("rejects CCTP V2 nonces with the wrong byte length", () => {
+  const value = fixture();
+  value.settlement.evidence.sourceProof.nonce = `0x${"ab".repeat(31)}`;
+  assert.throws(() => buildNearSettlementPayload(value), /near_evidence_nonce_invalid/);
+});
+
+test("commits every nonce byte and source domain in the payload digest", () => {
+  const original = buildNearSettlementPayload(fixture()).attestationArgs.input;
+  const changedNonce = fixture();
+  changedNonce.settlement.evidence.sourceProof.nonce = `0x${"00".repeat(31)}01`;
+  assert.notEqual(buildNearSettlementPayload(changedNonce).attestationArgs.input.evidence_digest, original.evidence_digest);
+  assert.equal(original.evidence_digest, "0x629340847e8e8b346e3293636dbc207dc449b7fdf1343ffe409231c28a45b47b");
+});
+
 test("builds NEAR attestations for each supported testnet source and destination pair", () => {
   const supported = {
-    sepolia: { chainId: 11155111, token: "0x1c7d4b196cb0c7b01d743fbc6116a902379c7238" },
-    "base-sepolia": { chainId: 84532, token: "0x036cbd53842c5426634e7929541ec2318f3dcf7e" },
-    "arbitrum-sepolia": { chainId: 421614, token: "0x75faf114eafb1bdbe2f0316df893fd58ce46aa4d" },
-    "optimism-sepolia": { chainId: 11155420, token: "0x5fd84259d66cd46123540766be93dfe6d43130d7" },
+    sepolia: { chainId: 11155111, domain: 0, token: "0x1c7d4b196cb0c7b01d743fbc6116a902379c7238" },
+    "base-sepolia": { chainId: 84532, domain: 6, token: "0x036cbd53842c5426634e7929541ec2318f3dcf7e" },
+    "arbitrum-sepolia": { chainId: 421614, domain: 3, token: "0x75faf114eafb1bdbe2f0316df893fd58ce46aa4d" },
+    "optimism-sepolia": { chainId: 11155420, domain: 2, token: "0x5fd84259d66cd46123540766be93dfe6d43130d7" },
   };
   for (const [sourceNetwork, source] of Object.entries(supported)) {
     for (const [destinationNetwork, destination] of Object.entries(supported)) {
@@ -133,13 +171,16 @@ test("builds NEAR attestations for each supported testnet source and destination
       input.attempt.source_network = sourceNetwork;
       input.attempt.destination_network = destinationNetwork;
       input.attempt.source_asset_id = `${sourceNetwork}:usdc`;
+      input.attempt.quote_snapshot.sourceDomain = source.domain;
       input.attempt.destination_asset_id = `${destinationNetwork}:usdc`;
+      input.settlement.evidence.sourceProof.sourceDomain = source.domain;
       input.attempt.quote_snapshot.sourceUsdc = source.token;
       input.settlement.destination_network = destinationNetwork;
       input.settlement.destination_asset_id = `${destinationNetwork}:usdc`;
       input.canonicalTokenAddress = destination.token;
       const payload = buildNearSettlementPayload(input);
       assert.equal(payload.attemptArgs.source_chain_id, source.chainId, `${sourceNetwork} source chain`);
+      assert.equal(payload.attestationArgs.input.cctp_source_domain, source.domain, `${sourceNetwork} CCTP domain`);
       assert.equal(payload.invoiceArgs.terms.destination_chain_id, destination.chainId, `${destinationNetwork} destination chain`);
       assert.equal(payload.invoiceArgs.terms.token_address, destination.token);
     }

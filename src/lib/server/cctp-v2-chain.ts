@@ -84,6 +84,7 @@ export type VerifiedCctpSource = {
   sourceTransactionHash: string;
   payer: string;
   amount: string;
+  sourceDomain: number;
   nonce: string;
   messageHash: string;
   message: string;
@@ -181,6 +182,7 @@ export async function verifyCctpV2SourceTransaction(input: {
     sourceTransactionHash: input.sourceTxHash,
     payer: input.payer,
     amount: correlation.amount,
+    sourceDomain: source.cctpDomainId,
     nonce: correlation.nonce,
     messageHash: correlation.messageHash,
     message: input.attestedMessage,

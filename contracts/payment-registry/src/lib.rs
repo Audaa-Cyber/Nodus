@@ -12,6 +12,8 @@ const ETHEREUM_SEPOLIA_CHAIN_ID: u64 = 11_155_111;
 const BASE_SEPOLIA_CHAIN_ID: u64 = 84_532;
 const ARBITRUM_SEPOLIA_CHAIN_ID: u64 = 421_614;
 const OPTIMISM_SEPOLIA_CHAIN_ID: u64 = 11_155_420;
+const CCTP_V2_NONCES_PREFIX: &[u8] = b"cctp_v2_nonces_by_reconciliation";
+const CCTP_V2_EVIDENCE_DOMAIN: &[u8] = b"NODUS_CCTP_SETTLEMENT_EVIDENCE_V2\0";
 
 fn testnet_usdc_for_chain(chain_id: u64) -> Option<&'static str> {
     match chain_id {
@@ -19,6 +21,16 @@ fn testnet_usdc_for_chain(chain_id: u64) -> Option<&'static str> {
         BASE_SEPOLIA_CHAIN_ID => Some("0x036cbd53842c5426634e7929541ec2318f3dcf7e"),
         ARBITRUM_SEPOLIA_CHAIN_ID => Some("0x75faf114eafb1bdbe2f0316df893fd58ce46aa4d"),
         OPTIMISM_SEPOLIA_CHAIN_ID => Some("0x5fd84259d66cd46123540766be93dfe6d43130d7"),
+        _ => None,
+    }
+}
+
+fn cctp_domain_for_chain(chain_id: u64) -> Option<u32> {
+    match chain_id {
+        ETHEREUM_SEPOLIA_CHAIN_ID => Some(0),
+        BASE_SEPOLIA_CHAIN_ID => Some(6),
+        ARBITRUM_SEPOLIA_CHAIN_ID => Some(3),
+        OPTIMISM_SEPOLIA_CHAIN_ID => Some(2),
         _ => None,
     }
 }
@@ -102,6 +114,31 @@ pub struct AttestationInput {
     pub evidence_digest: String,
 }
 
+/// CCTP V2 uses a full bytes32 nonce and a CCTP domain distinct from the EVM chain ID.
+#[near(serializers = [json, borsh])]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CctpV2AttestationInput {
+    pub reconciliation_id: String,
+    pub attempt_id: String,
+    pub source_chain_id: u64,
+    pub cctp_source_domain: u32,
+    pub source_transaction_hash: String,
+    pub source_block_number: u64,
+    pub source_block_hash: String,
+    pub cctp_message_nonce: String,
+    pub cctp_message_hash: String,
+    pub destination_chain_id: u64,
+    pub destination_transaction_hash: String,
+    pub destination_block_number: u64,
+    pub destination_block_hash: String,
+    pub token_address: String,
+    pub merchant_recipient: String,
+    pub amount_base_units: U128,
+    pub token_decimals: u8,
+    pub verifier_policy_version: u32,
+    pub evidence_digest: String,
+}
+
 #[near(serializers = [json, borsh])]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SettlementRecord {
@@ -118,6 +155,34 @@ pub struct SettlementRecord {
     pub token_decimals: u8,
     pub outcome: SettlementOutcome,
     pub evidence_digest: String,
+}
+
+/// Additive view fields live in a side map so old SettlementRecord bytes stay readable.
+#[near(serializers = [json])]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SettlementView {
+    pub reconciliation_id: String,
+    pub invoice_id: String,
+    pub attempt_id: String,
+    pub source_chain_id: u64,
+    pub source_transaction_hash: String,
+    pub destination_chain_id: u64,
+    pub destination_transaction_hash: String,
+    pub token_address: String,
+    pub merchant_recipient: String,
+    pub amount_base_units: U128,
+    pub token_decimals: u8,
+    pub outcome: SettlementOutcome,
+    pub evidence_digest: String,
+    pub cctp_source_domain: Option<u32>,
+    pub cctp_message_nonce: Option<String>,
+}
+
+#[near(serializers = [json, borsh])]
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct CctpV2NonceRecord {
+    source_domain: u32,
+    nonce: String,
 }
 
 #[near(contract_state)]
@@ -241,6 +306,77 @@ impl Contract {
     }
 
     pub fn attest_settlement(&mut self, input: AttestationInput) -> SettlementRecord {
+        let source_domain = cctp_domain_for_chain(input.source_chain_id)
+            .expect("unsupported_source_chain");
+        let nonce_hex = format!("0x{:064x}", input.cctp_message_nonce);
+        let replay_keys = vec![
+            format!("{}:{}", input.source_chain_id, input.cctp_message_nonce),
+            format!("{}:{}", input.source_chain_id, input.cctp_message_hash),
+            v2_nonce_replay_key(source_domain, &nonce_hex),
+            v2_hash_replay_key(source_domain, &input.cctp_message_hash),
+        ];
+        let expected_digest = evidence_digest_for(
+            &self.attempts.get(&input.attempt_id).expect("attempt_not_registered").invoice_id,
+            &input,
+        );
+        self.attest_settlement_core(input, replay_keys, expected_digest)
+    }
+
+    pub fn attest_settlement_v2(&mut self, input: CctpV2AttestationInput) -> SettlementView {
+        assert_hex_hash(&input.cctp_message_nonce);
+        let expected_domain = cctp_domain_for_chain(input.source_chain_id)
+            .expect("unsupported_source_chain");
+        assert_eq!(input.cctp_source_domain, expected_domain, "cctp_source_domain_mismatch");
+        let invoice_id = self.attempts.get(&input.attempt_id)
+            .expect("attempt_not_registered").invoice_id;
+        let expected_digest = evidence_digest_for_v2(&invoice_id, &input);
+        let mut replay_keys = vec![
+            v2_nonce_replay_key(input.cctp_source_domain, &input.cctp_message_nonce),
+            v2_hash_replay_key(input.cctp_source_domain, &input.cctp_message_hash),
+            format!("{}:{}", input.source_chain_id, input.cctp_message_hash),
+        ];
+        if let Some(legacy_nonce) = nonce_as_legacy_u64(&input.cctp_message_nonce) {
+            replay_keys.push(format!("{}:{}", input.source_chain_id, legacy_nonce));
+        }
+        let cctp_source_domain = input.cctp_source_domain;
+        let cctp_message_nonce = input.cctp_message_nonce.clone();
+        let normalized = AttestationInput {
+            reconciliation_id: input.reconciliation_id,
+            attempt_id: input.attempt_id,
+            source_chain_id: input.source_chain_id,
+            source_transaction_hash: input.source_transaction_hash,
+            source_block_number: input.source_block_number,
+            source_block_hash: input.source_block_hash,
+            cctp_message_nonce: nonce_as_legacy_u64(&cctp_message_nonce).unwrap_or(0),
+            cctp_message_hash: input.cctp_message_hash,
+            destination_chain_id: input.destination_chain_id,
+            destination_transaction_hash: input.destination_transaction_hash,
+            destination_block_number: input.destination_block_number,
+            destination_block_hash: input.destination_block_hash,
+            token_address: input.token_address,
+            merchant_recipient: input.merchant_recipient,
+            amount_base_units: input.amount_base_units,
+            token_decimals: input.token_decimals,
+            verifier_policy_version: input.verifier_policy_version,
+            evidence_digest: input.evidence_digest,
+        };
+        let settlement = self.attest_settlement_core(normalized, replay_keys, expected_digest);
+        let mut nonce_records = LookupMap::<String, CctpV2NonceRecord>::new(CCTP_V2_NONCES_PREFIX);
+        nonce_records.insert(&settlement.reconciliation_id, &CctpV2NonceRecord {
+            source_domain: cctp_source_domain,
+            nonce: cctp_message_nonce,
+        });
+        let nonce_record = nonce_records.get(&settlement.reconciliation_id)
+            .expect("cctp_v2_nonce_insert_failed");
+        settlement_view(settlement, Some(nonce_record))
+    }
+
+    fn attest_settlement_core(
+        &mut self,
+        input: AttestationInput,
+        cctp_replay_keys: Vec<String>,
+        expected_digest: String,
+    ) -> SettlementRecord {
         assert!(
             self.attestors
                 .get(&env::predecessor_account_id())
@@ -279,14 +415,8 @@ impl Contract {
                 .unwrap_or(false),
             "reconciliation_already_attested"
         );
-        let cctp_nonce_key = format!("{}:{}", input.source_chain_id, input.cctp_message_nonce);
-        let cctp_hash_key = format!("{}:{}", input.source_chain_id, input.cctp_message_hash);
         assert!(
-            !self
-                .used_cctp_messages
-                .get(&cctp_nonce_key)
-                .unwrap_or(false)
-                && !self.used_cctp_messages.get(&cctp_hash_key).unwrap_or(false),
+            cctp_replay_keys.iter().all(|key| !self.used_cctp_messages.get(key).unwrap_or(false)),
             "cctp_message_already_attested"
         );
 
@@ -340,7 +470,7 @@ impl Contract {
         );
         assert_eq!(
             input.evidence_digest,
-            evidence_digest_for(&attempt.invoice_id, &input),
+            expected_digest,
             "evidence_digest_mismatch"
         );
 
@@ -382,8 +512,9 @@ impl Contract {
         attempt.reconciliation_id = Some(input.reconciliation_id.clone());
         self.used_reconciliation_ids
             .insert(&input.reconciliation_id, &true);
-        self.used_cctp_messages.insert(&cctp_nonce_key, &true);
-        self.used_cctp_messages.insert(&cctp_hash_key, &true);
+        for key in cctp_replay_keys {
+            self.used_cctp_messages.insert(&key, &true);
+        }
         self.used_transactions.insert(&source_key, &true);
         self.used_transactions.insert(&destination_key, &true);
 
@@ -468,8 +599,10 @@ impl Contract {
         self.attempts.get(&attempt_id)
     }
 
-    pub fn get_settlement(&self, reconciliation_id: String) -> Option<SettlementRecord> {
-        self.settlements.get(&reconciliation_id)
+    pub fn get_settlement(&self, reconciliation_id: String) -> Option<SettlementView> {
+        let settlement = self.settlements.get(&reconciliation_id)?;
+        let nonce_records = LookupMap::<String, CctpV2NonceRecord>::new(CCTP_V2_NONCES_PREFIX);
+        Some(settlement_view(settlement, nonce_records.get(&reconciliation_id)))
     }
 
     pub fn is_attestor(&self, account_id: AccountId) -> bool {
@@ -588,6 +721,68 @@ pub fn evidence_digest_for(invoice_id: &str, input: &AttestationInput) -> String
     encoded.push(input.token_decimals);
     encoded.extend_from_slice(&input.verifier_policy_version.to_be_bytes());
     format!("0x{}", hex_encode(&env::sha256(&encoded)))
+}
+
+/// V2 digest includes the CCTP domain and all 32 nonce bytes. The legacy V1
+/// digest remains unchanged for callers of `attest_settlement`.
+pub fn evidence_digest_for_v2(invoice_id: &str, input: &CctpV2AttestationInput) -> String {
+    let mut encoded = Vec::new();
+    encoded.extend_from_slice(CCTP_V2_EVIDENCE_DOMAIN);
+    encoded.extend_from_slice(&decode_uuid(invoice_id));
+    encoded.extend_from_slice(&decode_uuid(&input.reconciliation_id));
+    encoded.extend_from_slice(&decode_uuid(&input.attempt_id));
+    encoded.extend_from_slice(&input.source_chain_id.to_be_bytes());
+    encoded.extend_from_slice(&decode_hash(&input.source_transaction_hash));
+    encoded.extend_from_slice(&input.source_block_number.to_be_bytes());
+    encoded.extend_from_slice(&decode_hash(&input.source_block_hash));
+    encoded.extend_from_slice(&input.cctp_source_domain.to_be_bytes());
+    encoded.extend_from_slice(&decode_hash(&input.cctp_message_nonce));
+    encoded.extend_from_slice(&decode_hash(&input.cctp_message_hash));
+    encoded.extend_from_slice(&input.destination_chain_id.to_be_bytes());
+    encoded.extend_from_slice(&decode_hash(&input.destination_transaction_hash));
+    encoded.extend_from_slice(&input.destination_block_number.to_be_bytes());
+    encoded.extend_from_slice(&decode_hash(&input.destination_block_hash));
+    encoded.extend_from_slice(&decode_address(&input.token_address));
+    encoded.extend_from_slice(&decode_address(&input.merchant_recipient));
+    encoded.extend_from_slice(&input.amount_base_units.0.to_be_bytes());
+    encoded.push(input.token_decimals);
+    encoded.extend_from_slice(&input.verifier_policy_version.to_be_bytes());
+    format!("0x{}", hex_encode(&env::sha256(&encoded)))
+}
+
+fn v2_nonce_replay_key(source_domain: u32, nonce: &str) -> String {
+    format!("v2:nonce:{source_domain}:{nonce}")
+}
+
+fn v2_hash_replay_key(source_domain: u32, message_hash: &str) -> String {
+    format!("v2:hash:{source_domain}:{message_hash}")
+}
+
+fn nonce_as_legacy_u64(nonce: &str) -> Option<u64> {
+    if nonce.len() != 66 || !nonce.starts_with("0x") || nonce.as_bytes()[2..50].iter().any(|byte| *byte != b'0') {
+        return None;
+    }
+    u64::from_str_radix(&nonce[50..], 16).ok()
+}
+
+fn settlement_view(settlement: SettlementRecord, nonce: Option<CctpV2NonceRecord>) -> SettlementView {
+    SettlementView {
+        reconciliation_id: settlement.reconciliation_id,
+        invoice_id: settlement.invoice_id,
+        attempt_id: settlement.attempt_id,
+        source_chain_id: settlement.source_chain_id,
+        source_transaction_hash: settlement.source_transaction_hash,
+        destination_chain_id: settlement.destination_chain_id,
+        destination_transaction_hash: settlement.destination_transaction_hash,
+        token_address: settlement.token_address,
+        merchant_recipient: settlement.merchant_recipient,
+        amount_base_units: settlement.amount_base_units,
+        token_decimals: settlement.token_decimals,
+        outcome: settlement.outcome,
+        evidence_digest: settlement.evidence_digest,
+        cctp_source_domain: nonce.as_ref().map(|value| value.source_domain),
+        cctp_message_nonce: nonce.map(|value| value.nonce),
+    }
 }
 
 fn assert_uuid(value: &str) {

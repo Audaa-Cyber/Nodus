@@ -378,7 +378,7 @@ export async function GET(
         p_evidence: {
           sourceProof: {
             sourceTransactionHash: sourceProof.sourceTransactionHash, payer: sourceProof.payer,
-            nonce: sourceProof.nonce, messageHash: sourceProof.messageHash,
+            sourceDomain: sourceProof.sourceDomain, nonce: sourceProof.nonce, messageHash: sourceProof.messageHash,
             sourceBlockNumber: sourceProof.sourceBlockNumber, sourceBlockHash: sourceProof.sourceBlockHash,
           },
           destinationProof,

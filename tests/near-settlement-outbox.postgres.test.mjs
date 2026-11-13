@@ -42,7 +42,8 @@ async function createSettlement(overrides = {}) {
   const destinationHash = `0x${"2".repeat(64)}`;
   const messageHash = `0x${"3".repeat(64)}`, blockHash = `0x${"4".repeat(64)}`;
   const evidence = overrides.evidence ?? {
-    sourceProof: { sourceTransactionHash: sourceTx, sourceBlockNumber: "100", sourceBlockHash: blockHash, nonce: "7", messageHash },
+    sourceProof: { sourceTransactionHash: sourceTx, sourceBlockNumber: "100", sourceBlockHash: blockHash,
+      nonce: overrides.nonce ?? `0x${"a".repeat(64)}`, messageHash },
     destinationProof: { verified: true, finalityConfirmed: true, amount: "100000000", transactionHashes: [destinationHash],
       transactions: [{ transactionHash: destinationHash, blockNumber: "200", blockHash }] },
   };
@@ -131,5 +132,34 @@ postgresTest("ineligible destination evidence is retained as blocked and never c
     assert.equal(blocked.stdout, "blocked|near_evidence_ineligible");
     const claimable = await psql(`select count(*) from public.near_settlement_outbox where payment_settlement_id=${lit(f.settlementId)}::uuid and status in ('pending','processing');`);
     assert.equal(claimable.stdout, "0", "unverified evidence must never enter delivery");
+  } finally { await cleanup(f); }
+});
+
+postgresTest("CCTP V2 nonce must be valid full-width hexadecimal", async (t) => {
+  for (const nonce of ["7", `0x${"a".repeat(63)}`, `0x${"gg".repeat(32)}`]) {
+    await t.test(nonce, async () => {
+      const f = await createSettlement({ nonce });
+      try {
+        const state = await psql(`select status||'|'||coalesce(last_error_code,'') from public.near_settlement_outbox where payment_settlement_id=${lit(f.settlementId)}::uuid;`);
+        assert.equal(state.code, 0, state.stderr);
+        assert.equal(state.stdout, "blocked|near_evidence_ineligible");
+        const requeue = await psql(`select public.requeue_near_settlement_outbox((select id from public.near_settlement_outbox where payment_settlement_id=${lit(f.settlementId)}::uuid));`);
+        assert.equal(requeue.stdout, "f", "invalid evidence cannot be requeued");
+      } finally { await cleanup(f); }
+    });
+  }
+});
+
+postgresTest("requeues a never-submitted legacy blocked row only after full evidence revalidates", async () => {
+  const f = await createSettlement();
+  try {
+    const markLegacyBlocked = await psql(`update public.near_settlement_outbox set status='blocked',last_error_code='near_evidence_ineligible'
+      where payment_settlement_id=${lit(f.settlementId)}::uuid;`);
+    assert.equal(markLegacyBlocked.code, 0, markLegacyBlocked.stderr);
+    const requeue = await psql(`select public.requeue_near_settlement_outbox(id) from public.near_settlement_outbox where payment_settlement_id=${lit(f.settlementId)}::uuid;`);
+    assert.equal(requeue.code, 0, requeue.stderr);
+    assert.equal(requeue.stdout, "t");
+    const state = await psql(`select status||'|'||attempt_count||'|'||coalesce(last_error_code,'') from public.near_settlement_outbox where payment_settlement_id=${lit(f.settlementId)}::uuid;`);
+    assert.equal(state.stdout, "pending|0|");
   } finally { await cleanup(f); }
 });

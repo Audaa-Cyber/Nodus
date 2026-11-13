@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getBusinessContext } from "@/lib/auth/business-context";
-import { effectiveStatus, formatMoney } from "@/lib/invoices";
+import { effectiveStatus, formatMoney, formatUtcDate } from "@/lib/invoices";
 import { withTransitionDelay } from "@/lib/utils/timing";
 
 export default async function DashboardPage() {
@@ -187,7 +187,7 @@ export default async function DashboardPage() {
                             {invoice.customer_name}
                           </td>
                           <td className="py-3 px-4 font-mono-code text-[11px]" style={{ color: "var(--text-muted)" }}>
-                            {new Date(`${invoice.issue_date}T00:00:00`).toLocaleDateString()}
+                            {formatUtcDate(invoice.issue_date)}
                           </td>
                           <td className="py-3 px-4 font-semibold text-slate-900 font-mono-code">
                             {formatMoney(invoice.amount_minor, invoice.currency)}

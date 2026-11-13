@@ -3,17 +3,8 @@ import { notFound, redirect } from "next/navigation";
 import CancelInvoiceForm from "@/components/cancel-invoice-form";
 import InvoiceSharePanel from "@/components/invoice-share-panel";
 import { getBusinessContext } from "@/lib/auth/business-context";
-import { effectiveStatus, formatMoney } from "@/lib/invoices";
+import { effectiveStatus, formatMoney, formatUtcDate } from "@/lib/invoices";
 import { withTransitionDelay } from "@/lib/utils/timing";
-
-function formatUtcDate(dateString: string): string {
-  try {
-    const iso = dateString.includes("T") ? dateString : `${dateString}T00:00:00Z`;
-    return new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeZone: "UTC" }).format(new Date(iso));
-  } catch {
-    return dateString;
-  }
-}
 
 function formatUtcDateTime(dateString: string): string {
   try {

@@ -11,6 +11,8 @@ const input = {
   destination_transaction_hash: `0x${"2".repeat(64)}`,
   amount_base_units: "100000000",
   evidence_digest: `0x${"3".repeat(64)}`,
+  cctp_source_domain: 6,
+  cctp_message_nonce: `0x${"a".repeat(64)}`,
 };
 const settlementRecord = {
   reconciliation_id: input.reconciliation_id,
@@ -20,6 +22,8 @@ const settlementRecord = {
   destination_transaction_hash: input.destination_transaction_hash,
   amount_base_units: input.amount_base_units,
   evidence_digest: input.evidence_digest,
+  cctp_source_domain: input.cctp_source_domain,
+  cctp_message_nonce: input.cctp_message_nonce,
 };
 const record = (overrides = {}) => ({
   reconciliation_id: input.reconciliation_id,
@@ -29,6 +33,8 @@ const record = (overrides = {}) => ({
   destination_transaction_hash: input.destination_transaction_hash,
   amount_base_units: input.amount_base_units,
   evidence_digest: input.evidence_digest,
+  cctp_source_domain: input.cctp_source_domain,
+  cctp_message_nonce: input.cctp_message_nonce,
   ...overrides,
 });
 
@@ -103,6 +109,19 @@ test("blocks a conflicting on-chain record and never resubmits it", async () => 
   let blocked = 0;
   const result = await deliverClaimedNearSettlement(job, dependencies({
     getSettlement: async () => record({ amount_base_units: "999" }),
+    attestSettlement: async () => { sends += 1; return "unexpected"; },
+    markBlocked: async (_job, code) => { assert.equal(code, "near_existing_settlement_mismatch"); blocked += 1; },
+  }));
+  assert.equal(result, "blocked");
+  assert.equal(sends, 0);
+  assert.equal(blocked, 1);
+});
+
+test("blocks an on-chain settlement with a different full-width CCTP nonce", async () => {
+  let sends = 0;
+  let blocked = 0;
+  const result = await deliverClaimedNearSettlement(job, dependencies({
+    getSettlement: async () => record({ cctp_message_nonce: `0x${"b".repeat(64)}` }),
     attestSettlement: async () => { sends += 1; return "unexpected"; },
     markBlocked: async (_job, code) => { assert.equal(code, "near_existing_settlement_mismatch"); blocked += 1; },
   }));
