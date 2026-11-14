@@ -18,20 +18,25 @@ type BalanceState =
       selectedNetwork: string | null;
       chains: ChainBalance[];
       fetchedAt: Date;
+      refreshError?: string;
     }
   | { phase: "error"; message: string };
 
 export default function MerchantUsdcBalance() {
   const [state, setState] = useState<BalanceState>({ phase: "loading" });
   const [selectedChain, setSelectedChain] = useState("all");
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const fetchingRef = useRef(false);
 
   const fetchBalance = useCallback(async () => {
     if (fetchingRef.current) return;
     fetchingRef.current = true;
-    setState((current) => current.phase === "ok" ? current : { phase: "loading" });
+    setIsRefreshing(true);
+    setState((current) => current.phase === "ok" ? { ...current, refreshError: undefined } : { phase: "loading" });
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 15_000);
     try {
-      const response = await fetch("/api/merchant/balance", { cache: "no-store" });
+      const response = await fetch("/api/merchant/balance", { cache: "no-store", signal: controller.signal });
       const data = await response.json() as {
         status?: string;
         totalBaseUnits?: string;
@@ -50,9 +55,16 @@ export default function MerchantUsdcBalance() {
         fetchedAt: new Date(),
       });
     } catch (error) {
-      setState({ phase: "error", message: error instanceof Error ? error.message : "NODUS received balance is unavailable." });
+      const message = controller.signal.aborted
+        ? "Balance refresh timed out. Try again."
+        : error instanceof Error ? error.message : "NODUS received balance is unavailable.";
+      setState((current) => current.phase === "ok"
+        ? { ...current, refreshError: message }
+        : { phase: "error", message });
     } finally {
+      window.clearTimeout(timeout);
       fetchingRef.current = false;
+      setIsRefreshing(false);
     }
   }, []);
 
@@ -93,14 +105,16 @@ export default function MerchantUsdcBalance() {
               {state.phase === "ok" && <span className="font-mono-code text-xs px-2.5 py-1 rounded-full font-semibold bg-emerald-500/10 text-emerald-600">Verified</span>}
               {state.phase === "error" && <span className="font-mono-code text-xs px-2.5 py-1 rounded-full font-semibold bg-rose-500/10 text-rose-600">Unavailable</span>}
               <button
+                type="button"
                 onClick={() => void fetchBalance()}
-                disabled={state.phase === "loading"}
-                aria-label="Refresh NODUS received balance"
+                disabled={isRefreshing}
+                aria-label={isRefreshing ? "Refreshing NODUS received balance" : "Refresh NODUS received balance"}
+                aria-busy={isRefreshing}
                 className="w-7 h-7 rounded-full border flex items-center justify-center transition-colors hover:bg-slate-100 disabled:opacity-50"
                 style={{ borderColor: "var(--card-border)" }}
-                title="Refresh received balance"
+                title={isRefreshing ? "Refreshing received balance" : "Refresh received balance"}
               >
-                <svg className={`w-3.5 h-3.5 ${state.phase === "loading" ? "animate-spin" : ""}`} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+                <svg className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin" : ""}`} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
                   <path d="M13.5 2.5A6.5 6.5 0 1 1 8 1.5" strokeLinecap="round" />
                   <path d="M13.5 2.5V6h-3.5" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
@@ -125,6 +139,7 @@ export default function MerchantUsdcBalance() {
               <p className="text-[11px] mt-1" style={{ color: "var(--text-muted)" }}>
                 Verified, successful NODUS invoice payments only. This is not your wallet balance.
               </p>
+              {state.refreshError && <p className="text-xs text-rose-600 mt-2" role="status">{state.refreshError}</p>}
 
               <div className="flex items-center justify-between gap-3 mt-4 mb-2">
                 <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>

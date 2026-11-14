@@ -74,9 +74,7 @@ export default async function DashboardLayout({ children }: Readonly<{ children:
               </div>
               <div className="flex items-center justify-between px-1">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-7 h-7 rounded-full bg-slate-900 text-white flex items-center justify-center text-xs font-semibold shadow-sm">
-                    {user.email ? user.email.slice(0, 1).toUpperCase() : "N"}
-                  </div>
+                  <Image src="/logo.svg" alt="Nodus logo" width={331} height={213} style={{ height: "28px", width: "auto", display: "inline-block" }} aria-hidden="true" />
                   <LogoutButton />
                 </div>
               </div>
