@@ -278,7 +278,7 @@ export default function Home() {
         <div className="shell business-layout">
           <div className="business-copy">
             <p className="eyebrow">MADE FOR THE COUNTER</p>
-            <h2>A clearer bill.<br />A faster handoff.<br /><span>A verified payment.</span></h2>
+            <h2>Give guests a bill<br />they can check.<br /><span>Before they pay.</span></h2>
             <p className="section-description">
               Give your team one place to prepare the bill and give guests a
               direct way to pay. Keep the invoice, payment status, and receipt together.
