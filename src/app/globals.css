@@ -62,7 +62,7 @@ p { text-wrap: pretty; }
 .hero-actions { display: flex; align-items: center; justify-content: center; gap: 28px; flex: 0 0 auto; }
 .button { min-height: 54px; display: inline-flex; align-items: center; justify-content: center; gap: 14px; padding: 0 20px 0 23px; border: 1px solid transparent; border-radius: 999px; font-size: 11px; font-weight: 500; user-select: none; -webkit-tap-highlight-color: transparent; transition: background 180ms ease, color 180ms ease, border-color 180ms ease, transform 120ms var(--ease); }
 .button:active:not(:disabled), button:active:not(:disabled):not(.password-toggle-btn), .pay-button:active:not(:disabled), .wallet-primary-button:active:not(:disabled), .wallet-secondary-button:active:not(:disabled) { transform: scale(0.985) translateY(1px) !important; transition-duration: 40ms !important; }
-.button:disabled, button:disabled, .pay-button:disabled, .wallet-primary-button:disabled, .wallet-secondary-button:disabled { opacity: 0.6 !important; cursor: wait !important; pointer-events: none !important; transform: none !important; }
+.button:disabled, button:disabled, .pay-button:disabled, .wallet-primary-button:disabled, .wallet-secondary-button:disabled { opacity: 0.6 !important; cursor: not-allowed !important; pointer-events: none !important; transform: none !important; }
 .button-spinner { display: inline-block; width: 13px; height: 13px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: button-spin 0.6s linear infinite; vertical-align: middle; flex-shrink: 0; }
 @keyframes button-spin { to { transform: rotate(360deg); } }
 .button-dark { background: var(--ink); border-color: var(--ink); color: white; }
@@ -801,37 +801,7 @@ p { text-wrap: pretty; }
 }
 
 
-/* Ambient animation layers */
-.binary-rain {
-  position: fixed;
-  inset: 0;
-  z-index: 1;
-  width: 100vw;
-  height: 100vh;
-  pointer-events: none;
-  opacity: .48;
-  filter: blur(.2px);
-  mix-blend-mode: difference;
-}
-
-/* Keep the rain above section backgrounds, but below every page element. */
-main > section:not(.binary-rain),
-main > footer {
-  position: relative;
-}
-main > section:not(.binary-rain) > *,
-main > footer > * {
-  position: relative;
-  z-index: 2;
-}
-main > section:not(.binary-rain) > .nav {
-  position: relative;
-  z-index: 20;
-}
-.footer-main, .footer-bottom {
-  position: relative;
-  z-index: 9;
-}
+/* Keep the hero copy above decorative backgrounds. */
 .hero-copy { z-index: 10; transform: translateY(-42px); }
 .hands-feature {
   padding: clamp(64px, 9vw, 128px) max(24px, calc((100vw - 1320px) / 2));
@@ -861,17 +831,20 @@ main > section:not(.binary-rain) > .nav {
 .process-visual { height: 190px; margin: 0 0 26px; background: transparent; }
 .process-content p { max-width: 100%; }
 @media (max-width: 700px) {
-  .process-list { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-  .process-visual { height: 104px; margin-bottom: 15px; }
-  .process-content h3 { font-size: 15px; line-height: 1.2; }
-  .process-content p { font-size: 10px; line-height: 1.55; }
-  .process-label { font-size: 6px; letter-spacing: .06em; }
+  .process-list { grid-template-columns: minmax(0, 1fr); gap: 30px; }
+  .process-item { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 0 20px; align-items: center; }
+  .process-visual { height: 126px; grid-row: span 2; margin: 0; }
+  .process-content h3 { font-size: 18px; line-height: 1.25; }
+  .process-content p { font-size: 12px; line-height: 1.65; }
+  .process-label { font-size: 9px; letter-spacing: .06em; }
+  .verify-visual > span { font-size: 8px; }
 }
 @media (max-width: 390px) {
-  .process-list { gap: 8px; }
-  .process-visual { height: 88px; }
-  .process-content h3 { font-size: 13px; }
-  .process-content p { font-size: 9px; }
+  .process-list { gap: 26px; }
+  .process-item { grid-template-columns: 96px minmax(0, 1fr); gap: 0 14px; }
+  .process-visual { height: 112px; }
+  .process-content h3 { font-size: 16px; }
+  .process-content p { font-size: 11px; }
 }
 
 
