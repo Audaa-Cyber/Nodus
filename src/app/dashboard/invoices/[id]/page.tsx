@@ -217,7 +217,7 @@ export default async function InvoiceDetailPage({
       <header className="detail-heading">
         <div>
           <p className="eyebrow">INVOICE · {invoice.invoice_number}</p>
-          <h1>{invoice.customer_name}</h1>
+          <h1>Invoice {invoice.invoice_number}</h1>
           <span className={`status status-${status}`}>{status}</span>
         </div>
         <div className="detail-actions">
@@ -240,8 +240,10 @@ export default async function InvoiceDetailPage({
         </p>
       )}
 
+      <div className="no-print" style={{display:"flex",justifyContent:"flex-end",gap:10,margin:"16px 0"}}><a className="button button-outline" href="#" onClick={undefined}>Invoice preview</a></div>
       {/* Invoice details */}
-      <section className="invoice-detail-sheet">
+      <section className="invoice-detail-sheet invoice-print-sheet">
+        <header style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:20,borderBottom:"1px solid var(--card-border)",paddingBottom:20,marginBottom:20}}>{business.logo_url ? <img src={business.logo_url} alt="" style={{maxWidth:150,maxHeight:64,objectFit:"contain",objectPosition:"left"}} /> : <strong style={{fontSize:20}}>{business.business_name}</strong>}<div style={{textAlign:"right"}}><span className="eyebrow">INVOICE</span><div style={{fontSize:18,fontWeight:600}}>{invoice.invoice_number}</div><div style={{fontSize:12,color:"var(--text-secondary)"}}>Issued {formatUtcDate(invoice.issue_date)}</div>{invoice.due_date&&<div style={{fontSize:12,color:"var(--text-secondary)"}}>Due {formatUtcDate(invoice.due_date)}</div>}</div></header>
         <div className="detail-amount">
           <span>{isPaid ? "AMOUNT PAID" : "AMOUNT DUE"}</span>
           <strong>{formatMoney(invoice.amount_minor, invoice.currency)}</strong>
@@ -252,16 +254,12 @@ export default async function InvoiceDetailPage({
             <dd>{business.business_name}</dd>
           </div>
           <div>
-            <dt>Customer</dt>
-            <dd>
-              {invoice.customer_name}
-              {invoice.customer_email && <span>{invoice.customer_email}</span>}
-            </dd>
+            <dt>Items</dt>
+            <dd>{Array.isArray(invoice.line_items) && invoice.line_items.length ? (invoice.line_items as Array<{description?:string;quantity?:number;unitPriceMinor?:number;lineTotalMinor?:number}>).map((item,index)=><div key={index} style={{display:"flex",justifyContent:"space-between",gap:16,padding:"7px 0",borderBottom:"1px solid var(--card-border)"}}><span>{item.description} <span style={{color:"var(--text-secondary)"}}>· {item.quantity} × {formatMoney(item.unitPriceMinor??0,invoice.currency)}</span></span><strong>{formatMoney(item.lineTotalMinor??0,invoice.currency)}</strong></div>) : invoice.description}</dd>
           </div>
-          <div>
-            <dt>Description</dt>
-            <dd>{invoice.description}</dd>
-          </div>
+          <div><dt>Subtotal</dt><dd>{formatMoney(invoice.subtotal_minor ?? invoice.amount_minor, invoice.currency)}</dd></div>
+          {(invoice.tax_rate_bps ?? 0) > 0 && <div><dt>Tax ({((invoice.tax_rate_bps ?? 0) / 100).toFixed(2)}%)</dt><dd>{formatMoney(Math.round((invoice.subtotal_minor ?? invoice.amount_minor) * (invoice.tax_rate_bps ?? 0) / 10000), invoice.currency)}</dd></div>}
+          {(invoice.discount_minor ?? 0) > 0 && <div><dt>Discount</dt><dd>−{formatMoney(invoice.discount_minor ?? 0, invoice.currency)}</dd></div>}
           <div>
             <dt>Issue date</dt>
             <dd>{formatUtcDate(invoice.issue_date)}</dd>
@@ -279,6 +277,7 @@ export default async function InvoiceDetailPage({
             <dd>{formatUtcDateTime(invoice.updated_at)}</dd>
           </div>
         </dl>
+        <footer style={{display:"flex",justifyContent:"space-between",alignItems:"end",gap:16,borderTop:"1px solid var(--card-border)",paddingTop:16,marginTop:20}}><p style={{margin:0,fontSize:12,color:"var(--text-secondary)"}}>{invoice.invoice_footer || business.invoice_footer || "Thank you for your business."}</p><span style={{fontSize:10,color:"var(--text-muted)",whiteSpace:"nowrap"}}>Powered by nodus.</span></footer>
       </section>
 
       {/* Share panel — hidden for paid and cancelled invoices */}
