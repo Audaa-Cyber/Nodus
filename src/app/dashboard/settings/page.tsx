@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getBusinessContext } from "@/lib/auth/business-context";
 import ProfileForm from "@/components/profile-form";
+import InvoiceDefaultsForm from "@/components/invoice-defaults-form";
 import { withTransitionDelay } from "@/lib/utils/timing";
 
 export default async function BusinessProfilePage() {
@@ -28,5 +29,6 @@ export default async function BusinessProfilePage() {
       createdAt={business.created_at}
       updatedAt={business.updated_at}
     />
+    <InvoiceDefaultsForm logoUrl={business.logo_url ?? ""} invoicePrefix={business.invoice_prefix ?? "INV"} defaultCurrency={business.default_currency ?? "USD"} paymentTermsDays={business.default_payment_terms_days ?? 14} invoiceFooter={business.invoice_footer ?? "Thank you for your business."} />
   );
 }
