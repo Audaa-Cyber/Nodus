@@ -21,7 +21,7 @@ export async function saveInvoiceAction(_previous: FormState, formData: FormData
   if (invoiceId) {
     const { data: existing, error: lookupError } = await supabase
       .from("invoices")
-      .select("id,status,amount_minor,currency")
+      .select("id,status,amount_minor,currency,invoice_number")
       .eq("id", invoiceId)
       .eq("business_id", business.id)
       .maybeSingle();
@@ -32,7 +32,8 @@ export async function saveInvoiceAction(_previous: FormState, formData: FormData
       return { error: "Issued invoice amount and currency cannot be changed. Cancel this invoice and create a replacement." };
     }
     const status = intent === "open" && existing.status === "draft" ? "open" : existing.status;
-    const { error } = await supabase.from("invoices").update({ ...values, status }).eq("id", invoiceId).eq("business_id", business.id);
+    const updateValues = { ...values, invoice_number: existing.invoice_number, seller_snapshot: status === "open" && existing.status === "draft" ? { business_name: business.business_name, email: business.email, logo_url: business.logo_url ?? null, receiving_address: business.receiving_address, receiving_network: business.receiving_network } : undefined, status };
+    const { error } = await supabase.from("invoices").update(updateValues).eq("id", invoiceId).eq("business_id", business.id);
     if (error) return { error: error.code === "23505" ? "That invoice number is already in use." : "Could not save the invoice. Check the details and try again." };
     if (status === "open" && existing.status === "draft") {
       try { await processNearInvoiceRegistrationOutbox(1); } catch { /* The durable outbox is drained by the scheduled worker. */ }
@@ -41,7 +42,9 @@ export async function saveInvoiceAction(_previous: FormState, formData: FormData
     redirect(`/dashboard/invoices/${invoiceId}`, RedirectType.replace);
   }
 
-  const { data: invoice, error } = await supabase.from("invoices").insert({ ...values, business_id: business.id, status: intent }).select("id").single();
+  const { data: allocatedNumber, error: numberError } = await supabase.rpc("allocate_invoice_number", { p_business_id: business.id });
+  if (numberError || !allocatedNumber) return { error: "Could not allocate an invoice number. Apply the invoice workflow migration and try again." };
+  const { data: invoice, error } = await supabase.from("invoices").insert({ ...values, invoice_number: allocatedNumber, business_id: business.id, status: intent, seller_snapshot: { business_name: business.business_name, email: business.email, logo_url: business.logo_url ?? null, receiving_address: business.receiving_address, receiving_network: business.receiving_network } }).select("id").single();
   if (error || !invoice) return { error: error?.code === "23505" ? "That invoice number is already in use." : "Could not create the invoice. Check the details and try again." };
   if (intent === "open") {
     try { await processNearInvoiceRegistrationOutbox(1); } catch { /* The durable outbox is drained by the scheduled worker. */ }
