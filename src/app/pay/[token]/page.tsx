@@ -5,7 +5,6 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { formatMoney } from "@/lib/invoices";
 import { getWalletNetwork } from "@/lib/wallet/networks";
 import { LazyInvoiceWalletCheckout } from "@/components/wallet/lazy-wallet-checkout";
-import { withTransitionDelay } from "@/lib/utils/timing";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -67,13 +66,10 @@ export default async function PublicInvoicePage({ params }: { params: Promise<{ 
 
   const tokenHash = createHash("sha256").update(token, "utf8").digest("hex");
   const supabase = await createSupabaseServerClient();
-  const [{ data, error }, contextResult] = await withTransitionDelay(
-    Promise.all([
-      supabase.rpc("lookup_shared_invoice", { p_token_hash: tokenHash }),
-      supabase.rpc("lookup_shared_payment_context", { p_token_hash: tokenHash }),
-    ]),
-    700
-  );
+  const [{ data, error }, contextResult] = await Promise.all([
+    supabase.rpc("lookup_shared_invoice", { p_token_hash: tokenHash }),
+    supabase.rpc("lookup_shared_payment_context", { p_token_hash: tokenHash }),
+  ]);
   if (error) return unavailablePage("Invoice details are temporarily unavailable", "We couldn't load this invoice right now.", "error");
   const invoice = data?.[0];
   if (!invoice) return unavailablePage("This link is unavailable", "It may have been revoked or may not be valid. Ask the business for a current invoice link.", "invalid");
