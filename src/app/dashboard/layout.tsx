@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { getBusinessContext, getVerifiedUser } from "@/lib/auth/business-context";
 import { LogoutButton } from "@/components/logout-button";
 import { DashboardNav } from "@/components/dashboard-nav";
+import { DashboardSidebar } from "@/components/dashboard-sidebar";
 import { DashboardShellEffects } from "@/components/dashboard-shell-effects";
 
 async function SidebarBusiness() {
@@ -33,6 +34,7 @@ export default async function DashboardLayout({ children }: Readonly<{ children:
     <div className="dashboard-executive bg-grid selection:bg-slate-800 selection:text-white min-h-screen relative overflow-x-hidden">
       <DashboardShellEffects>
         <div className="dashboard-app-shell relative z-10 min-h-screen">
+          <DashboardSidebar>
           <aside className="nodus-sidebar select-none" aria-label="Main sidebar">
             <div className="sidebar-top">
               <Link href="/dashboard" className="sidebar-brand" aria-label="Nodus dashboard">
@@ -56,6 +58,7 @@ export default async function DashboardLayout({ children }: Readonly<{ children:
               <div className="sidebar-logout"><LogoutButton /></div>
             </div>
           </aside>
+          </DashboardSidebar>
           <main className="dashboard-main min-w-0">
             <div className="dashboard-content">
               {children}
