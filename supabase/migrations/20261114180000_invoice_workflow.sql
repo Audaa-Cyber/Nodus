@@ -67,3 +67,10 @@ grant execute on function public.lookup_shared_invoice(text) to anon,authenticat
 
 -- Authenticated owners can update only invoice-branding/default fields in addition to business_name.
 grant update (logo_url, invoice_prefix, default_currency, default_payment_terms_days, invoice_footer) on public.business_profiles to authenticated;
+
+-- Public logos are images only; uploads are restricted to the business profile owner.
+insert into storage.buckets (id,name,public,file_size_limit,allowed_mime_types)
+values ('business-logos','business-logos',true,2097152,array['image/png','image/jpeg','image/webp'])
+on conflict (id) do update set public=true,file_size_limit=2097152,allowed_mime_types=array['image/png','image/jpeg','image/webp'];
+create policy "Business owners can upload invoice logos" on storage.objects for insert to authenticated
+with check (bucket_id='business-logos' and exists (select 1 from public.business_profiles bp where bp.id::text=(storage.foldername(name))[1] and bp.owner_user_id=auth.uid()));
