@@ -5,6 +5,7 @@ import { getBusinessContext,invalidateBusinessProfileCache } from "@/lib/auth/bu
 import type { FormState } from "./auth";
 export async function saveInvoiceDefaultsAction(_previous:FormState,formData:FormData):Promise<FormState>{
  let logoUrl=String(formData.get("logoUrl")??"").trim(); const logoFile=formData.get("logoFile"); const businessPhone=String(formData.get("businessPhone")??"").trim(),businessAddress=String(formData.get("businessAddress")??"").trim(),websiteUrl=String(formData.get("websiteUrl")??"").trim(),taxRegistrationNumber=String(formData.get("taxRegistrationNumber")??"").trim(); const invoicePrefix=String(formData.get("invoicePrefix")??"").trim().toUpperCase(),defaultCurrency=String(formData.get("defaultCurrency")??"").trim().toUpperCase(),paymentTermsDays=Number(formData.get("paymentTermsDays")),invoiceFooter=String(formData.get("invoiceFooter")??"").trim();
+ if(logoFile instanceof File && logoFile.size>0 && logoUrl)return{error:"Choose either an uploaded logo or a logo URL, not both."};
  if(logoUrl&&(logoUrl.length>2048||!/^https:\/\//i.test(logoUrl)))return{error:"Use a public HTTPS URL for the logo."};
  if(logoFile instanceof File && logoFile.size>0 && (!(["image/png","image/jpeg","image/webp"].includes(logoFile.type)) || logoFile.size>2*1024*1024)) return {error:"Choose a PNG, JPG, or WebP logo up to 2 MB."};
  if(businessPhone.length>80||businessAddress.length>500||taxRegistrationNumber.length>100)return{error:"Business contact details exceed the allowed length."};
