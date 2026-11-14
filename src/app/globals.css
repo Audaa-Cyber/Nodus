@@ -1768,3 +1768,61 @@ main > section:not(.binary-rain) > .nav {
 
 /* Handwritten styling is reserved for invoice thank-you notes, not the rest of the invoice. */
 .invoice-thank-you { font-family: 'Caveat', 'Segoe Print', 'Bradley Hand', cursive !important; font-weight: 500; letter-spacing: 0; line-height: 1.2; }
+
+
+/* UX refinement: calmer dashboard surfaces and robust invoice previews. */
+.surface-card {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid #e4e4df;
+  border-radius: 8px;
+  box-shadow: 0 1px 2px rgba(23, 24, 22, 0.035);
+}
+.surface-card:hover,
+.surface-card:focus-within { transform: none; box-shadow: 0 1px 2px rgba(23, 24, 22, 0.035); }
+.dashboard-content .stagger-item { animation: none !important; }
+.dashboard-content .stagger-item.delay-1,
+.dashboard-content .stagger-item.delay-2,
+.dashboard-content .stagger-item.delay-3,
+.dashboard-content .stagger-item.delay-4 { animation-delay: 0s !important; }
+.dashboard-content .aether-card::before,
+.dashboard-content .aether-card::after { display: none; }
+
+/* Small labels remain editorial, but are large enough to scan comfortably. */
+.eyebrow, .hero-kicker, .micro-label, .invoice-meta, .pay-label,
+.invoice-stage-heading, .invoice-note, .demo-disclaimer, .process-label, .footer-label {
+  font-size: 10px;
+  letter-spacing: .08em;
+}
+.micro-label, .invoice-stage-heading, .invoice-note, .demo-disclaimer { font-size: 9px; }
+
+/* Invoice previews must reflow instead of squeezing handwritten notes and totals. */
+.invoice-preview { width: 100%; min-width: 0; }
+.invoice-preview-header { min-width: 0; }
+.invoice-preview-items { min-width: 0; }
+.invoice-preview-items > span,
+.invoice-preview-items > strong { min-width: 0; overflow-wrap: anywhere; }
+.invoice-preview-footer { min-width: 0; flex-wrap: wrap; align-items: flex-start !important; }
+.invoice-preview-footer .invoice-thank-you { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
+.invoice-preview-footer > span:last-child { flex: 0 0 auto; }
+@media (max-width: 560px) {
+  .invoice-preview { padding: 16px !important; }
+  .invoice-preview-header { gap: 12px !important; }
+  .invoice-preview-header img { max-width: 112px !important; max-height: 46px !important; }
+  .invoice-preview-header > div { min-width: 0; overflow-wrap: anywhere; }
+  .invoice-preview-items { grid-template-columns: minmax(0, 1fr) auto !important; gap: 8px 10px !important; }
+  .invoice-preview-items > strong { overflow-wrap: anywhere; }
+  .invoice-preview-footer { display: grid !important; grid-template-columns: minmax(0, 1fr); gap: 8px !important; }
+  .invoice-preview-footer > span:last-child { white-space: normal !important; }
+  .form-grid { grid-template-columns: minmax(0, 1fr); }
+  .form-wide { grid-column: auto; }
+  .form-actions .button { flex: 1 1 100%; }
+}
+
+/* Respect reduced-motion preferences for the marketing and dashboard UI. */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}
