@@ -19,7 +19,6 @@ import {
   X,
 } from "lucide-react";
 import DotMatrixHands from "@/components/dot-matrix-hands";
-import BinaryRain from "@/components/binary-rain";
 
 const methods = ["USDC · Ethereum", "USDC · Solana", "USDT · Ethereum"];
 
@@ -59,7 +58,6 @@ export default function Home() {
 
   return (
     <main>
-      <BinaryRain />
       <section className="hero" id="top">
         <nav className="nav shell" aria-label="Main navigation">
           <Link href="#top" className="brand" onClick={closeMenu} aria-label="Nodus home">
@@ -76,7 +74,7 @@ export default function Home() {
           </div>
 
           <div className="nav-right">
-            <Link href="#checkout" className="nav-cta">View the demo <ArrowUpRight size={14} strokeWidth={1.7} aria-hidden="true" /></Link>
+            <Link href="#checkout" className="nav-cta">Try checkout demo <ArrowUpRight size={14} strokeWidth={1.7} aria-hidden="true" /></Link>
             <Link href="/login" prefetch={true} className="nav-login">Log in</Link>
             <Link href="/register" prefetch={true} className="nav-cta nav-register">Create account <ArrowUpRight size={14} strokeWidth={1.7} aria-hidden="true" /></Link>
             <button
@@ -100,8 +98,8 @@ export default function Home() {
               choose a supported stablecoin, and approve payment from their wallet.
             </p>
             <div className="hero-actions">
-              <Link href="#checkout" className="button button-dark">Explore the checkout <ArrowUpRight size={15} strokeWidth={1.7} aria-hidden="true" /></Link>
-              <Link href="#how-it-works" className="button-link">How it works <ArrowRight size={15} strokeWidth={1.6} aria-hidden="true" /></Link>
+              <Link href="#checkout" className="button button-dark">Try checkout demo <ArrowUpRight size={15} strokeWidth={1.7} aria-hidden="true" /></Link>
+              <Link href="/login" className="button-link">Log in <ArrowRight size={15} strokeWidth={1.6} aria-hidden="true" /></Link>
             </div>
           </div>
         </div>
@@ -191,7 +189,7 @@ export default function Home() {
                 type="button"
                 onClick={() => setDemoPaid((paid) => !paid)}
               >
-                {demoPaid ? <><Check size={16} /> Demo state complete</> : "Simulate payment"}
+                {demoPaid ? <><Check size={16} /> Demo state complete</> : "Run demo payment"}
               </button>
               <div className={demoPaid ? "payment-feedback is-visible" : "payment-feedback"} aria-live="polite">
                 <span className="success-pulse" />
@@ -211,11 +209,9 @@ export default function Home() {
         <div className="shell statement-layout">
           <p className="eyebrow">THE LAST PART OF THE EXPERIENCE</p>
           <div>
-            <h2>The bill is part<br />of the <span>service.</span></h2>
+            <h2>A clear bill is<br />part of the <span>service.</span></h2>
             <p>
-              A guest remembers how a meal ends. Make the final step as clear as
-              the menu: every item accounted for, every payment choice visible,
-              and the status easy to understand.
+              A guest remembers how a meal ends. Show every item and charge before a guest pays, then keep the invoice linked to its payment status.
             </p>
           </div>
           <span className="statement-aside" aria-hidden="true">N / 0248</span>
@@ -227,11 +223,10 @@ export default function Home() {
           <div className="process-heading">
             <div>
               <p className="eyebrow">HOW IT WORKS</p>
-              <h2>Three steps.<br /><span>One smoother checkout.</span></h2>
+              <h2>From invoice<br /><span>to confirmation.</span></h2>
             </div>
             <p className="section-description">
-              The invoice carries the details. The QR code gets the guest to
-              checkout. Verified settlement closes the loop.
+              Create an itemized invoice, share its QR code, and keep payment status tied to verified settlement.
             </p>
           </div>
 
@@ -283,12 +278,12 @@ export default function Home() {
         <div className="shell business-layout">
           <div className="business-copy">
             <p className="eyebrow">MADE FOR THE COUNTER</p>
-            <h2>Less time<br />chasing payments.<br /><span>More time serving.</span></h2>
+            <h2>A clearer bill.<br />A faster handoff.<br /><span>A verified payment.</span></h2>
             <p className="section-description">
               Give your team one place to prepare the bill and give guests a
               direct way to pay. Keep the invoice, payment status, and receipt together.
             </p>
-            <Link href="#checkout" className="button button-light">See the guest checkout <ArrowUpRight size={15} strokeWidth={1.7} aria-hidden="true" /></Link>
+            <Link href="/register" className="button button-light">Create business account <ArrowUpRight size={15} strokeWidth={1.7} aria-hidden="true" /></Link>
           </div>
           <div className="business-details">
             <div className="detail-row">
@@ -314,10 +309,10 @@ export default function Home() {
       <section className="closing-section">
         <div className="shell closing-inner">
           <p className="eyebrow">NODUS CHECKOUT</p>
-          <h2>Make paying<br /><span>the easy part.</span></h2>
+          <h2>From itemized bill<br /><span>to payment confirmed.</span></h2>
           <div className="closing-bottom">
             <p>Itemized invoices. Wallet-approved payments. Verified payment status.</p>
-            <Link href="#checkout" className="button button-light">Explore the checkout <ArrowUpRight size={15} strokeWidth={1.7} aria-hidden="true" /></Link>
+            <Link href="/register" className="button button-light">Create account <ArrowUpRight size={15} strokeWidth={1.7} aria-hidden="true" /></Link>
           </div>
         </div>
       </section>
