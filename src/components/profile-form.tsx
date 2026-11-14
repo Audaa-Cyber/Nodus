@@ -90,7 +90,7 @@ export default function ProfileForm({
         setErrorMessage(res.error);
       } else {
         setLastUpdatedDisplay("Just now");
-        setKineticStatus("Profile & destination saved ✓");
+        setKineticStatus("Business profile saved ✓");
       }
     });
   };
