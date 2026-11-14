@@ -69,8 +69,8 @@ export default function Home() {
             <Link href="#checkout" onClick={closeMenu}>Checkout</Link>
             <Link href="#how-it-works" onClick={closeMenu}>How it works</Link>
             <Link href="#business" onClick={closeMenu}>For business</Link>
-            <Link href="/login" prefetch={true} className="mobile-business-link" onClick={closeMenu}>Log in</Link>
-            <Link href="/register" prefetch={true} className="mobile-business-link" onClick={closeMenu}>Create account</Link>
+            <Link href="/login?next=%2Fdashboard" prefetch={true} className="mobile-business-link" onClick={closeMenu}>Log in to dashboard</Link>
+            <Link href="/register?mode=signup" prefetch={true} className="mobile-business-link" onClick={closeMenu}>Create business account</Link>
           </div>
 
           <div className="nav-right">
@@ -211,7 +211,7 @@ export default function Home() {
           <div>
             <h2>A clear bill is<br />part of the <span>service.</span></h2>
             <p>
-              A guest remembers how a meal ends. Show every item and charge before a guest pays, then keep the invoice linked to its payment status.
+              Show guests each item and service charge before they pay. Keep the invoice connected to its payment record, so your team can confirm the outcome without matching separate receipts.
             </p>
           </div>
           <span className="statement-aside" aria-hidden="true">N / 0248</span>
@@ -324,7 +324,7 @@ export default function Home() {
               <Image src="/logo.svg" alt="Nodus logo" width={331} height={213} style={{ height: "20px", width: "auto", display: "inline-block" }} aria-hidden="true" />
               <span>nodus<span className="brand-period">.</span></span>
             </Link>
-            <p>Clear invoices. Simple QR checkout. Stablecoin payments for everyday business.</p>
+            <p>Prepare itemized invoices, share a QR checkout, and keep payment status tied to verified settlement.</p>
           </div>
           <div className="footer-nav-group">
             <span className="footer-label">EXPLORE</span>
