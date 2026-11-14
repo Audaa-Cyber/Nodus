@@ -153,6 +153,10 @@ export default async function InvoiceDetailPage({
   );
 
   if (error || !invoice) notFound();
+  const sellerSnapshot = invoice.seller_snapshot && typeof invoice.seller_snapshot === "object" && !Array.isArray(invoice.seller_snapshot) ? invoice.seller_snapshot as Record<string, unknown> : {};
+  const invoiceSellerName = typeof sellerSnapshot.business_name === "string" ? sellerSnapshot.business_name : business.business_name;
+  const invoiceSellerLogo = typeof sellerSnapshot.logo_url === "string" ? sellerSnapshot.logo_url : business.logo_url;
+  const invoiceSellerFooter = typeof sellerSnapshot.invoice_footer === "string" ? sellerSnapshot.invoice_footer : (invoice.invoice_footer || business.invoice_footer || "Thank you for your business.");
 
   // The settlement outbox is intentionally service-role-only. Read it through
   // the server admin client after the user-scoped invoice ownership check above.
@@ -240,10 +244,9 @@ export default async function InvoiceDetailPage({
         </p>
       )}
 
-      <div className="no-print" style={{display:"flex",justifyContent:"flex-end",gap:10,margin:"16px 0"}}><a className="button button-outline" href="#" onClick={undefined}>Invoice preview</a></div>
       {/* Invoice details */}
       <section className="invoice-detail-sheet invoice-print-sheet">
-        <header style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:20,borderBottom:"1px solid var(--card-border)",paddingBottom:20,marginBottom:20}}>{business.logo_url ? <img src={business.logo_url} alt="" style={{maxWidth:150,maxHeight:64,objectFit:"contain",objectPosition:"left"}} /> : <strong style={{fontSize:20}}>{business.business_name}</strong>}<div style={{textAlign:"right"}}><span className="eyebrow">INVOICE</span><div style={{fontSize:18,fontWeight:600}}>{invoice.invoice_number}</div><div style={{fontSize:12,color:"var(--text-secondary)"}}>Issued {formatUtcDate(invoice.issue_date)}</div>{invoice.due_date&&<div style={{fontSize:12,color:"var(--text-secondary)"}}>Due {formatUtcDate(invoice.due_date)}</div>}</div></header>
+        <header style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:20,borderBottom:"1px solid var(--card-border)",paddingBottom:20,marginBottom:20}}>{invoiceSellerLogo ? <img src={invoiceSellerLogo} alt="" style={{maxWidth:150,maxHeight:64,objectFit:"contain",objectPosition:"left"}} /> : <strong style={{fontSize:20}}>{invoiceSellerName}</strong>}<div style={{textAlign:"right"}}><span className="eyebrow">INVOICE</span><div style={{fontSize:18,fontWeight:600}}>{invoice.invoice_number}</div><div style={{fontSize:12,color:"var(--text-secondary)"}}>Issued {formatUtcDate(invoice.issue_date)}</div>{invoice.due_date&&<div style={{fontSize:12,color:"var(--text-secondary)"}}>Due {formatUtcDate(invoice.due_date)}</div>}</div></header>
         <div className="detail-amount">
           <span>{isPaid ? "AMOUNT PAID" : "AMOUNT DUE"}</span>
           <strong>{formatMoney(invoice.amount_minor, invoice.currency)}</strong>
@@ -277,7 +280,7 @@ export default async function InvoiceDetailPage({
             <dd>{formatUtcDateTime(invoice.updated_at)}</dd>
           </div>
         </dl>
-        <footer style={{display:"flex",justifyContent:"space-between",alignItems:"end",gap:16,borderTop:"1px solid var(--card-border)",paddingTop:16,marginTop:20}}><p style={{margin:0,fontSize:12,color:"var(--text-secondary)"}}>{invoice.invoice_footer || business.invoice_footer || "Thank you for your business."}</p><span style={{fontSize:10,color:"var(--text-muted)",whiteSpace:"nowrap"}}>Powered by nodus.</span></footer>
+        <footer style={{display:"flex",justifyContent:"space-between",alignItems:"end",gap:16,borderTop:"1px solid var(--card-border)",paddingTop:16,marginTop:20}}><p style={{margin:0,fontSize:12,color:"var(--text-secondary)"}}>{invoiceSellerFooter}</p><span style={{fontSize:10,color:"var(--text-muted)",whiteSpace:"nowrap"}}>Powered by nodus.</span></footer>
       </section>
 
       {/* Share panel — hidden for paid and cancelled invoices */}
