@@ -2,7 +2,6 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getBusinessContext } from "@/lib/auth/business-context";
 import { effectiveStatus, formatMoney, formatUtcDate } from "@/lib/invoices";
-import { withTransitionDelay } from "@/lib/utils/timing";
 
 export default async function InvoicesPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
   const params = await searchParams;
@@ -12,8 +11,8 @@ export default async function InvoicesPage({ searchParams }: { searchParams: Pro
   if (!user) redirect("/login");
   if (!business) {
     return (
-      <div className="card-perspective w-full max-w-[650px] mx-auto">
-        <div className="aether-card p-6 sm:p-8">
+      <div className="w-full max-w-[650px] mx-auto">
+        <div className="surface-card p-6 sm:p-8">
           <h1 className="text-xl font-bold mb-2">Business profile unavailable</h1>
           <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
             Apply the Supabase migration to finish setting up your business account.
@@ -23,15 +22,12 @@ export default async function InvoicesPage({ searchParams }: { searchParams: Pro
     );
   }
 
-  const { data: invoices, count, error } = await withTransitionDelay(
-    supabase
-      .from("invoices")
-      .select("id,invoice_number,amount_minor,currency,status,due_date,created_at", { count: "exact" })
-      .eq("business_id", business.id)
-      .order("created_at", { ascending: false })
-      .range((page - 1) * pageSize, page * pageSize - 1),
-    700
-  );
+  const { data: invoices, count, error } = await supabase
+    .from("invoices")
+    .select("id,invoice_number,amount_minor,currency,status,due_date,created_at", { count: "exact" })
+    .eq("business_id", business.id)
+    .order("created_at", { ascending: false })
+    .range((page - 1) * pageSize, page * pageSize - 1);
 
   const totalPages = Math.max(1, Math.ceil((count ?? 0) / pageSize));
 
@@ -50,15 +46,14 @@ export default async function InvoicesPage({ searchParams }: { searchParams: Pro
             {count ?? 0} invoice{count === 1 ? "" : "s"} in your account.
           </p>
         </div>
-        <Link href="/dashboard/invoices/new" className="btn-save-pill self-start sm:self-auto">
+        <Link href="/dashboard/invoices/new" className="button button-dark self-start sm:self-auto">
           <span>Create invoice ↗</span>
         </Link>
       </div>
 
       {/* Invoices Table Card */}
-      <div className="card-perspective stagger-item delay-2">
-        <div className="aether-card overflow-hidden">
-          <div className="top-highlight" />
+      <div className="stagger-item delay-2">
+        <div className="surface-card overflow-hidden">
           <div className="relative z-10">
             {error ? (
               <p className="p-6 text-xs text-rose-500" role="alert">
