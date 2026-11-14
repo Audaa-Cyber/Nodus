@@ -1760,6 +1760,8 @@ main > section:not(.binary-rain) > .nav {
   .no-print, .nodus-sidebar, .detail-actions, .back-link, .invoice-share-panel, button, form { display: none !important; }
   .dashboard-executive, main { background: #fff !important; min-height: 0 !important; padding: 0 !important; overflow: visible !important; }
   .dashboard-content, .invoice-detail-sheet, .aether-card { max-width: none !important; width: 100% !important; box-shadow: none !important; border: 0 !important; padding: 0 !important; margin: 0 !important; }
+  .dashboard-content > * { display: none !important; }
+  .dashboard-content > .invoice-print-sheet { display: block !important; break-inside: avoid; }
   .invoice-print-sheet { display: block !important; break-inside: avoid; }
   a { color: inherit !important; text-decoration: none !important; }
 }
