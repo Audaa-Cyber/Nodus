@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import CancelInvoiceForm from "@/components/cancel-invoice-form";
 import InvoiceSharePanel from "@/components/invoice-share-panel";
+import InvoicePrintButton from "@/components/invoice-print-button";
 import { retryNearInvoiceRegistrationAction } from "@/app/actions/invoices";
 import { getBusinessContext } from "@/lib/auth/business-context";
 import { effectiveStatus, formatMoney, formatUtcDate } from "@/lib/invoices";
@@ -225,6 +226,7 @@ export default async function InvoiceDetailPage({
           <span className={`status status-${status}`}>{status}</span>
         </div>
         <div className="detail-actions">
+          <InvoicePrintButton />
           {canEdit && (
             <Link className="button button-outline" href={`/dashboard/invoices/${id}/edit`}>
               Edit invoice
