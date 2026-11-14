@@ -2060,3 +2060,101 @@ p { text-wrap: pretty; }
   .dashboard-executive .sidebar-link { font-size: 10px; }
   .dashboard-executive .dashboard-main { padding-inline: 12px; }
 }
+
+
+/* Mobile navigation: preserve the full desktop sidebar as an accessible slide-out drawer. */
+.mobile-sidebar-bar { display: none; }
+.mobile-sidebar-backdrop { display: none; }
+.dashboard-sidebar-host { display: contents; }
+
+@media (max-width: 700px) {
+  .dashboard-app-shell { display: grid; grid-template-columns: minmax(0, 1fr); align-content: start; }
+  .mobile-sidebar-bar {
+    position: sticky;
+    top: 0;
+    z-index: 60;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 58px;
+    padding: 0 16px;
+    border-bottom: 1px solid #e7e9ee;
+    background: rgba(255,255,255,.97);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+  .mobile-sidebar-toggle {
+    display: grid;
+    place-items: center;
+    width: 38px;
+    height: 38px;
+    flex: 0 0 auto;
+    border: 1px solid #e5e8ee;
+    border-radius: 8px;
+    background: #fff;
+    color: #263244;
+  }
+  .mobile-sidebar-toggle:hover { background: #f7f8fa; }
+  .mobile-sidebar-title { color: #647084; font-size: 12px; font-weight: 600; }
+  .mobile-sidebar-brand { margin-left: auto; color: #111827; font-size: 18px; font-weight: 700; letter-spacing: -.7px; }
+  .mobile-sidebar-brand span { color: #64748b; }
+  .mobile-sidebar-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 70;
+    display: block;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    background: rgba(15, 23, 42, .38);
+    backdrop-filter: blur(2px);
+  }
+  .dashboard-sidebar-host {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 80;
+    display: block;
+    width: min(290px, calc(100vw - 48px));
+    height: 100dvh;
+    overflow: hidden auto;
+    background: #fff;
+    box-shadow: 16px 0 48px rgba(15, 23, 42, .14);
+    transform: translateX(-105%);
+    visibility: hidden;
+    transition: transform 220ms cubic-bezier(.2,.75,.25,1), visibility 220ms;
+    overscroll-behavior: contain;
+  }
+  .dashboard-sidebar-host.is-open { transform: translateX(0); visibility: visible; }
+  .dashboard-executive .dashboard-sidebar-host .nodus-sidebar {
+    position: relative;
+    display: flex;
+    width: 100%;
+    height: 100%;
+    min-height: 100%;
+    padding: 24px 17px 16px;
+    overflow: visible;
+    border-right: 0;
+    border-bottom: 0;
+  }
+  .dashboard-sidebar-host .sidebar-brand { min-height: 38px; margin-bottom: 34px; padding-inline: 10px; font-size: 20px; }
+  .dashboard-sidebar-host .sidebar-brand img { height: 30px !important; }
+  .dashboard-sidebar-host .sidebar-section-label { display: block; padding-inline: 10px; margin-bottom: 10px; }
+  .dashboard-sidebar-host .workspace-switcher { padding: 12px 10px; margin-bottom: 28px; }
+  .dashboard-sidebar-host .workspace-avatar { width: 34px; height: 34px; }
+  .dashboard-sidebar-host .sidebar-nav-items { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+  .dashboard-sidebar-host .dashboard-executive .sidebar-link,
+  .dashboard-sidebar-host .sidebar-link { justify-content: flex-start; gap: 11px; min-height: 44px; padding: 0 11px; font-size: 13px; }
+  .dashboard-sidebar-host .sidebar-link-icon { width: 20px; height: 20px; }
+  .dashboard-sidebar-host .sidebar-link-icon svg { width: 18px; height: 18px; }
+  .dashboard-sidebar-host .sidebar-active-indicator { display: block; }
+  .dashboard-sidebar-host .sidebar-nav-note { display: flex; }
+  .dashboard-sidebar-host .sidebar-account { display: block; margin-top: 0; padding-top: 16px; }
+  .dashboard-sidebar-host .account-identity { padding: 0 6px 13px; }
+  .dashboard-sidebar-host .account-identity .account-avatar { width: 32px; height: 32px; }
+  .dashboard-sidebar-host .account-identity > span:nth-child(2) > span:first-child { display: block; }
+  .dashboard-sidebar-host .sidebar-logout { padding: 0 6px; }
+  .dashboard-executive .dashboard-main { min-height: auto; padding: 24px 16px 36px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-sidebar-host { transition: none; }
+}
