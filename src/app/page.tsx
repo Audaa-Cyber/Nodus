@@ -69,14 +69,14 @@ export default function Home() {
             <Link href="#checkout" onClick={closeMenu}>Checkout</Link>
             <Link href="#how-it-works" onClick={closeMenu}>How it works</Link>
             <Link href="#business" onClick={closeMenu}>For business</Link>
-            <Link href="/login?next=%2Fdashboard" prefetch={true} className="mobile-business-link" onClick={closeMenu}>Log in to dashboard</Link>
-            <Link href="/register?mode=signup" prefetch={true} className="mobile-business-link" onClick={closeMenu}>Create business account</Link>
+            <Link href="/login?next=%2Fdashboard" prefetch={true} className="mobile-business-link" onClick={closeMenu}>Log in</Link>
+            <Link href="/register?mode=signup" prefetch={true} className="mobile-business-link" onClick={closeMenu}>Create account</Link>
           </div>
 
           <div className="nav-right">
-            <Link href="#checkout" className="nav-cta">Preview guest checkout <ArrowUpRight size={14} strokeWidth={1.7} aria-hidden="true" /></Link>
-            <Link href="/login?next=%2Fdashboard" prefetch={true} className="nav-login">Log in to dashboard</Link>
-            <Link href="/register?mode=signup" prefetch={true} className="nav-cta nav-register">Create business account <ArrowUpRight size={14} strokeWidth={1.7} aria-hidden="true" /></Link>
+            <Link href="#checkout" className="nav-cta">Preview checkout demo <ArrowUpRight size={14} strokeWidth={1.7} aria-hidden="true" /></Link>
+            <Link href="/login?next=%2Fdashboard" prefetch={true} className="nav-login">Log in</Link>
+            <Link href="/register?mode=signup" prefetch={true} className="nav-cta nav-register">Create account <ArrowUpRight size={14} strokeWidth={1.7} aria-hidden="true" /></Link>
             <button
               className="menu-toggle"
               type="button"
