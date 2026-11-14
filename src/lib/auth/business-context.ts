@@ -11,6 +11,7 @@ export type BusinessProfile = {
   email: string;
   receiving_address: string | null;
   receiving_network: string | null;
+  logo_url?: string | null; invoice_prefix?: string; next_invoice_number?: number; default_currency?: string; default_payment_terms_days?: number; invoice_footer?: string;
   created_at: string;
   updated_at: string;
 };
@@ -97,7 +98,7 @@ export const getBusinessContext = cache(async () => {
 
   const { data: business } = await supabase
     .from("business_profiles")
-    .select("id,business_name,email,receiving_address,receiving_network,created_at,updated_at")
+    .select("id,business_name,email,receiving_address,receiving_network,logo_url,invoice_prefix,next_invoice_number,default_currency,default_payment_terms_days,invoice_footer,created_at,updated_at")
     .eq("owner_user_id", user.id)
     .maybeSingle();
 
