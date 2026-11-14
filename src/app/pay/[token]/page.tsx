@@ -108,7 +108,7 @@ export default async function PublicInvoicePage({ params }: { params: Promise<{ 
 
   return <main className="public-invoice-page"><article className="public-invoice-card" aria-labelledby="public-invoice-title">
     <header className="public-invoice-header">{sellerLogo ? <img src={sellerLogo} alt={sellerName ?? "Business logo"} style={{maxWidth:150,maxHeight:56,objectFit:"contain"}}/> : <span className="public-brand">{sellerName}</span>}<span className={`status status-${status}`}>{status}</span></header>
-    <p className="eyebrow">INVOICE FROM {invoice.business_name.toLocaleUpperCase()}</p>
+    <p className="eyebrow">INVOICE FROM {sellerName?.toLocaleUpperCase() ?? "BUSINESS"}</p>
     <h1 id="public-invoice-title">Invoice {invoice.invoice_number}</h1>
     <p className="public-invoice-business">{sellerName}</p>
     {(sellerEmail||sellerPhone||sellerAddress||sellerWebsite||sellerTaxId)&&<section className="public-invoice-dates" aria-label="Business details">{sellerAddress&&<p>{sellerAddress}</p>}{sellerPhone&&<p>{sellerPhone}</p>}{sellerEmail&&<p>{sellerEmail}</p>}{sellerWebsite&&<p>{sellerWebsite}</p>}{sellerTaxId&&<p>Tax ID: {sellerTaxId}</p>}</section>}
