@@ -154,6 +154,6 @@ export default async function PublicInvoicePage({ params }: { params: Promise<{ 
     ) : (
       <p className="public-invoice-note">Wallet setup is unavailable for this invoice. No payment can be prepared.</p>
     )}
-    <p className="public-invoice-note">Wallet connection is optional and does not authorize payment.</p><footer className="public-invoice-note" style={{textAlign:"right"}} className="public-invoice-note invoice-thank-you" style={{textAlign:"left",fontSize:24}}>{(typeof seller.invoice_footer === "string" ? seller.invoice_footer : invoice.invoice_footer) || "Thank you for your business."}<br/><span style={{fontSize:10,opacity:.65}}>Powered by nodus.</span></footer>
+    <p className="public-invoice-note">Wallet connection is optional and does not authorize payment.</p><footer className="public-invoice-note invoice-thank-you" style={{textAlign:"left",fontSize:24}}>{(typeof seller.invoice_footer === "string" ? seller.invoice_footer : invoice.invoice_footer) || "Thank you for your business."}<br/><span style={{fontSize:10,opacity:.65}}>Powered by nodus.</span></footer>
   </article></main>;
 }
