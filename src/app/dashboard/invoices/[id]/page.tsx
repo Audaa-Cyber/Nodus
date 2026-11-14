@@ -157,6 +157,10 @@ export default async function InvoiceDetailPage({
   const sellerSnapshot = invoice.seller_snapshot && typeof invoice.seller_snapshot === "object" && !Array.isArray(invoice.seller_snapshot) ? invoice.seller_snapshot as Record<string, unknown> : {};
   const invoiceSellerName = typeof sellerSnapshot.business_name === "string" ? sellerSnapshot.business_name : business.business_name;
   const invoiceSellerLogo = typeof sellerSnapshot.logo_url === "string" ? sellerSnapshot.logo_url : business.logo_url;
+  const invoiceSellerPhone = typeof sellerSnapshot.business_phone === "string" ? sellerSnapshot.business_phone : business.business_phone;
+  const invoiceSellerAddress = typeof sellerSnapshot.business_address === "string" ? sellerSnapshot.business_address : business.business_address;
+  const invoiceSellerWebsite = typeof sellerSnapshot.website_url === "string" ? sellerSnapshot.website_url : business.website_url;
+  const invoiceSellerTaxId = typeof sellerSnapshot.tax_registration_number === "string" ? sellerSnapshot.tax_registration_number : business.tax_registration_number;
   const invoiceSellerFooter = typeof sellerSnapshot.invoice_footer === "string" ? sellerSnapshot.invoice_footer : (invoice.invoice_footer || business.invoice_footer || "Thank you for your business.");
 
   // The settlement outbox is intentionally service-role-only. Read it through
@@ -256,7 +260,7 @@ export default async function InvoiceDetailPage({
         <dl>
           <div>
             <dt>From</dt>
-            <dd>{business.business_name}</dd>
+            <dd>{invoiceSellerName}{invoiceSellerAddress&&<span>{invoiceSellerAddress}</span>}{invoiceSellerPhone&&<span>{invoiceSellerPhone}</span>}{invoiceSellerWebsite&&<span>{invoiceSellerWebsite}</span>}{invoiceSellerTaxId&&<span>Tax ID: {invoiceSellerTaxId}</span>}</dd>
           </div>
           <div>
             <dt>Items</dt>
