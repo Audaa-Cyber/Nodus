@@ -33,7 +33,7 @@ export async function saveInvoiceAction(_previous: FormState, formData: FormData
       return { error: "Issued invoice amount and currency cannot be changed. Cancel this invoice and create a replacement." };
     }
     const status = intent === "open" && existing.status === "draft" ? "open" : existing.status;
-    const updateValues = { ...values, invoice_number: existing.invoice_number, seller_snapshot: status === "open" && existing.status === "draft" ? { business_name: business.business_name, email: business.email, logo_url: business.logo_url ?? null, receiving_address: business.receiving_address, receiving_network: business.receiving_network, invoice_footer: values.invoice_footer } : undefined, status };
+    const updateValues = { ...values, invoice_number: existing.invoice_number, seller_snapshot: status === "open" && existing.status === "draft" ? { business_name: business.business_name, email: business.email, logo_url: business.logo_url ?? null, business_phone: business.business_phone ?? null, business_address: business.business_address ?? null, website_url: business.website_url ?? null, tax_registration_number: business.tax_registration_number ?? null, receiving_address: business.receiving_address, receiving_network: business.receiving_network, invoice_footer: values.invoice_footer } : undefined, status };
     const { error } = await supabase.from("invoices").update(updateValues).eq("id", invoiceId).eq("business_id", business.id);
     if (error) return { error: error.code === "23505" ? "That invoice number is already in use." : "Could not save the invoice. Check the details and try again." };
     if (status === "open" && existing.status === "draft") {
