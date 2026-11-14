@@ -30,7 +30,7 @@ export default async function BusinessProfilePage() {
       createdAt={business.created_at}
       updatedAt={business.updated_at}
     />
-    <InvoiceDefaultsForm logoUrl={business.logo_url ?? ""} invoicePrefix={business.invoice_prefix ?? "INV"} defaultCurrency={business.default_currency ?? "USD"} paymentTermsDays={business.default_payment_terms_days ?? 14} invoiceFooter={business.invoice_footer ?? "Thank you for your business."} />
+    <InvoiceDefaultsForm logoUrl={business.logo_url ?? ""} businessPhone={business.business_phone ?? ""} businessAddress={business.business_address ?? ""} websiteUrl={business.website_url ?? ""} taxRegistrationNumber={business.tax_registration_number ?? ""} invoicePrefix={business.invoice_prefix ?? "INV"} defaultCurrency={business.default_currency ?? "USD"} paymentTermsDays={business.default_payment_terms_days ?? 14} invoiceFooter={business.invoice_footer ?? "Thank you for your business."} />
     </>
   );
 }
