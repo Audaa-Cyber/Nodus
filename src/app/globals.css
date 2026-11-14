@@ -1626,6 +1626,32 @@ main > section:not(.binary-rain) > .nav {
   transition: opacity 0.35s ease;
 }
 
+/* Keep the card highlight CSS-driven so it never mutates server-rendered DOM. */
+.aether-card {
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+
+.aether-card:hover,
+.aether-card:focus-within {
+  transform: translateY(-1px);
+}
+
+.aether-card:hover::before,
+.aether-card:focus-within::before {
+  opacity: 0.72;
+}
+
+.aether-card:hover::after,
+.aether-card:focus-within::after {
+  opacity: 0.82;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aether-card {
+    transition: none;
+  }
+}
+
 /* Sidebar Navigation Links */
 .sidebar-link {
   position: relative;
