@@ -74,9 +74,9 @@ export default function Home() {
           </div>
 
           <div className="nav-right">
-            <Link href="#checkout" className="nav-cta">Try checkout demo <ArrowUpRight size={14} strokeWidth={1.7} aria-hidden="true" /></Link>
-            <Link href="/login" prefetch={true} className="nav-login">Log in</Link>
-            <Link href="/register" prefetch={true} className="nav-cta nav-register">Create account <ArrowUpRight size={14} strokeWidth={1.7} aria-hidden="true" /></Link>
+            <Link href="#checkout" className="nav-cta">Preview guest checkout <ArrowUpRight size={14} strokeWidth={1.7} aria-hidden="true" /></Link>
+            <Link href="/login?next=%2Fdashboard" prefetch={true} className="nav-login">Log in to dashboard</Link>
+            <Link href="/register?mode=signup" prefetch={true} className="nav-cta nav-register">Create business account <ArrowUpRight size={14} strokeWidth={1.7} aria-hidden="true" /></Link>
             <button
               className="menu-toggle"
               type="button"
@@ -98,8 +98,8 @@ export default function Home() {
               choose a supported stablecoin, and approve payment from their wallet.
             </p>
             <div className="hero-actions">
-              <Link href="#checkout" className="button button-dark">Try checkout demo <ArrowUpRight size={15} strokeWidth={1.7} aria-hidden="true" /></Link>
-              <Link href="/login" className="button-link">Log in <ArrowRight size={15} strokeWidth={1.6} aria-hidden="true" /></Link>
+              <Link href="#checkout" className="button button-dark">Explore checkout demo <ArrowUpRight size={15} strokeWidth={1.7} aria-hidden="true" /></Link>
+              <Link href="/login?next=%2Fdashboard" className="button-link">Log in to dashboard <ArrowRight size={15} strokeWidth={1.6} aria-hidden="true" /></Link>
             </div>
           </div>
         </div>
@@ -283,7 +283,7 @@ export default function Home() {
               Give your team one place to prepare the bill and give guests a
               direct way to pay. Keep the invoice, payment status, and receipt together.
             </p>
-            <Link href="/register" className="button button-light">Create business account <ArrowUpRight size={15} strokeWidth={1.7} aria-hidden="true" /></Link>
+            <Link href="/register?mode=signup" className="button button-light">Create business account <ArrowUpRight size={15} strokeWidth={1.7} aria-hidden="true" /></Link>
           </div>
           <div className="business-details">
             <div className="detail-row">
@@ -309,10 +309,10 @@ export default function Home() {
       <section className="closing-section">
         <div className="shell closing-inner">
           <p className="eyebrow">NODUS CHECKOUT</p>
-          <h2>From itemized bill<br /><span>to payment confirmed.</span></h2>
+          <h2>Ready to send<br /><span>your first invoice?</span></h2>
           <div className="closing-bottom">
-            <p>Itemized invoices. Wallet-approved payments. Verified payment status.</p>
-            <Link href="/register" className="button button-light">Create account <ArrowUpRight size={15} strokeWidth={1.7} aria-hidden="true" /></Link>
+            <p>Create your business workspace to prepare itemized invoices, share a QR checkout, and track payment status.</p>
+            <Link href="/register?mode=signup" className="button button-light">Create business account <ArrowUpRight size={15} strokeWidth={1.7} aria-hidden="true" /></Link>
           </div>
         </div>
       </section>
@@ -340,8 +340,8 @@ export default function Home() {
           </div>
           <div className="footer-contact">
             <span className="footer-label">GET STARTED</span>
-            <Link href="/register" prefetch={true} className="footer-cta">Create a business account <ArrowUpRight size={15} strokeWidth={1.7} aria-hidden="true" /></Link>
-            <Link href="/login" prefetch={true} className="footer-cta">Log in <ArrowUpRight size={15} strokeWidth={1.7} aria-hidden="true" /></Link>
+            <Link href="/register?mode=signup" prefetch={true} className="footer-cta">Create a business account <ArrowUpRight size={15} strokeWidth={1.7} aria-hidden="true" /></Link>
+            <Link href="/login?next=%2Fdashboard" prefetch={true} className="footer-cta">Log in to dashboard <ArrowUpRight size={15} strokeWidth={1.7} aria-hidden="true" /></Link>
           </div>
         </div>
         <div className="shell footer-bottom">
