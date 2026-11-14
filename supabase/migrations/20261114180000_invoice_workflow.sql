@@ -64,3 +64,6 @@ language sql stable security definer set search_path='' as $$
 $$;
 revoke all on function public.lookup_shared_invoice(text) from public,anon,authenticated;
 grant execute on function public.lookup_shared_invoice(text) to anon,authenticated;
+
+-- Authenticated owners can update only invoice-branding/default fields in addition to business_name.
+grant update (logo_url, invoice_prefix, default_currency, default_payment_terms_days, invoice_footer) on public.business_profiles to authenticated;
