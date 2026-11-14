@@ -260,7 +260,7 @@ export default async function InvoiceDetailPage({
         <dl>
           <div>
             <dt>From</dt>
-            <dd>{invoiceSellerName}{invoiceSellerAddress&&<span>{invoiceSellerAddress}</span>}{invoiceSellerPhone&&<span>{invoiceSellerPhone}</span>}{invoiceSellerWebsite&&<span>{invoiceSellerWebsite}</span>}{invoiceSellerTaxId&&<span>Tax ID: {invoiceSellerTaxId}</span>}</dd>
+            <dd>{invoiceSellerName}{invoiceSellerAddress&&<span>{invoiceSellerAddress}</span>}{invoiceSellerPhone&&<span>{invoiceSellerPhone}</span>}{invoiceSellerWebsite&&<span>{invoiceSellerWebsite}</span>}{invoiceSellerTaxId&&<span>Tax ID: {invoiceSellerTaxId}</span>}<span>{typeof sellerSnapshot.email === "string" ? sellerSnapshot.email : business.email}</span></dd>
           </div>
           <div>
             <dt>Items</dt>
