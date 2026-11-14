@@ -156,7 +156,6 @@ export default async function DashboardPage() {
         </div>
 
         <div className="surface-card overflow-hidden">
-          <div className="top-highlight" />
           <div className="relative z-10">
             {recent.error ? (
               <p className="p-6 text-xs text-rose-500">Invoices could not be loaded.</p>
