@@ -21,6 +21,7 @@ export default async function BusinessProfilePage() {
   }
 
   return (
+    <>
     <ProfileForm
       businessName={business.business_name}
       receivingNetwork={business.receiving_network}
@@ -30,5 +31,6 @@ export default async function BusinessProfilePage() {
       updatedAt={business.updated_at}
     />
     <InvoiceDefaultsForm logoUrl={business.logo_url ?? ""} invoicePrefix={business.invoice_prefix ?? "INV"} defaultCurrency={business.default_currency ?? "USD"} paymentTermsDays={business.default_payment_terms_days ?? 14} invoiceFooter={business.invoice_footer ?? "Thank you for your business."} />
+    </>
   );
 }
