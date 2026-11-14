@@ -286,7 +286,7 @@ export default async function InvoiceDetailPage({
             <dd>{formatUtcDateTime(invoice.updated_at)}</dd>
           </div>
         </dl>
-        <footer style={{display:"flex",justifyContent:"space-between",alignItems:"end",gap:16,borderTop:"1px solid var(--card-border)",paddingTop:16,marginTop:20}}><p style={{margin:0,fontSize:12,color:"var(--text-secondary)"}}>{invoiceSellerFooter}</p><span style={{fontSize:10,color:"var(--text-muted)",whiteSpace:"nowrap"}}>Powered by nodus.</span></footer>
+        <footer style={{display:"flex",justifyContent:"space-between",alignItems:"end",gap:16,borderTop:"1px solid var(--card-border)",paddingTop:16,marginTop:20}}><p className="invoice-thank-you" style={{margin:0,fontSize:22,color:"var(--text-secondary)"}}>{invoiceSellerFooter}</p><span style={{fontSize:10,color:"var(--text-muted)",whiteSpace:"nowrap"}}>Powered by nodus.</span></footer>
       </section>
 
       {/* Share panel — hidden for paid and cancelled invoices */}
