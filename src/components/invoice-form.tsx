@@ -1,39 +1,43 @@
 "use client";
-
-import { useActionState } from "react";
+import { useActionState,useMemo,useState } from "react";
 import type { FormState } from "@/app/actions/auth";
 import { saveInvoiceAction } from "@/app/actions/invoices";
 import type { Invoice } from "@/lib/invoices";
-
-export default function InvoiceForm({ invoice }: { invoice?: Invoice }) {
-  const [state, action, pending] = useActionState<FormState, FormData>(saveInvoiceAction, {});
-  const today = new Date().toISOString().slice(0, 10);
-  const issueButtonLabel = !invoice || invoice.status === "draft" ? "Issue invoice" : "Save changes";
-  return (
-    <form action={action} className="business-form">
-      {invoice && <input type="hidden" name="invoiceId" value={invoice.id} />}
-      <div className="form-grid">
-        <label>Invoice number<input name="invoiceNumber" required maxLength={64} defaultValue={invoice?.invoice_number} placeholder="INV-1001" /></label>
-        <label>Customer name<input name="customerName" required maxLength={160} defaultValue={invoice?.customer_name} placeholder="Customer name" /></label>
-        <label>Customer email <span>(optional)</span><input name="customerEmail" type="email" maxLength={320} defaultValue={invoice?.customer_email ?? ""} placeholder="name@example.com" /></label>
-        <label>Amount<input name="amount" required inputMode="decimal" pattern="[0-9]+(\.[0-9]{1,2})?" defaultValue={invoice ? (invoice.amount_minor / 100).toFixed(2) : ""} placeholder="0.00" /></label>
-        <label>Currency<select name="currency" defaultValue={invoice?.currency ?? "USD"}>{["USD", "EUR", "GBP", "ETB", "KES"].map((currency) => <option key={currency}>{currency}</option>)}</select></label>
-        <label>Issue date<input name="issueDate" type="date" required defaultValue={invoice?.issue_date ?? today} /></label>
-        <label>Due date <span>(optional)</span><input name="dueDate" type="date" defaultValue={invoice?.due_date ?? ""} /></label>
-        <label className="form-wide">Description<textarea name="description" required maxLength={2000} rows={4} defaultValue={invoice?.description} placeholder="What is this invoice for?" /></label>
-      </div>
-      {state.error && <p className="form-error" role="alert">{state.error}</p>}
-      <div className="form-actions">
-        <button className="button button-dark" type="submit" name="intent" value="draft" disabled={pending}>
-          {pending && <span className="button-spinner" aria-hidden="true" />}
-          {pending ? "Saving…" : "Save draft"}
-        </button>
-        <button className="button button-outline" type="submit" name="intent" value="issue" disabled={pending}>
-          {pending && <span className="button-spinner" aria-hidden="true" />}
-          {pending ? "Saving…" : issueButtonLabel}
-        </button>
-      </div>
-      <p className="form-help">Issuing makes the invoice active and available to customers. Paid status is recorded only after settlement is verified.</p>
-    </form>
-  );
+type Line={description:string;quantity:string;unitPrice:string};
+const blank=():Line=>({description:"",quantity:"1",unitPrice:""});
+const fmt=(minor:number,currency:string)=>{try{return new Intl.NumberFormat("en-US",{style:"currency",currency}).format(minor/100)}catch{return (minor/100).toFixed(2)+" "+currency}};
+function addDays(date:string,days:number){const d=new Date(date+"T00:00:00Z");d.setUTCDate(d.getUTCDate()+days);return d.toISOString().slice(0,10)}
+export default function InvoiceForm({invoice,defaultCurrency="USD",paymentTermsDays=14}:{invoice?:Invoice;defaultCurrency?:string;paymentTermsDays?:number}){
+ const [state,action,pending]=useActionState<FormState,FormData>(saveInvoiceAction,{});
+ const today=new Date().toISOString().slice(0,10);
+ const oldItems=(invoice?.line_items as unknown as Array<{description?:string;quantity?:number;unitPriceMinor?:number}>|null)?.map(i=>({description:i.description??"",quantity:String(i.quantity??1),unitPrice:((i.unitPriceMinor??0)/100).toFixed(2)}));
+ const [items,setItems]=useState<Line[]>(oldItems?.length?oldItems:invoice?[{description:invoice.description??"",quantity:"1",unitPrice:((invoice.amount_minor??0)/100).toFixed(2)}]:[blank()]);
+ const [currency,setCurrency]=useState(invoice?.currency??defaultCurrency),[tax,setTax]=useState(String((invoice?.tax_rate_bps??0)/100)),[discount,setDiscount]=useState(String((invoice?.discount_minor??0)/100));
+ const [issueDate,setIssueDate]=useState(invoice?.issue_date??today),[dueDate,setDueDate]=useState(invoice?.due_date??(paymentTermsDays?addDays(today,paymentTermsDays):""));
+ const subtotal=useMemo(()=>items.reduce((s,i)=>{const q=Number(i.quantity),u=Math.round(Number(i.unitPrice)*100);return s+(q>0&&Number.isFinite(q)&&Number.isSafeInteger(u)&&u>=0?Math.round(q*u):0)},0),[items]);
+ const taxBps=Math.round(Math.min(100,Math.max(0,Number(tax)||0))*100),taxMinor=Math.round(subtotal*taxBps/10000),discountMinor=Math.max(0,Math.round((Number(discount)||0)*100)),total=Math.max(0,subtotal+taxMinor-discountMinor);
+ const rows=items.map(i=>({description:i.description.trim(),quantity:Number(i.quantity),unitPriceMinor:Math.round(Number(i.unitPrice)*100)}));
+ return <form action={action} className="business-form">
+ {invoice&&<input type="hidden" name="invoiceId" value={invoice.id}/>}
+ <input type="hidden" name="lineItems" value={JSON.stringify(rows)}/><input type="hidden" name="taxRateBps" value={String(taxBps)}/><input type="hidden" name="discountMinor" value={String(discountMinor)}/>
+ <div className="form-grid">
+ <label>Invoice number<input value={invoice?.invoice_number??"Assigned automatically"} readOnly aria-label="Invoice number, assigned automatically"/></label>
+ <label>Currency<select name="currency" value={currency} onChange={e=>setCurrency(e.target.value)}>{["USD","EUR","GBP","ETB","KES"].map(c=><option key={c}>{c}</option>)}</select></label>
+ <label>Issue date<input name="issueDate" type="date" required value={issueDate} onChange={e=>{setIssueDate(e.target.value);if(dueDate&&dueDate<e.target.value)setDueDate(e.target.value)}}/></label>
+ <label>Due date <span>(optional)</span><input name="dueDate" type="date" value={dueDate} onChange={e=>setDueDate(e.target.value)}/></label>
+ <div className="form-wide" style={{marginTop:8}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,marginBottom:12}}><div><strong>Items</strong><p className="form-help">Add products or services. Totals calculate automatically.</p></div><button type="button" className="button button-outline" onClick={()=>setItems(v=>[...v,blank()])}>+ Add item</button></div>
+ {items.map((item,index)=><div key={index} className="form-grid" style={{borderTop:"1px solid var(--card-border)",paddingTop:14,marginBottom:14}}>
+ <label className="form-wide">Item description<input required maxLength={500} value={item.description} onChange={e=>setItems(all=>all.map((v,i)=>i===index?{...v,description:e.target.value}:v))} placeholder="Product or service"/></label>
+ <label>Quantity<input type="number" min="0.01" max="1000000" step="0.01" required value={item.quantity} onChange={e=>setItems(all=>all.map((v,i)=>i===index?{...v,quantity:e.target.value}:v))}/></label>
+ <label>Unit price<input type="number" min="0" max="9999999999.99" step="0.01" required value={item.unitPrice} onChange={e=>setItems(all=>all.map((v,i)=>i===index?{...v,unitPrice:e.target.value}:v))}/></label>
+ <div style={{display:"flex",alignItems:"end",justifyContent:"space-between",gap:12}}><span className="form-help">Line total <strong>{fmt(Math.round((Number(item.quantity)||0)*(Number(item.unitPrice)||0)*100),currency)}</strong></span>{items.length>1&&<button type="button" className="button button-outline" onClick={()=>setItems(all=>all.filter((_,i)=>i!==index))} aria-label={`Remove item ${index+1}`}>Remove</button>}</div>
+ </div>)}</div>
+ <label>Tax (%) <span>(optional)</span><input type="number" min="0" max="100" step="0.01" value={tax} onChange={e=>setTax(e.target.value)}/></label>
+ <label>Discount ({currency}) <span>(optional)</span><input type="number" min="0" step="0.01" value={discount} onChange={e=>setDiscount(e.target.value)}/></label>
+ <label className="form-wide">Thank-you note <span>(optional)</span><textarea name="invoiceFooter" rows={2} maxLength={1000} defaultValue={invoice?.invoice_footer??""} placeholder="Uses your saved default when blank"/></label></div>
+ <section aria-label="Invoice totals" style={{marginTop:20,marginLeft:"auto",maxWidth:340,borderTop:"1px solid var(--card-border)",paddingTop:14}}>
+ {[[ "Subtotal",subtotal ],[`Tax (${(taxBps/100).toFixed(2)}%)`,taxMinor],[ "Discount", -discountMinor]].map(([label,value])=><div key={String(label)} style={{display:"flex",justifyContent:"space-between",padding:"5px 0"}}><span>{label}</span><strong>{fmt(Number(value),currency)}</strong></div>)}
+ <div style={{display:"flex",justifyContent:"space-between",borderTop:"1px solid var(--card-border)",marginTop:8,paddingTop:12,fontSize:18}}><span>Total due</span><strong>{fmt(total,currency)}</strong></div></section>
+ {state.error&&<p className="form-error" role="alert">{state.error}</p>}<div className="form-actions"><button className="button button-dark" type="submit" name="intent" value="draft" disabled={pending||total<=0}>{pending?"Saving…":"Save draft"}</button><button className="button button-outline" type="submit" name="intent" value="issue" disabled={pending||total<=0}>{pending?"Saving…":(!invoice||invoice.status==="draft"?"Issue invoice":"Save changes")}</button></div>
+ <p className="form-help">Nodus assigns invoice numbers automatically. Paid status is recorded only after settlement is verified.</p></form>;
 }
