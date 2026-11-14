@@ -2,7 +2,6 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getBusinessContext } from "@/lib/auth/business-context";
 import { effectiveStatus, formatMoney, formatUtcDate } from "@/lib/invoices";
-import { withTransitionDelay } from "@/lib/utils/timing";
 import MerchantUsdcBalance from "@/components/merchant-usdc-balance";
 
 export default async function DashboardPage() {
@@ -10,8 +9,8 @@ export default async function DashboardPage() {
   if (!user) redirect("/login");
   if (!business) {
     return (
-      <div className="card-perspective w-full max-w-[650px] mx-auto">
-        <div className="aether-card p-6 sm:p-8">
+      <div className="w-full max-w-[650px] mx-auto">
+        <div className="surface-card p-6 sm:p-8">
           <h1 className="text-xl font-bold mb-2">Business profile unavailable</h1>
           <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
             Apply the Supabase migration to finish setting up your business account.
@@ -22,21 +21,18 @@ export default async function DashboardPage() {
   }
 
   const today = new Date().toISOString().slice(0, 10);
-  const [allInvoicesResult, recent] = await withTransitionDelay(
-    Promise.all([
+  const [allInvoicesResult, recent] = await Promise.all([
       supabase
         .from("invoices")
         .select("status,due_date")
         .eq("business_id", business.id),
       supabase
         .from("invoices")
-        .select("id,invoice_number,customer_name,amount_minor,currency,status,due_date,issue_date,created_at")
+        .select("id,invoice_number,amount_minor,currency,status,due_date,issue_date,created_at")
         .eq("business_id", business.id)
         .order("created_at", { ascending: false })
         .limit(6),
-    ]),
-    700
-  );
+    ]);
 
   let totalCount = 0;
   let openCount = 0;
@@ -79,9 +75,8 @@ export default async function DashboardPage() {
       </div>
 
       {/* Active Destination Card */}
-      <div className="card-perspective stagger-item delay-2">
-        <div className="aether-card p-6 sm:p-7">
-          <div className="top-highlight" />
+      <div className="stagger-item delay-2">
+        <div className="surface-card p-6 sm:p-7">
           <div className="relative z-10">
             <div className="flex items-center justify-between mb-3">
               <div>
@@ -128,7 +123,7 @@ export default async function DashboardPage() {
             {stats.map(([label, value]) => (
               <div
                 key={label}
-                className="aether-card p-4 flex flex-col justify-between rounded-[18px]"
+                className="surface-card p-4 flex flex-col justify-between"
               >
                 <span className="text-[11px] font-medium block mb-2" style={{ color: "var(--text-muted)" }}>
                   {label}
@@ -160,7 +155,7 @@ export default async function DashboardPage() {
           </Link>
         </div>
 
-        <div className="aether-card overflow-hidden">
+        <div className="surface-card overflow-hidden">
           <div className="top-highlight" />
           <div className="relative z-10">
             {recent.error ? (
@@ -171,7 +166,6 @@ export default async function DashboardPage() {
                   <thead>
                     <tr className="border-b" style={{ borderColor: "var(--card-border)" }}>
                       <th className="py-3 px-4 font-semibold text-slate-800">Invoice</th>
-                      <th className="py-3 px-4 font-semibold text-slate-800">Customer</th>
                       <th className="py-3 px-4 font-semibold text-slate-800">Issue date</th>
                       <th className="py-3 px-4 font-semibold text-slate-800">Amount</th>
                       <th className="py-3 px-4 font-semibold text-slate-800">Status</th>
@@ -186,9 +180,6 @@ export default async function DashboardPage() {
                             <Link href={`/dashboard/invoices/${invoice.id}`} className="hover:underline">
                               {invoice.invoice_number}
                             </Link>
-                          </td>
-                          <td className="py-3 px-4" style={{ color: "var(--text-secondary)" }}>
-                            {invoice.customer_name}
                           </td>
                           <td className="py-3 px-4 font-mono-code text-[11px]" style={{ color: "var(--text-muted)" }}>
                             {formatUtcDate(invoice.issue_date)}
@@ -213,7 +204,7 @@ export default async function DashboardPage() {
                   No invoices recorded yet.
                 </p>
                 <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
-                  Invoices and customer settlement activity will display here as they occur.
+                  Your invoices and payment status will appear here as they are created.
                 </p>
               </div>
             )}
