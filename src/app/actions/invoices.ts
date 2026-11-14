@@ -16,6 +16,7 @@ export async function saveInvoiceAction(_previous: FormState, formData: FormData
   catch (error) { return { error: error instanceof Error ? error.message : "Check the invoice details." }; }
 
   if (!business) return { error: "Business profile is unavailable. Contact support if the problem continues." };
+  values.invoice_footer = values.invoice_footer || business.invoice_footer || "Thank you for your business.";
   const intent = formData.get("intent") === "issue" ? "open" : "draft";
   const invoiceId = String(formData.get("invoiceId") ?? "");
   if (invoiceId) {
@@ -32,7 +33,7 @@ export async function saveInvoiceAction(_previous: FormState, formData: FormData
       return { error: "Issued invoice amount and currency cannot be changed. Cancel this invoice and create a replacement." };
     }
     const status = intent === "open" && existing.status === "draft" ? "open" : existing.status;
-    const updateValues = { ...values, invoice_number: existing.invoice_number, seller_snapshot: status === "open" && existing.status === "draft" ? { business_name: business.business_name, email: business.email, logo_url: business.logo_url ?? null, receiving_address: business.receiving_address, receiving_network: business.receiving_network } : undefined, status };
+    const updateValues = { ...values, invoice_number: existing.invoice_number, seller_snapshot: status === "open" && existing.status === "draft" ? { business_name: business.business_name, email: business.email, logo_url: business.logo_url ?? null, receiving_address: business.receiving_address, receiving_network: business.receiving_network, invoice_footer: values.invoice_footer } : undefined, status };
     const { error } = await supabase.from("invoices").update(updateValues).eq("id", invoiceId).eq("business_id", business.id);
     if (error) return { error: error.code === "23505" ? "That invoice number is already in use." : "Could not save the invoice. Check the details and try again." };
     if (status === "open" && existing.status === "draft") {
@@ -44,7 +45,7 @@ export async function saveInvoiceAction(_previous: FormState, formData: FormData
 
   const { data: allocatedNumber, error: numberError } = await supabase.rpc("allocate_invoice_number", { p_business_id: business.id });
   if (numberError || !allocatedNumber) return { error: "Could not allocate an invoice number. Apply the invoice workflow migration and try again." };
-  const { data: invoice, error } = await supabase.from("invoices").insert({ ...values, invoice_number: allocatedNumber, business_id: business.id, status: intent, seller_snapshot: { business_name: business.business_name, email: business.email, logo_url: business.logo_url ?? null, receiving_address: business.receiving_address, receiving_network: business.receiving_network } }).select("id").single();
+  const { data: invoice, error } = await supabase.from("invoices").insert({ ...values, invoice_number: allocatedNumber, business_id: business.id, status: intent, seller_snapshot: { business_name: business.business_name, email: business.email, logo_url: business.logo_url ?? null, receiving_address: business.receiving_address, receiving_network: business.receiving_network, invoice_footer: values.invoice_footer } }).select("id").single();
   if (error || !invoice) return { error: error?.code === "23505" ? "That invoice number is already in use." : "Could not create the invoice. Check the details and try again." };
   if (intent === "open") {
     try { await processNearInvoiceRegistrationOutbox(1); } catch { /* The durable outbox is drained by the scheduled worker. */ }
