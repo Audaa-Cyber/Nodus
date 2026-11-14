@@ -80,3 +80,28 @@ with check (bucket_id='business-logos' and exists (select 1 from public.business
 alter table public.business_profiles add column if not exists business_phone text, add column if not exists business_address text, add column if not exists website_url text, add column if not exists tax_registration_number text;
 alter table public.business_profiles add constraint business_profiles_business_phone_length check (business_phone is null or char_length(business_phone)<=80), add constraint business_profiles_business_address_length check (business_address is null or char_length(business_address)<=500), add constraint business_profiles_website_url_length check (website_url is null or char_length(website_url)<=2048), add constraint business_profiles_tax_registration_length check (tax_registration_number is null or char_length(tax_registration_number)<=100);
 grant update (business_phone,business_address,website_url,tax_registration_number) on public.business_profiles to authenticated;
+
+-- Preserve the existing payment-state protections while including the new invoice fields.
+create or replace function public.guard_invoice_changes()
+returns trigger language plpgsql set search_path = '' as $$
+begin
+  if tg_op = 'INSERT' then
+    if new.status not in ('draft', 'open') then raise exception 'Invoices can only be created as draft or open'; end if;
+    return new;
+  end if;
+  if old.status = 'paid' then
+    if row(new.id,new.business_id,new.invoice_number,new.customer_name,new.customer_email,new.description,new.amount_minor,new.currency,new.issue_date,new.due_date,new.status,new.created_at,new.updated_at,new.line_items,new.subtotal_minor,new.tax_rate_bps,new.discount_minor,new.invoice_footer,new.seller_snapshot)
+       is distinct from
+       row(old.id,old.business_id,old.invoice_number,old.customer_name,old.customer_email,old.description,old.amount_minor,old.currency,old.issue_date,old.due_date,old.status,old.created_at,old.updated_at,old.line_items,old.subtotal_minor,old.tax_rate_bps,old.discount_minor,old.invoice_footer,old.seller_snapshot)
+    then raise exception 'Paid invoices cannot be changed'; end if;
+    return new;
+  end if;
+  if new.status = 'paid' then raise exception 'Paid status requires verified settlement'; end if;
+  if old.status = 'cancelled' and new.status <> 'cancelled' then raise exception 'Cancelled invoices cannot be reopened'; end if;
+  if new.status = 'overdue' and (new.due_date is null or new.due_date >= current_date) then raise exception 'Only invoices past their due date can be overdue'; end if;
+  if old.status = 'draft' and new.status not in ('draft','open','cancelled') then raise exception 'Invalid invoice status transition'; end if;
+  if old.status = 'open' and new.status not in ('open','overdue','cancelled') then raise exception 'Invalid invoice status transition'; end if;
+  if old.status = 'overdue' and new.status not in ('overdue','open','cancelled') then raise exception 'Invalid invoice status transition'; end if;
+  return new;
+end;
+$$;
