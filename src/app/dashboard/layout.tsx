@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { getBusinessContext, getVerifiedUser } from "@/lib/auth/business-context";
@@ -43,9 +44,7 @@ export default async function DashboardLayout({ children }: Readonly<{ children:
               {/* Brand Logo: (n) nodus. */}
               <div className="flex items-center gap-2.5 mb-7 px-1">
                 <Link href="/" className="inline-flex items-center gap-2.5">
-                  <div className="w-7 h-7 rounded-full border border-slate-800 flex items-center justify-center font-semibold text-xs tracking-tight text-slate-900 shadow-xs bg-white/80">
-                    n
-                  </div>
+                  <Image src="/logo.svg" alt="Nodus logo" width={331} height={213} style={{ height: "28px", width: "auto", display: "inline-block" }} aria-hidden="true" />
                   <span className="text-[17px] font-bold tracking-tight text-slate-900">
                     nodus<span className="text-slate-400">.</span>
                   </span>

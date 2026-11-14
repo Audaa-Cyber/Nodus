@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import {
   ArrowRight,
@@ -62,7 +63,7 @@ export default function Home() {
       <section className="hero" id="top">
         <nav className="nav shell" aria-label="Main navigation">
           <Link href="#top" className="brand" onClick={closeMenu} aria-label="Nodus home">
-            <span className="brand-mark">n</span>
+            <Image src="/logo.svg" alt="Nodus logo" width={331} height={213} style={{ height: "20px", width: "auto", display: "inline-block" }} aria-hidden="true" />
             <span>nodus<span className="brand-period">.</span></span>
           </Link>
 
@@ -325,7 +326,7 @@ export default function Home() {
         <div className="shell footer-main">
           <div className="footer-brand-block">
             <Link href="#top" className="brand footer-brand">
-              <span className="brand-mark">n</span>
+              <Image src="/logo.svg" alt="Nodus logo" width={331} height={213} style={{ height: "20px", width: "auto", display: "inline-block" }} aria-hidden="true" />
               <span>nodus<span className="brand-period">.</span></span>
             </Link>
             <p>Clear invoices. Simple QR checkout. Stablecoin payments for everyday business.</p>

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { Eye, EyeOff } from "lucide-react";
@@ -232,9 +233,7 @@ export function ExecutiveLoginCard({ initialMode = "signin" }: { initialMode?: "
           >
             <div className="top-highlight" aria-hidden="true" />
             <header className="relative z-10 flex items-center gap-3 mb-5">
-              <div className="w-9 h-9 rounded-xl border border-slate-200 flex items-center justify-center font-semibold text-sm text-slate-900 bg-white/80">
-                n
-              </div>
+              <Image src="/logo.svg" alt="Nodus logo" width={331} height={213} style={{ height: "36px", width: "auto", display: "inline-block" }} aria-hidden="true" />
               <div>
                 <h1 id="cardHeading" className="text-lg font-bold tracking-tight">
                   {isSignUp ? "Create your account" : "Welcome back"}
