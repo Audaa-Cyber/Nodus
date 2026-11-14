@@ -41,7 +41,7 @@ revoke all on function public.allocate_invoice_number(uuid) from public,anon;
 grant execute on function public.allocate_invoice_number(uuid) to authenticated;
 drop function if exists public.lookup_shared_invoice(text);
 create function public.lookup_shared_invoice(p_token_hash text)
-returns table(link_status text,business_name text,invoice_number text,description text,amount_minor bigint,currency text,issue_date date,due_date date,status public.invoice_status,expires_at timestamptz,line_items jsonb,subtotal_minor bigint,tax_rate_bps integer,discount_minor bigint,logo_url text,invoice_footer text)
+returns table(link_status text,business_name text,invoice_number text,description text,amount_minor bigint,currency text,issue_date date,due_date date,status public.invoice_status,expires_at timestamptz,line_items jsonb,subtotal_minor bigint,tax_rate_bps integer,discount_minor bigint,logo_url text,invoice_footer text,seller_snapshot jsonb)
 language sql stable security definer set search_path='' as $$
  select case when i.share_token_expires_at<=statement_timestamp() then 'expired' else 'active' end,
  case when i.share_token_expires_at>statement_timestamp() then bp.business_name else null end,
@@ -58,7 +58,8 @@ language sql stable security definer set search_path='' as $$
  case when i.share_token_expires_at>statement_timestamp() then i.tax_rate_bps else null end,
  case when i.share_token_expires_at>statement_timestamp() then i.discount_minor else null end,
  case when i.share_token_expires_at>statement_timestamp() then bp.logo_url else null end,
- case when i.share_token_expires_at>statement_timestamp() then coalesce(i.invoice_footer,bp.invoice_footer) else null end
+ case when i.share_token_expires_at>statement_timestamp() then coalesce(i.invoice_footer,bp.invoice_footer) else null end,
+ case when i.share_token_expires_at>statement_timestamp() then i.seller_snapshot else null end
  from public.invoices i join public.business_profiles bp on bp.id=i.business_id
  where p_token_hash ~ '^[0-9a-f]{64}$' and i.share_token_hash=p_token_hash limit 1;
 $$;
