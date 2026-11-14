@@ -74,3 +74,8 @@ values ('business-logos','business-logos',true,2097152,array['image/png','image/
 on conflict (id) do update set public=true,file_size_limit=2097152,allowed_mime_types=array['image/png','image/jpeg','image/webp'];
 create policy "Business owners can upload invoice logos" on storage.objects for insert to authenticated
 with check (bucket_id='business-logos' and exists (select 1 from public.business_profiles bp where bp.id::text=(storage.foldername(name))[1] and bp.owner_user_id=auth.uid()));
+
+-- Optional seller details are saved once and reused on invoices; no customer contact fields are introduced.
+alter table public.business_profiles add column if not exists business_phone text, add column if not exists business_address text, add column if not exists website_url text, add column if not exists tax_registration_number text;
+alter table public.business_profiles add constraint business_profiles_business_phone_length check (business_phone is null or char_length(business_phone)<=80), add constraint business_profiles_business_address_length check (business_address is null or char_length(business_address)<=500), add constraint business_profiles_website_url_length check (website_url is null or char_length(website_url)<=2048), add constraint business_profiles_tax_registration_length check (tax_registration_number is null or char_length(tax_registration_number)<=100);
+grant update (business_phone,business_address,website_url,tax_registration_number) on public.business_profiles to authenticated;
