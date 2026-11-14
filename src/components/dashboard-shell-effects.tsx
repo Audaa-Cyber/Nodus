@@ -1,5 +1,3 @@
-"use client";
-
 /**
  * Keep the dashboard shell as a layout boundary without adding a second
  * decorative canvas or ambient-orb layer behind the actual business UI.
