@@ -7,7 +7,7 @@ export default function InvoiceDefaultsForm({logoUrl,invoicePrefix,defaultCurren
  return <section className="card-perspective" style={{marginTop:24}}><div className="aether-card p-6 sm:p-8">
  <h2 className="text-lg font-semibold mb-1">Invoice defaults</h2><p className="text-xs mb-6" style={{color:"var(--text-secondary)"}}>Set these once and reuse them on new invoices.</p>
  <form action={action} className="business-form"><div className="form-grid">
- <label className="form-wide">Company logo URL <span>(optional)</span><input type="url" name="logoUrl" maxLength={2048} defaultValue={logoUrl} placeholder="https://your-site.com/logo.png"/><span className="form-help">Shown at the top-left of the invoice. Use a public HTTPS image URL.</span></label>
+ <label className="form-wide">Company logo <span>(optional)</span><input type="file" name="logoFile" accept="image/png,image/jpeg,image/webp"/><span className="form-help">Upload a PNG, JPG, or WebP image up to 2 MB. It appears at the top-left of invoices.</span><input type="url" name="logoUrl" maxLength={2048} defaultValue={logoUrl} placeholder="Or paste a public HTTPS logo URL"/></label>
  <label>Invoice prefix<input name="invoicePrefix" required maxLength={16} pattern="[A-Za-z0-9-]+" defaultValue={invoicePrefix}/></label>
  <label>Default currency<select name="defaultCurrency" defaultValue={defaultCurrency}>{["USD","EUR","GBP","ETB","KES"].map(c=><option key={c}>{c}</option>)}</select></label>
  <label>Payment terms<select name="paymentTermsDays" defaultValue={String(paymentTermsDays)}>{[0,7,14,30,45,60].map(d=><option key={d} value={d}>{d===0?"Due on receipt":d+" days"}</option>)}</select></label>
