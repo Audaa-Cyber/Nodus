@@ -66,7 +66,7 @@ export default function Home() {
           </Link>
 
           <div id="primary-navigation" className={menuOpen ? "nav-links is-open" : "nav-links"}>
-            <Link href="#checkout" onClick={closeMenu}>Checkout</Link>
+            <Link href="#checkout" onClick={closeMenu}>Checkout demo</Link>
             <Link href="#how-it-works" onClick={closeMenu}>How it works</Link>
             <Link href="#business" onClick={closeMenu}>For business</Link>
             <Link href="/login?next=%2Fdashboard" prefetch={true} className="mobile-business-link" onClick={closeMenu}>Log in</Link>
@@ -328,7 +328,7 @@ export default function Home() {
           </div>
           <div className="footer-nav-group">
             <span className="footer-label">EXPLORE</span>
-            <Link href="#checkout">Checkout</Link>
+            <Link href="#checkout">Checkout demo</Link>
             <Link href="#how-it-works">How it works</Link>
             <Link href="#business">For business</Link>
           </div>
