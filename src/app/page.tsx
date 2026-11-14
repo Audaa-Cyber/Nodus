@@ -69,7 +69,7 @@ export default function Home() {
             <Link href="#checkout" onClick={closeMenu}>Checkout</Link>
             <Link href="#how-it-works" onClick={closeMenu}>How it works</Link>
             <Link href="#business" onClick={closeMenu}>For business</Link>
-            <Link href="/login" prefetch={true} className="mobile-business-link" onClick={closeMenu}>Business login</Link>
+            <Link href="/login" prefetch={true} className="mobile-business-link" onClick={closeMenu}>Log in</Link>
             <Link href="/register" prefetch={true} className="mobile-business-link" onClick={closeMenu}>Create account</Link>
           </div>
 
@@ -91,7 +91,7 @@ export default function Home() {
         </nav>
 
         <div className="hero-copy shell">
-          <h1>Close the bill.<br /><span>Keep things moving.</span></h1>
+          <h1>Itemized invoices.<br /><span>Payments made clear.</span></h1>
           <div className="hero-bottom">
             <p className="hero-lede">
               Nodus turns an itemized invoice into a QR checkout. Guests scan,
@@ -341,7 +341,7 @@ export default function Home() {
           <div className="footer-contact">
             <span className="footer-label">GET STARTED</span>
             <Link href="/register" prefetch={true} className="footer-cta">Create a business account <ArrowUpRight size={15} strokeWidth={1.7} aria-hidden="true" /></Link>
-            <Link href="/login" prefetch={true} className="footer-cta">Business login <ArrowUpRight size={15} strokeWidth={1.7} aria-hidden="true" /></Link>
+            <Link href="/login" prefetch={true} className="footer-cta">Log in <ArrowUpRight size={15} strokeWidth={1.7} aria-hidden="true" /></Link>
           </div>
         </div>
         <div className="shell footer-bottom">
