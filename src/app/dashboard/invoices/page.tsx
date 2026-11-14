@@ -26,7 +26,7 @@ export default async function InvoicesPage({ searchParams }: { searchParams: Pro
   const { data: invoices, count, error } = await withTransitionDelay(
     supabase
       .from("invoices")
-      .select("id,invoice_number,customer_name,amount_minor,currency,status,due_date,created_at", { count: "exact" })
+      .select("id,invoice_number,amount_minor,currency,status,due_date,created_at", { count: "exact" })
       .eq("business_id", business.id)
       .order("created_at", { ascending: false })
       .range((page - 1) * pageSize, page * pageSize - 1),
@@ -71,7 +71,6 @@ export default async function InvoicesPage({ searchParams }: { searchParams: Pro
                     <thead>
                       <tr className="border-b" style={{ borderColor: "var(--card-border)" }}>
                         <th className="py-3 px-4 font-semibold text-slate-800">Invoice</th>
-                        <th className="py-3 px-4 font-semibold text-slate-800">Customer</th>
                         <th className="py-3 px-4 font-semibold text-slate-800">Created</th>
                         <th className="py-3 px-4 font-semibold text-slate-800">Due date</th>
                         <th className="py-3 px-4 font-semibold text-slate-800">Amount</th>
@@ -87,9 +86,6 @@ export default async function InvoicesPage({ searchParams }: { searchParams: Pro
                               <Link href={`/dashboard/invoices/${invoice.id}`} className="hover:underline">
                                 {invoice.invoice_number}
                               </Link>
-                            </td>
-                            <td className="py-3 px-4" style={{ color: "var(--text-secondary)" }}>
-                              {invoice.customer_name}
                             </td>
                             <td className="py-3 px-4 font-mono-code text-[11px]" style={{ color: "var(--text-muted)" }}>
                               {formatUtcDate(invoice.created_at)}
