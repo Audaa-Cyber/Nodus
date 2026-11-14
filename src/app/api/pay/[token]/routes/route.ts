@@ -122,6 +122,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
           feeTotal: quote.feeTotal,
           feeItems: quote.feeItems,
           totalDebit: quote.totalDebit,
+          quoteExpiryMode: quote.expiryMode,
+          ...(quote.expiresAtBlock !== undefined ? { quoteExpiresAtBlock: quote.expiresAtBlock } : {}),
           quoteExpiresAt: quote.expiresAt,
         },
       });

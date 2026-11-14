@@ -10,6 +10,13 @@ export const dynamic = "force-dynamic";
 const TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const EVM_ADDRESS_PATTERN = /^0x[0-9a-fA-F]{40}$/;
+function circleQuoteTermsError(status: number, reason: string) {
+  return NextResponse.json({
+    error: "circle_quote_terms_invalid",
+    ...(process.env.NODE_ENV === "development" ? { reason } : {}),
+  }, { status });
+}
+
 function usdcToUnits(value: unknown): string | null {
   if (typeof value !== "string" || !/^\d+(\.\d{1,6})?$/.test(value)) return null;
   const [whole, fraction = ""] = value.split(".");
@@ -51,6 +58,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
     ? input.quoteSnapshot as Record<string, unknown> : null;
   const senderAddress = String(input.senderAddress ?? "").trim();
   const quoteType = quoteSnapshotInput?.type;
+  const quoteExpiryMode = quoteSnapshotInput?.quoteExpiryMode;
+  const quoteExpiresAtBlock = quoteSnapshotInput?.quoteExpiresAtBlock;
   if (
     !UUID_PATTERN.test(idempotencyKey) ||
     !sourceAssetId ||
@@ -70,8 +79,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
   if (quoteType === "circle_cctp") {
     if (typeof quoteSnapshotInput.quote !== "string"
       || JSON.stringify(quoteSnapshotInput).length > 48_000
-      || (Array.isArray(quoteSnapshotInput.feeItems) && quoteSnapshotInput.feeItems.length > 20)) {
-      return NextResponse.json({ error: "circle_quote_terms_invalid" }, { status: 400 });
+      || (Array.isArray(quoteSnapshotInput.feeItems) && quoteSnapshotInput.feeItems.length > 20)
+      || (quoteExpiryMode !== "TIMESTAMP" && quoteExpiryMode !== "BLOCK_NUMBER")
+      || (quoteExpiryMode === "BLOCK_NUMBER" && (typeof quoteExpiresAtBlock !== "number"
+        || !Number.isSafeInteger(quoteExpiresAtBlock) || quoteExpiresAtBlock < 0))) {
+      return circleQuoteTermsError(400, "quote_expiry_metadata_invalid");
     }
   } else if (JSON.stringify(quoteSnapshotInput).length > 48_000) {
     return NextResponse.json({ error: "invalid_attempt_parameters" }, { status: 400 });
@@ -120,7 +132,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
       || quoteSnapshotInput.feeItems.some((item) => !item || typeof item !== "object"
         || typeof (item as Record<string, unknown>).type !== "string"
         || usdcToUnits((item as Record<string, unknown>).amount) === null)) {
-      return NextResponse.json({ error: "circle_quote_terms_invalid" }, { status: 409 });
+      return circleQuoteTermsError(409, "quote_amount_or_fee_terms_mismatch");
     }
     try {
       await validateCircleSignedQuote({
@@ -133,12 +145,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
         feeTotal: String(quoteSnapshotInput.feeTotal),
         feeItems: quoteSnapshotInput.feeItems as Array<{ type: string; amount: string }>,
         expiresAt: quoteExpiresAt,
+        expiryMode: quoteExpiryMode as "TIMESTAMP" | "BLOCK_NUMBER",
+        ...(quoteExpiryMode === "BLOCK_NUMBER" ? { expiresAtBlock: quoteExpiresAtBlock as number } : {}),
       });
     } catch (error) {
       if (error instanceof CircleQuoteValidationError && error.code === "unavailable") {
         return NextResponse.json({ error: "circle_quote_validation_unavailable" }, { status: 503 });
       }
-      return NextResponse.json({ error: "circle_quote_terms_invalid" }, { status: 409 });
+      const reason = error instanceof CircleQuoteValidationError
+        ? error.reason ?? "circle_quote_validation_rejected"
+        : "circle_quote_validation_error";
+      return circleQuoteTermsError(409, reason);
     }
     depositAddress = sourceCircle.tokenMessengerAddress;
     quoteSnapshot = {
@@ -162,6 +179,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
       totalDebit: String(quoteSnapshotInput.totalDebit ?? ""),
       minimumReceived: amountBaseUnits,
       quoteExpiresAt,
+      quoteExpiryMode,
+      ...(quoteExpiryMode === "BLOCK_NUMBER" ? { quoteExpiresAtBlock } : {}),
       quote: quoteSnapshotInput.quote,
     };
   } else {

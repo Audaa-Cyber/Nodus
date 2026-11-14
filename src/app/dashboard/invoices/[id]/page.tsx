@@ -6,6 +6,7 @@ import { retryNearInvoiceRegistrationAction } from "@/app/actions/invoices";
 import { getBusinessContext } from "@/lib/auth/business-context";
 import { effectiveStatus, formatMoney, formatUtcDate } from "@/lib/invoices";
 import { withTransitionDelay } from "@/lib/utils/timing";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 function formatUtcDateTime(dateString: string): string {
   try {
@@ -108,7 +109,6 @@ export default async function InvoiceDetailPage({
     { data: receipts },
     { data: settlements },
     { data: attempts },
-    { data: nearOutbox },
     { data: nearInvoiceRegistration },
   ] = await withTransitionDelay(
     Promise.all([
@@ -144,13 +144,6 @@ export default async function InvoiceDetailPage({
         .order("created_at", { ascending: false }),
 
       supabase
-        .from("near_settlement_outbox")
-        .select(
-          "id,payment_attempt_id,source_transaction_hash,status,near_transaction_hash,last_error_code,submitted_at,created_at,attempt_count"
-        )
-        .eq("invoice_id", id),
-
-      supabase
         .from("near_invoice_registration_outbox")
         .select("id,status,attempt_count,near_transaction_hash,failure_reason,registered_at")
         .eq("invoice_id", id)
@@ -160,6 +153,15 @@ export default async function InvoiceDetailPage({
   );
 
   if (error || !invoice) notFound();
+
+  // The settlement outbox is intentionally service-role-only. Read it through
+  // the server admin client after the user-scoped invoice ownership check above.
+  const { data: nearOutbox, error: nearOutboxError } = await getSupabaseAdminClient()
+    .from("near_settlement_outbox")
+    .select(
+      "id,payment_attempt_id,source_transaction_hash,status,near_transaction_hash,last_error_code,submitted_at,created_at,attempt_count"
+    )
+    .eq("invoice_id", id);
 
   const status = effectiveStatus(invoice);
   const isPaid = invoice.status === "paid";
@@ -622,7 +624,13 @@ export default async function InvoiceDetailPage({
             >
               NEAR PROTOCOL RECONCILIATION
             </p>
-            {!primaryNearEntry ? (
+            {nearOutboxError ? (
+              <div style={{ padding: "10px 14px", background: "#f8f8f6", borderRadius: 6 }}>
+                <span style={{ fontSize: 12, color: "#777870" }}>
+                  NEAR reconciliation status is temporarily unavailable.
+                </span>
+              </div>
+            ) : !primaryNearEntry ? (
               <div
                 style={{
                   display: "flex",

@@ -125,6 +125,8 @@ export function LivePaymentFlow({
     totalDebit: string;
     feeItems: Array<{ type: string; amount: string }>;
     expiresAt: string;
+    quoteExpiryMode: "TIMESTAMP" | "BLOCK_NUMBER";
+    quoteExpiresAtBlock?: number;
     gasWei: string;
   } | null>(null);
   const lastExpiredRouteRefresh = useRef<string | null>(null);
@@ -223,10 +225,15 @@ export function LivePaymentFlow({
         const feeTotal = quoteSnapshot.feeTotal;
         const totalDebit = quoteSnapshot.totalDebit;
         const quoteExpiresAt = quoteSnapshot.quoteExpiresAt;
+        const quoteExpiryMode = quoteSnapshot.quoteExpiryMode;
+        const quoteExpiresAtBlock = quoteSnapshot.quoteExpiresAtBlock;
         const feeItems = quoteSnapshot.feeItems;
         if (typeof signedQuote !== "string" || !/^0x(?:[0-9a-fA-F]{2})+$/.test(signedQuote)
           || typeof amountReceived !== "string" || typeof feeTotal !== "string"
           || typeof totalDebit !== "string" || typeof quoteExpiresAt !== "string"
+          || (quoteExpiryMode !== "TIMESTAMP" && quoteExpiryMode !== "BLOCK_NUMBER")
+          || (quoteExpiryMode === "BLOCK_NUMBER" && (typeof quoteExpiresAtBlock !== "number"
+            || !Number.isSafeInteger(quoteExpiresAtBlock) || quoteExpiresAtBlock < 0))
           || !Array.isArray(feeItems) || !/^\d+$/.test(selectedRoute.requestedAmount)
           || usdcToBaseUnits(totalDebit) !== selectedRoute.requestedAmount
           || usdcToBaseUnits(amountReceived) !== selectedRoute.expectedReceivedAmount) {
@@ -292,6 +299,8 @@ export function LivePaymentFlow({
           totalDebit,
           feeItems: normalizedFeeItems,
           expiresAt: quoteExpiresAt,
+          quoteExpiryMode,
+          ...(quoteExpiryMode === "BLOCK_NUMBER" ? { quoteExpiresAtBlock: quoteExpiresAtBlock as number } : {}),
           gasWei: estimatedGasWei.toString(),
         });
         setStage("idle");
@@ -366,6 +375,9 @@ export function LivePaymentFlow({
             type: "circle_cctp", quote: circleQuote.quote,
             amountReceived: circleQuote.amountReceived, feeTotal: circleQuote.feeTotal,
             feeItems: circleQuote.feeItems, totalDebit: circleQuote.totalDebit,
+            quoteExpiryMode: circleQuote.quoteExpiryMode,
+            ...(circleQuote.quoteExpiryMode === "BLOCK_NUMBER"
+              ? { quoteExpiresAtBlock: circleQuote.quoteExpiresAtBlock } : {}),
           } : selectedRoute.quoteSnapshot,
           senderAddress: activeAddress,
         }),
@@ -373,7 +385,9 @@ export function LivePaymentFlow({
 
       const attemptData = await attemptRes.json();
       if (!attemptRes.ok || !attemptData.attempt?.id) {
-        throw new Error(attemptData.error || "Failed to commit payment attempt.");
+        const reason = process.env.NODE_ENV === "development" && typeof attemptData.reason === "string"
+          ? ` (${attemptData.reason})` : "";
+        throw new Error(`${attemptData.error || "Failed to commit payment attempt."}${reason}`);
       }
 
       const currentAttemptId = attemptData.attempt.id as string;

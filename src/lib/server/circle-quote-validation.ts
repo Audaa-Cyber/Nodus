@@ -31,10 +31,12 @@ async function postCircleJson(url: string, body: Record<string, unknown>): Promi
 
 export class CircleQuoteValidationError extends Error {
   readonly code: "invalid" | "unavailable";
+  readonly reason?: string;
 
-  constructor(code: "invalid" | "unavailable") {
+  constructor(code: "invalid" | "unavailable", reason?: string) {
     super(`circle_quote_${code}`);
     this.code = code;
+    this.reason = reason;
   }
 }
 
@@ -48,7 +50,13 @@ export type CircleQuoteValidationInput = {
   feeTotal: string;
   feeItems: Array<{ type: string; amount: string }>;
   expiresAt: string;
+  expiryMode: "TIMESTAMP" | "BLOCK_NUMBER";
+  expiresAtBlock?: number;
 };
+
+type CircleQuoteExpiry =
+  | { mode: "TIMESTAMP"; expiresAt: number }
+  | { mode: "BLOCK_NUMBER"; expiresAtBlock: number; blockEstimatedAt: number };
 
 export type CircleReceiveExactQuote = {
   quote: string;
@@ -57,6 +65,8 @@ export type CircleReceiveExactQuote = {
   totalDebit: string;
   feeItems: Array<{ type: string; amount: string }>;
   expiresAt: string;
+  expiryMode: CircleQuoteExpiry["mode"];
+  expiresAtBlock?: number;
 };
 
 export function circleFeeQuoteRequest(input: {
@@ -111,11 +121,23 @@ export async function fetchCircleReceiveExactQuote(input: {
     ? BigInt(result.feeTotalAmount) : null;
   const items = Array.isArray(result.items) ? result.items : null;
   const expiry = result.expiry as Record<string, unknown> | undefined;
+  let expiresAtSeconds: number | null = null;
+  let expiryMode: CircleQuoteExpiry["mode"] | null = null;
+  let expiresAtBlock: number | undefined;
+  if (expiry?.mode === "TIMESTAMP" && typeof expiry.expiresAt === "number" && Number.isInteger(expiry.expiresAt)) {
+    expiryMode = "TIMESTAMP";
+    expiresAtSeconds = expiry.expiresAt;
+  } else if (expiry?.mode === "BLOCK_NUMBER"
+    && typeof expiry.expiresAtBlock === "number" && Number.isInteger(expiry.expiresAtBlock)
+    && typeof expiry.blockEstimatedAt === "number" && Number.isInteger(expiry.blockEstimatedAt)) {
+    expiryMode = "BLOCK_NUMBER";
+    expiresAtSeconds = expiry.blockEstimatedAt;
+    expiresAtBlock = expiry.expiresAtBlock;
+  }
   if (typeof result.signedQuote !== "string" || !/^0x(?:[0-9a-fA-F]{2})+$/.test(result.signedQuote)
     || typeof result.feeToken !== "string" || result.feeToken.toLowerCase() !== input.source.usdcAddress.toLowerCase()
-    || feeTotal === null || !items || !expiry || expiry.mode !== "TIMESTAMP"
-    || typeof expiry.expiresAt !== "number" || !Number.isInteger(expiry.expiresAt)
-    || expiry.expiresAt * 1000 <= Date.now() + QUOTE_SAFETY_WINDOW_SECONDS * 1000) {
+    || feeTotal === null || !items || expiresAtSeconds === null || expiryMode === null
+    || expiresAtSeconds * 1000 <= Date.now() + QUOTE_SAFETY_WINDOW_SECONDS * 1000) {
     throw new CircleQuoteValidationError("invalid");
   }
 
@@ -140,7 +162,9 @@ export async function fetchCircleReceiveExactQuote(input: {
     feeTotal: unitsToUsdc(feeTotal),
     totalDebit: unitsToUsdc(amountReceived + feeTotal),
     feeItems,
-    expiresAt: new Date(expiry.expiresAt * 1000).toISOString(),
+    expiresAt: new Date(expiresAtSeconds * 1000).toISOString(),
+    expiryMode,
+    ...(expiresAtBlock !== undefined ? { expiresAtBlock } : {}),
   };
 }
 
@@ -222,15 +246,37 @@ export async function validateCircleSignedQuote(input: CircleQuoteValidationInpu
 
   const expiry = result.expiry as Record<string, unknown> | undefined;
   const expectedExpiry = Date.parse(input.expiresAt);
-  if (result.claimable !== true || !Array.isArray(result.failedChecks) || result.failedChecks.length !== 0
-    || typeof result.signedQuote !== "string" || result.signedQuote.toLowerCase() !== input.quote.toLowerCase()
-    || typeof result.feeToken !== "string" || result.feeToken.toLowerCase() !== input.source.usdcAddress.toLowerCase()
-    || result.feeTotalAmount !== circleUsdcToBaseUnits(input.feeTotal)
-    || !expiry || expiry.mode !== "TIMESTAMP" || expiry.expired !== false
-    || typeof expiry.expiresAt !== "number" || !Number.isInteger(expiry.expiresAt)
-    || !Number.isFinite(expectedExpiry) || expectedExpiry !== expiry.expiresAt * 1000
-    || typeof expiry.secondsRemaining !== "number" || expiry.secondsRemaining <= QUOTE_SAFETY_WINDOW_SECONDS
-    || !feeItemsMatch(input.feeItems, result.items)) {
-    throw new CircleQuoteValidationError("invalid");
+  if (result.claimable !== true) throw new CircleQuoteValidationError("invalid", "circle_quote_not_claimable");
+  if (!Array.isArray(result.failedChecks) || result.failedChecks.length !== 0) {
+    throw new CircleQuoteValidationError("invalid", "circle_quote_failed_checks");
+  }
+  if (typeof result.signedQuote !== "string" || result.signedQuote.toLowerCase() !== input.quote.toLowerCase()) {
+    throw new CircleQuoteValidationError("invalid", "circle_signed_quote_mismatch");
+  }
+  if (typeof result.feeToken !== "string" || result.feeToken.toLowerCase() !== input.source.usdcAddress.toLowerCase()) {
+    throw new CircleQuoteValidationError("invalid", "circle_fee_token_mismatch");
+  }
+  if (result.feeTotalAmount !== circleUsdcToBaseUnits(input.feeTotal)) {
+    throw new CircleQuoteValidationError("invalid", "circle_fee_total_mismatch");
+  }
+  if (!expiry || expiry.expired !== false) throw new CircleQuoteValidationError("invalid", "circle_quote_expired");
+  if (input.expiryMode === "TIMESTAMP") {
+    if (expiry.mode !== "TIMESTAMP") throw new CircleQuoteValidationError("invalid", "circle_quote_expiry_mode_mismatch");
+    if (typeof expiry.expiresAt !== "number" || !Number.isInteger(expiry.expiresAt)
+      || !Number.isFinite(expectedExpiry) || expectedExpiry !== expiry.expiresAt * 1000) {
+      throw new CircleQuoteValidationError("invalid", "circle_quote_expiry_timestamp_mismatch");
+    }
+  } else {
+    if (expiry.mode !== "BLOCK_NUMBER") throw new CircleQuoteValidationError("invalid", "circle_quote_expiry_mode_mismatch");
+    if (typeof expiry.expiresAtBlock !== "number" || !Number.isInteger(expiry.expiresAtBlock)
+      || expiry.expiresAtBlock !== input.expiresAtBlock) {
+      throw new CircleQuoteValidationError("invalid", "circle_quote_expiry_block_mismatch");
+    }
+  }
+  if (typeof expiry.secondsRemaining !== "number" || expiry.secondsRemaining <= QUOTE_SAFETY_WINDOW_SECONDS) {
+    throw new CircleQuoteValidationError("invalid", "circle_quote_too_close_to_expiry");
+  }
+  if (!feeItemsMatch(input.feeItems, result.items)) {
+    throw new CircleQuoteValidationError("invalid", "circle_fee_items_mismatch");
   }
 }

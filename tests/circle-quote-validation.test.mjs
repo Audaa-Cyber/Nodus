@@ -7,6 +7,7 @@ const {
   circleQuoteValidationRequest,
   validateCircleSignedQuote,
   fetchCircleReceiveExactQuote,
+  CircleQuoteValidationError,
 } = await import("../src/lib/server/circle-quote-validation.ts");
 
 const source = {
@@ -45,6 +46,7 @@ test("quote validation binds signed quote to exact amount, domains, merchant, fe
   const result = circleQuoteValidationRequest({
     source, destination, payer, recipient, amountBaseUnits: "25000000", quote: signedQuote,
     feeTotal: "0.01", feeItems: [{ type: "FORWARD", amount: "0.01" }], expiresAt,
+    expiryMode: "TIMESTAMP",
   });
   assert.equal(result.url, "https://iris-api-sandbox.circle.com/v2/quote/validate/usdc/6");
   assert.deepEqual(result.body.args, [
@@ -76,6 +78,7 @@ test("server accepts only a Circle validated quote with matching fees and expiry
     await validateCircleSignedQuote({
       source, destination, payer, recipient, amountBaseUnits: "25000000", quote: signedQuote,
       feeTotal: "0.01", feeItems: [{ type: "FORWARD", amount: "0.01" }], expiresAt,
+      expiryMode: "TIMESTAMP",
     });
     assert.equal(requestBody.args[0], "25000000");
   } finally {
@@ -98,6 +101,7 @@ test("quote validation rejects provider response terms that differ from the invo
     await assert.rejects(() => validateCircleSignedQuote({
       source, destination, payer, recipient, amountBaseUnits: "25000000", quote: signedQuote,
       feeTotal: "0.01", feeItems: [{ type: "FORWARD", amount: "0.01" }], expiresAt,
+      expiryMode: "TIMESTAMP",
     }), /circle_quote_invalid/);
   } finally {
     globalThis.fetch = originalFetch;
@@ -122,6 +126,79 @@ test("server quote parsing derives debit and fees from Circle response only", as
       totalDebit: "25.0125",
       feeItems: [{ type: "FORWARD", amount: "0.0125" }],
       expiresAt,
+      expiryMode: "TIMESTAMP",
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("server accepts block-number quotes and preserves the authoritative expiry block", async () => {
+  const originalFetch = globalThis.fetch;
+  const estimatedExpiry = 1_900_000_000;
+  const expiresAtBlock = 12_345_678;
+  globalThis.fetch = async () => Response.json({
+    signedQuote,
+    feeToken: source.usdcAddress,
+    feeTotalAmount: "12500",
+    expiry: { mode: "BLOCK_NUMBER", expiresAtBlock, blockEstimatedAt: estimatedExpiry },
+    items: [{ type: "FORWARD", amount: "12500" }],
+  });
+  try {
+    const quote = await fetchCircleReceiveExactQuote({ source, destination, amountBaseUnits: "25000000" });
+    assert.equal(quote.expiryMode, "BLOCK_NUMBER");
+    assert.equal(quote.expiresAtBlock, expiresAtBlock);
+    assert.equal(quote.expiresAt, new Date(estimatedExpiry * 1000).toISOString());
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("server validates block-number expiry against Circle's authoritative block", async () => {
+  const originalFetch = globalThis.fetch;
+  const expiresAtBlock = 12_345_678;
+  globalThis.fetch = async () => Response.json({
+    signedQuote,
+    claimable: true,
+    failedChecks: [],
+    feeToken: source.usdcAddress,
+    feeTotalAmount: "10000",
+    expiry: { mode: "BLOCK_NUMBER", expired: false, secondsRemaining: 120, expiresAtBlock, blockEstimatedAt: Date.parse(expiresAt) / 1000 + 15 },
+    items: [{ type: "FORWARD", argsMatch: true, amount: "10000" }],
+  });
+  const input = {
+    source, destination, payer, recipient, amountBaseUnits: "25000000", quote: signedQuote,
+    feeTotal: "0.01", feeItems: [{ type: "FORWARD", amount: "0.01" }], expiresAt,
+    expiryMode: "BLOCK_NUMBER", expiresAtBlock,
+  };
+  try {
+    await validateCircleSignedQuote(input);
+    await assert.rejects(() => validateCircleSignedQuote({ ...input, expiresAtBlock: expiresAtBlock + 1 }), /circle_quote_invalid/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("Circle quote validation preserves a safe rejection reason for development diagnostics", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => Response.json({
+    signedQuote,
+    claimable: false,
+    failedChecks: ["expired"],
+    feeToken: source.usdcAddress,
+    feeTotalAmount: "10000",
+    expiry: { mode: "BLOCK_NUMBER", expired: true, secondsRemaining: 0, expiresAtBlock: 12_345_678 },
+    items: [{ type: "FORWARD", argsMatch: true, amount: "10000" }],
+  });
+  try {
+    await assert.rejects(() => validateCircleSignedQuote({
+      source, destination, payer, recipient, amountBaseUnits: "25000000", quote: signedQuote,
+      feeTotal: "0.01", feeItems: [{ type: "FORWARD", amount: "0.01" }], expiresAt,
+      expiryMode: "BLOCK_NUMBER", expiresAtBlock: 12_345_678,
+    }), (error) => {
+      assert.ok(error instanceof CircleQuoteValidationError);
+      assert.equal(error.reason, "circle_quote_not_claimable");
+      return true;
     });
   } finally {
     globalThis.fetch = originalFetch;

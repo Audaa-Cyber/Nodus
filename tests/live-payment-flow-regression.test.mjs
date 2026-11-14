@@ -59,3 +59,12 @@ test("Circle checkout uses the server quote and estimates source gas for the sel
   assert.doesNotMatch(flow, /kit\.estimateBridge/);
   assert.match(flow, /Estimated \{getWalletNetwork\(selectedRoute\.sourceNetwork\)/);
 });
+
+test("Circle quote expiry metadata survives checkout preparation and reaches attempt validation", () => {
+  assert.match(flow, /const quoteExpiryMode = quoteSnapshot\.quoteExpiryMode/);
+  assert.match(flow, /const quoteExpiresAtBlock = quoteSnapshot\.quoteExpiresAtBlock/);
+  assert.match(flow, /quoteExpiryMode,\s*\.\.\.\(quoteExpiryMode === "BLOCK_NUMBER" \? \{ quoteExpiresAtBlock: quoteExpiresAtBlock as number \} : \{\}\)/);
+  assert.match(flow, /quoteExpiryMode: circleQuote\.quoteExpiryMode/);
+  assert.match(flow, /quoteExpiresAtBlock: circleQuote\.quoteExpiresAtBlock/);
+  assert.match(flow, /process\.env\.NODE_ENV === "development" && typeof attemptData\.reason === "string"/);
+});
