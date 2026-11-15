@@ -8,6 +8,11 @@ node_modules
 out
 build
 dist
+.vercel
+
+# Rust build outputs
+target/
+target-near-test/
 
 # Environment variables & secrets (STRICT SECURITY: Never commit secrets)
 .env
@@ -36,7 +41,3 @@ yarn-error.log*
 .playwright-mcp/
 .snapshots/
 supabase/.temp/
-
-
-.vercel
-.env*

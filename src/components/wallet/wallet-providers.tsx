@@ -4,6 +4,7 @@ import { useState, type ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createConfig, http, WagmiProvider } from "wagmi";
 import { injected } from "wagmi/connectors/injected";
+import { walletConnect } from "wagmi/connectors/walletConnect";
 import {
   arbitrum,
   arbitrumSepoliaChain,
@@ -25,8 +26,24 @@ import { ClientProvider } from "@solana/react";
 
 const evmConfig = createConfig({
   chains: evmWalletChains,
-  connectors: [injected()],
-  multiInjectedProviderDiscovery: true,
+  connectors: [
+    injected({ target: "metaMask" }),
+    injected({ target: { id: "rabby", name: "Rabby Wallet", provider: "isRabby" } }),
+    injected({ target: "coinbaseWallet" }),
+    ...(process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID
+      ? [walletConnect({
+          projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID,
+          showQrModal: false,
+          metadata: {
+            name: "NODUS",
+            description: "NODUS invoice checkout",
+            url: process.env.NEXT_PUBLIC_APP_URL ?? "https://localhost",
+            icons: [],
+          },
+        })]
+      : []),
+  ],
+  multiInjectedProviderDiscovery: false,
   transports: {
     [mainnet.id]: http(),
     [arbitrum.id]: http(),

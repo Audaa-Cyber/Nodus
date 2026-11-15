@@ -15,20 +15,25 @@ export default function InvoiceSharePanel({ invoiceId, shareState, expiresAt, ca
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
+  const [showUrl, setShowUrl] = useState(false);
   const qrFrame = useRef<HTMLDivElement>(null);
 
   async function generateLink() {
     setPending(true);
     setError("");
     setNotice("");
+    setShowUrl(false);
     try {
       const result = await generateInvoiceShareLinkAction(invoiceId);
       if (result.error) setError(result.error);
       else if (result.url) {
+        const replacedExistingLink = currentShareState === "active";
         setUrl(result.url);
         setCurrentShareState("active");
         setCurrentExpiry(result.expiresAt ?? null);
-        setNotice("A new share link is ready. Any previous link has been replaced.");
+        setNotice(replacedExistingLink
+          ? "QR code ready. The previous share link has been replaced."
+          : "QR code and share link are ready.");
       }
     } catch {
       setError("A share link could not be created. Please try again.");
@@ -46,6 +51,7 @@ export default function InvoiceSharePanel({ invoiceId, shareState, expiresAt, ca
       if (result.error) setError(result.error);
       else {
         setUrl("");
+        setShowUrl(false);
         setCurrentShareState("none");
         setCurrentExpiry(null);
         setNotice(result.success ?? "Share link revoked.");
@@ -63,7 +69,8 @@ export default function InvoiceSharePanel({ invoiceId, shareState, expiresAt, ca
       setNotice("Invoice link copied.");
       setError("");
     } catch {
-      setError("Copy is unavailable in this browser. Select and copy the link below.");
+      setShowUrl(true);
+      setError("Copy is unavailable in this browser. The link is shown below for manual copying.");
     }
   }
 
@@ -93,14 +100,14 @@ export default function InvoiceSharePanel({ invoiceId, shareState, expiresAt, ca
     <div className="share-actions">
       <button className="button button-dark" type="button" onClick={generateLink} disabled={pending || !canShare}>
         {pending && <span className="button-spinner" aria-hidden="true" />}
-        {pending ? "Working…" : url || currentShareState === "active" ? "Generate replacement link" : "Generate share link"}
+        {pending ? "Working…" : url || currentShareState === "active" ? "Generate replacement link" : "Generate QR code"}
       </button>
       {currentShareState === "active" && !url && <button className="button button-outline" type="button" onClick={revokeLink} disabled={pending}>Revoke current link</button>}
     </div>
     {url && <div className="share-result">
-      <label className="business-form share-url-field"><span>Public invoice URL</span><input value={url} readOnly onFocus={(event) => event.currentTarget.select()} aria-label="Public invoice URL" /></label>
-      <div className="share-actions"><button className="button button-outline" type="button" onClick={copyLink}>Copy link</button><a className="button button-outline" href={url} target="_blank" rel="noopener noreferrer">Open public page</a><button className="button button-outline" type="button" onClick={downloadQr}>Download QR</button><button className="button button-outline" type="button" onClick={revokeLink} disabled={pending}>Revoke link</button></div>
       <div className="share-qr-wrap"><div className="share-qr" ref={qrFrame}><QRCodeSVG value={url} size={224} level="M" marginSize={4} title="QR code for the public invoice page" /></div><p>Scan to open this invoice on a phone. Link expires in one year.</p></div>
+      <div className="share-actions"><button className="button button-outline" type="button" onClick={copyLink}>Copy link</button><a className="button button-outline" href={url} target="_blank" rel="noopener noreferrer">Open public page</a><button className="button button-outline" type="button" onClick={downloadQr}>Download QR</button><button className="button button-outline" type="button" onClick={revokeLink} disabled={pending}>Revoke link</button></div>
+      {showUrl && <label className="business-form share-url-field"><span>Public invoice URL</span><input value={url} readOnly onFocus={(event) => event.currentTarget.select()} aria-label="Public invoice URL" /></label>}
     </div>}
   </section>;
 }

@@ -7,6 +7,8 @@ import { LogoutButton } from "@/components/logout-button";
 import { DashboardNav } from "@/components/dashboard-nav";
 import { DashboardSidebar } from "@/components/dashboard-sidebar";
 import { DashboardShellEffects } from "@/components/dashboard-shell-effects";
+import { DashboardHeader } from "@/components/dashboard-header";
+import { InvoiceRealtimeProvider } from "@/components/invoice-realtime-provider";
 
 async function SidebarBusiness() {
   const { business } = await getBusinessContext();
@@ -29,9 +31,10 @@ function SidebarBusinessFallback() {
 export default async function DashboardLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const user = await getVerifiedUser();
   if (!user) redirect("/login?next=/dashboard");
+  const { business } = await getBusinessContext();
 
   return (
-    <div className="dashboard-executive bg-grid selection:bg-slate-800 selection:text-white min-h-screen relative overflow-x-hidden">
+    <div className="dashboard-executive bg-grid selection:bg-slate-800 selection:text-white min-h-screen relative overflow-x-clip">
       <DashboardShellEffects>
         <div className="dashboard-app-shell relative z-10 min-h-screen">
           <DashboardSidebar>
@@ -60,9 +63,12 @@ export default async function DashboardLayout({ children }: Readonly<{ children:
           </aside>
           </DashboardSidebar>
           <main className="dashboard-main min-w-0">
-            <div className="dashboard-content">
-              {children}
-            </div>
+            <InvoiceRealtimeProvider businessId={business?.id}>
+              <div className="dashboard-content">
+                <DashboardHeader recipientUserId={user.id} userEmail={user.email} />
+                {children}
+              </div>
+            </InvoiceRealtimeProvider>
           </main>
         </div>
       </DashboardShellEffects>

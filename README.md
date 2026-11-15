@@ -1,40 +1,44 @@
 # Nodus
 
-Nodus is a QR-based business billing and stablecoin checkout concept. Restaurants create an itemized bill, customers scan a QR code and review the amount before authorizing payment, and the platform verifies settlement before marking the bill paid and making a digital receipt available.
+Nodus is a web app for business invoices and stablecoin checkout. Businesses create invoices and share public links or QR codes. Customers can use supported wallets and payment routes; the server verifies settlement before marking an invoice paid. The landing page's payment preview is simulated.
 
-## Getting started
+## Local setup
 
-```bash
-npm install
-npm run dev
-```
+You need Node.js, npm, and a Supabase project.
 
-Open http://localhost:3000.
+1. Install the locked dependencies with `npm ci`.
+2. Copy `.env.example` to `.env.local` and set `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, and `NEXT_PUBLIC_APP_URL` for your local app.
+3. Apply the migrations in `supabase/migrations/` to a development Supabase project using your normal migration workflow.
+4. Set the Supabase Auth site URL and allow the redirect URL `<NEXT_PUBLIC_APP_URL>/auth/callback`. To use Google sign-in, configure Google as a Supabase Auth provider and add its OAuth credentials there.
+5. Start the app with `npm run dev` and open `http://localhost:3000`.
 
-## Satin Ridges
+`SUPABASE_SERVICE_ROLE_KEY` is used by privileged server operations and must remain server-side. The example sets `PAYMENT_MODE=mock`; live checkout also needs the server-side network RPC and confirmation settings described in `.env.example`. Circle wallet and NEAR outbox settings are only needed when using those integrations.
 
-The landing page uses an original WebGL satin-fabric background in `src/components/satin-ridges.tsx`. It is implemented in this repository and has no third-party component registry, license key, authorization header, or paid dependency.
+## Using Nodus
 
-The component exposes the full configuration surface: colors, backgroundColor, angle, scale, depth, warp, detail, gloss, highlight, sheen, lightAngle, flow, speed, interactive, swell, swellRadius, clickRipples, seed, paused, dpr, className, style, and children.
+Create an account, complete the business profile, then create and issue an invoice. Share its public link or QR code with the customer. Available checkout methods depend on the invoice and configured payment routes. Mock mode is for demonstration; live payment handling verifies settlement before changing invoice status.
 
-## Business dashboard setup
+NEAR invoice registration and eligible settlement attestations use the testnet registry and durable outboxes. PostgreSQL remains the application source of truth. See [NEAR settlement outbox](docs/NEAR-SETTLEMENT-OUTBOX.md) and the [payment registry](contracts/payment-registry/README.md).
 
-The business dashboard uses Supabase Auth and the public anon key with owner-scoped Row Level Security. No service-role key is required by the application.
+## Commands
 
-1. Create a Supabase project and copy `.env.example` to `.env.local`.
-2. Set `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and `NEXT_PUBLIC_APP_URL` to the project's values and local app URL.
-3. Apply the migrations in `supabase/migrations/` using the Supabase CLI or SQL editor.
-4. In Supabase Auth, configure the site's URL and add `<NEXT_PUBLIC_APP_URL>/auth/callback` to the allowed redirect URLs. Enable email confirmation if desired.
-5. Run `npm run dev`, then create an account at `/register`.
+| Command | Purpose |
+| --- | --- |
+| `npm run dev` | Start the Next.js development server |
+| `npm run build` | Create a production build |
+| `npm start` | Serve a production build |
+| `npm run lint` | Run ESLint |
+| `npm run test:http-route` | Run the HTTP route tests |
+| `npm run test:payments` | Run the payment and integration test files |
 
-## Customer wallet preview
+## Repository layout
 
-Public open and overdue invoices connect to injected EVM wallets discovered through EIP-6963, including MetaMask, Rabby, and other compatible wallets. Supported EVM networks include Ethereum, Arbitrum, Base, Optimism, Polygon, BNB Smart Chain, and Avalanche. The public `/api/wallet/assets` endpoint returns the supported payment tokens across wallet adapters and networks. A listed asset is not a guaranteed route; checkout requests a live quote for the configured invoice destination.
+- `src/app/` — pages, server actions, and API routes
+- `src/components/` — shared interface components
+- `src/lib/` — authentication, payment, and service code
+- `supabase/migrations/` — database schema, RLS policies, functions, and triggers
+- `contracts/payment-registry/` — NEAR payment registry contract and deployment record
+- `tests/` — application tests
+- `docs/` — operational and project documentation
 
-EVM connection uses installed browser wallet providers; on mobile, customers can use a supported wallet's in-app browser. `NEXT_PUBLIC_SOLANA_RPC_URL` optionally selects a managed Solana Mainnet RPC endpoint; otherwise the public Mainnet endpoint is used. Wallet addresses are kept in browser wallet state and are not saved to Supabase. This phase does not request quotes, sign or send transactions, or move funds.
-
-Invoices store amounts as integer minor units (two decimal places) and currency codes separately. A newly issued invoice is Open. Overdue is displayed when an Open invoice's due date has passed. Business owners can issue one-year public invoice links and QR codes; only token hashes are stored. The public page displays invoice details and status, but does not process payments or provide a way to mark an invoice Paid; only verified settlement in a later phase may do that.
-
-## Product scope
-
-The product includes the marketing landing page, business invoice management, public invoice detail pages, and a customer wallet and asset-selection preview. Cross-chain route quote creation, payment execution, and receipts remain out of scope for this phase. The landing-page payment preview remains simulated and does not move funds.
+See [documentation index](docs/README.md) for the project guides and [security policy](SECURITY.md) for credential handling and vulnerability reporting.

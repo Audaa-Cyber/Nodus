@@ -44,7 +44,7 @@ export function DashboardNav() {
       </div>
       <div className="sidebar-nav-note">
         <span className="sidebar-nav-note-mark" aria-hidden="true">N</span>
-        <span><strong>Payments, in order.</strong><small>Invoices and settlement in one place.</small></span>
+        <span><strong>Payments, in order.</strong></span>
       </div>
     </nav>
   );

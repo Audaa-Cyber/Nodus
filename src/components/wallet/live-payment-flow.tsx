@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAccount, useSendTransaction, useSwitchChain } from "wagmi";
 import { formatMoney } from "@/lib/invoices";
+import { createIdempotencyKey } from "@/lib/idempotency-key";
 import { evmWalletChains, getWalletNetwork } from "@/lib/wallet/networks";
+import { isMobileWalletBrowser, setWalletConnectSessionDefaultChain } from "@/lib/wallet/rabby-mobile-handoff";
 import { createPublicClient, custom, formatEther, http, parseAbi } from "viem";
 import { executeCircleBridgeAfterFreshReservation } from "@/lib/payments/circle-execution-reservation";
 import { estimateCircleSourceGas, CIRCLE_TESTNET_TOKEN_MESSENGER_WITH_FEES } from "@/lib/payments/circle-gas-estimation";
@@ -20,7 +22,7 @@ interface LivePaymentFlowProps {
   currency: string;
   selectedAsset: WalletAsset | null;
   activeAddress: string | null;
-  onPaymentSuccess?: () => void;
+  onPaymentSuccess?: (receipts?: Array<{ receipt_number: string; issued_at: string; [key: string]: unknown }>) => void;
 }
 
 const CHAIN_ID_TO_BLOCKCHAIN: Record<number, string> = {
@@ -215,7 +217,10 @@ export function LivePaymentFlow({
         if (!sourceNetwork || !sourceChain || !selectedAsset.contractAddress) {
           throw new Error("The selected source network is not configured for Circle USDC bridging.");
         }
-        if (evmChainId !== sourceChain.id) {
+        const walletConnectChainAligned = connector.id === "walletConnect" && isMobileWalletBrowser()
+          ? await setWalletConnectSessionDefaultChain(connector, sourceChain.id, activeAddress)
+          : false;
+        if (evmChainId !== sourceChain.id && !walletConnectChainAligned) {
           setStatusMessage(`Switch to ${sourceNetwork.label} to check the source wallet balance.`);
           await switchChainAsync({ chainId: sourceChain.id });
         }
@@ -348,8 +353,13 @@ export function LivePaymentFlow({
       const targetChainId = sourceNetworkObj?.chainId;
 
       if (targetChainId && evmChainId !== targetChainId) {
-        setStatusMessage(`Please switch your wallet to ${sourceNetworkObj.label}…`);
-        await switchChainAsync({ chainId: targetChainId });
+        const walletConnectChainAligned = connector?.id === "walletConnect" && isMobileWalletBrowser()
+          ? await setWalletConnectSessionDefaultChain(connector, targetChainId, activeAddress)
+          : false;
+        if (!walletConnectChainAligned) {
+          setStatusMessage(`Please switch your wallet to ${sourceNetworkObj.label}…`);
+          await switchChainAsync({ chainId: targetChainId, ...(connector ? { connector } : {}) });
+        }
       }
 
       // Step B: Create committed payment attempt in Supabase
@@ -358,7 +368,7 @@ export function LivePaymentFlow({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          idempotencyKey: crypto.randomUUID(),
+          idempotencyKey: createIdempotencyKey(),
           sourceAssetId: selectedRoute.sourceAssetId,
           sourceNetwork: selectedRoute.sourceNetwork,
           destinationAssetId: selectedRoute.destinationAssetId,
@@ -722,7 +732,7 @@ export function LivePaymentFlow({
           if (Array.isArray(data.receipts) && data.receipts.length > 0) {
             setDestinationReceipts(data.receipts);
           }
-          onPaymentSuccess?.();
+          onPaymentSuccess?.(data.receipts);
         } else if (data.attempt?.status === "FAILED") {
           clearInterval(interval);
           window.localStorage.removeItem(`nodus:live-attempt:${shareToken}`);

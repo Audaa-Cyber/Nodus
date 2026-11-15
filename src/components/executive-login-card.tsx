@@ -55,6 +55,10 @@ export function ExecutiveLoginCard({ initialMode = "signin" }: { initialMode?: "
       ? { message: "Authentication link expired or was already used. Please sign in again.", type: "error" }
       : errorParam === "auth_failed"
       ? { message: "Sign-in could not be completed. Please try again.", type: "error" }
+      : errorParam === "oauth_cancelled"
+      ? { message: "Google sign-in was cancelled. You can try again or use email and password.", type: "info" }
+      : errorParam === "oauth_failed"
+      ? { message: "Google sign-in could not be completed. Please try again or use email and password.", type: "error" }
       : null
   );
 
@@ -162,7 +166,7 @@ export function ExecutiveLoginCard({ initialMode = "signin" }: { initialMode?: "
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(next)}`,
+          redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(next)}&mode=${isSignUp ? "signup" : "signin"}&flow=oauth`,
           queryParams: { prompt: "select_account" },
         },
       });
@@ -193,7 +197,7 @@ export function ExecutiveLoginCard({ initialMode = "signin" }: { initialMode?: "
       return;
     }
     if (isSignUp && !fullName.trim()) {
-      showStatus("Enter your name to create an account.", "error");
+      showStatus("Enter your business name to create an account.", "error");
       return;
     }
 
@@ -292,7 +296,7 @@ export function ExecutiveLoginCard({ initialMode = "signin" }: { initialMode?: "
                     className="premium-input"
                     required
                   />
-                  <label htmlFor="fullNameInput" className="floating-label">Full name</label>
+                  <label htmlFor="fullNameInput" className="floating-label">Business name</label>
                 </div>
               )}
 
@@ -358,24 +362,24 @@ export function ExecutiveLoginCard({ initialMode = "signin" }: { initialMode?: "
 
               <button
                 type="submit"
-                disabled={isPending}
+                disabled={isPending || isGoogleLoading}
                 className="btn-primary w-full py-2.5 px-4 rounded-xl font-semibold text-xs flex items-center justify-center gap-2 shadow-sm disabled:opacity-60"
               >
                 {isPending ? "Please wait…" : isSignUp ? "Create account" : "Sign in"}
               </button>
             </form>
 
-            {!isSignUp && (
-              <div className="relative z-10 mt-4">
+            <div className="relative z-10 mt-4">
                 <div className="flex items-center gap-3 mb-3 text-[10px] uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
                   <span className="flex-1 border-t" style={{ borderColor: "var(--card-border)" }} />
-                  <span>Or continue with</span>
+                  <span>{isSignUp ? "Or sign up with" : "Or continue with"}</span>
                   <span className="flex-1 border-t" style={{ borderColor: "var(--card-border)" }} />
                 </div>
                 <button
                   type="button"
                   onClick={handleSocialAuth}
                   disabled={isPending || isGoogleLoading}
+                  aria-busy={isGoogleLoading}
                   className="social-btn w-full py-2 px-3 rounded-xl flex items-center justify-center gap-2 text-xs font-medium transition-all disabled:opacity-60 cursor-pointer disabled:cursor-not-allowed"
                   style={{ background: "var(--input-bg)", border: "1px solid var(--card-border)", color: "var(--text-primary)" }}
                 >
@@ -399,8 +403,7 @@ export function ExecutiveLoginCard({ initialMode = "signin" }: { initialMode?: "
                     </>
                   )}
                 </button>
-              </div>
-            )}
+            </div>
 
             <footer className="relative z-10 mt-4 text-center text-[10px]" style={{ color: "var(--text-muted)" }}>
               <Link href="/" className="hover:underline">Back to Nodus</Link>

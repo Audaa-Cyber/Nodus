@@ -1,8 +1,11 @@
 import Link from "next/link";
+import Image from "next/image";
 import { notFound, redirect } from "next/navigation";
 import CancelInvoiceForm from "@/components/cancel-invoice-form";
 import InvoiceSharePanel from "@/components/invoice-share-panel";
 import InvoicePrintButton from "@/components/invoice-print-button";
+import { PaidInvoiceDetailView } from "@/components/paid-invoice-detail-view";
+import { InvoiceDetailLiveSync } from "@/components/invoice-detail-live-sync";
 import { retryNearInvoiceRegistrationAction } from "@/app/actions/invoices";
 import { getBusinessContext } from "@/lib/auth/business-context";
 import { effectiveStatus, formatMoney, formatUtcDate } from "@/lib/invoices";
@@ -217,11 +220,42 @@ export default async function InvoiceDetailPage({
       ? primaryAttempt.transaction_hash
       : null;
 
+  if (isPaid) {
+    return (
+      <div className="dashboard-content narrow-content">
+        <PaidInvoiceDetailView
+          invoice={invoice}
+          seller={{
+            business_name: invoiceSellerName,
+            logo_url: invoiceSellerLogo,
+            phone: invoiceSellerPhone,
+            address: invoiceSellerAddress,
+            website: invoiceSellerWebsite,
+            tax_id: invoiceSellerTaxId,
+            email: typeof sellerSnapshot.email === "string" ? sellerSnapshot.email : business.email,
+            invoice_footer: invoiceSellerFooter,
+            receiving_address: business.receiving_address,
+          }}
+          primaryReceipt={primaryReceipt}
+          primarySettlement={primarySettlement}
+          primaryAttempt={primaryAttempt}
+          primaryNearEntry={primaryNearEntry}
+          nearOutboxError={!!nearOutboxError}
+          nearInvoiceRegistration={nearInvoiceRegistration}
+          receipts={receipts}
+          settlements={settlements}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="dashboard-content narrow-content">
       <Link className="back-link" href="/dashboard/invoices">
         ← Back to invoices
       </Link>
+
+      <InvoiceDetailLiveSync invoiceId={invoice.id} currentStatus={invoice.status} />
 
       <header className="detail-heading">
         <div>
@@ -252,7 +286,7 @@ export default async function InvoiceDetailPage({
 
       {/* Invoice details */}
       <section className="invoice-detail-sheet invoice-print-sheet">
-        <header style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:20,borderBottom:"1px solid var(--card-border)",paddingBottom:20,marginBottom:20}}>{invoiceSellerLogo ? <img src={invoiceSellerLogo} alt="" style={{maxWidth:150,maxHeight:64,objectFit:"contain",objectPosition:"left"}} /> : <strong style={{fontSize:20}}>{invoiceSellerName}</strong>}<div style={{textAlign:"right"}}><span className="eyebrow">INVOICE</span><div style={{fontSize:18,fontWeight:600}}>{invoice.invoice_number}</div><div style={{fontSize:12,color:"var(--text-secondary)"}}>Issued {formatUtcDate(invoice.issue_date)}</div>{invoice.due_date&&<div style={{fontSize:12,color:"var(--text-secondary)"}}>Due {formatUtcDate(invoice.due_date)}</div>}</div></header>
+        <header style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:20,borderBottom:"1px solid var(--card-border)",paddingBottom:20,marginBottom:20}}>{invoiceSellerLogo ? <Image src={invoiceSellerLogo} alt="" width={150} height={64} unoptimized style={{width:"auto",height:"auto",maxWidth:150,maxHeight:64,objectFit:"contain",objectPosition:"left"}} /> : <strong style={{fontSize:20}}>{invoiceSellerName}</strong>}<div style={{textAlign:"right"}}><span className="eyebrow">INVOICE</span><div style={{fontSize:18,fontWeight:600}}>{invoice.invoice_number}</div><div style={{fontSize:12,color:"var(--text-secondary)"}}>Issued {formatUtcDate(invoice.issue_date)}</div>{invoice.due_date&&<div style={{fontSize:12,color:"var(--text-secondary)"}}>Due {formatUtcDate(invoice.due_date)}</div>}</div></header>
         <div className="detail-amount">
           <span>{isPaid ? "AMOUNT PAID" : "AMOUNT DUE"}</span>
           <strong>{formatMoney(invoice.amount_minor, invoice.currency)}</strong>

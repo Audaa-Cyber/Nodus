@@ -5,18 +5,45 @@ import path from "node:path";
 
 const read = (file) => fs.readFileSync(path.resolve(file), "utf8");
 
-test("payer checkout only offers injected EVM wallets with multi-wallet discovery", () => {
+test("payer checkout offers exactly MetaMask, Rabby, and Coinbase with mobile wallet handoff", () => {
   const checkout = read("src/components/wallet/invoice-wallet-checkout.tsx");
   const providers = read("src/components/wallet/wallet-providers.tsx");
   const walletCard = read("src/components/wallet/evm-wallet-card.tsx");
+  const idempotencyKey = read("src/lib/idempotency-key.ts");
+  const rabbyMobileHandoff = read("src/lib/wallet/rabby-mobile-handoff.ts");
 
   assert.ok(!checkout.includes("CircleGuestWalletCard"));
   assert.ok(!checkout.includes("walletMethod"));
-  assert.match(providers, /connectors:\s*\[injected\(\)\]/);
-  assert.match(providers, /multiInjectedProviderDiscovery:\s*true/);
+  assert.match(providers, /injected\(\{ target: "metaMask" \}\)/);
+  assert.match(providers, /id: "rabby", name: "Rabby Wallet", provider: "isRabby"/);
+  assert.match(providers, /injected\(\{ target: "coinbaseWallet" \}\)/);
+  assert.match(providers, /multiInjectedProviderDiscovery:\s*false/);
   assert.ok(!providers.includes("circleWalletConnector"));
-  assert.match(walletCard, /connectors\.map/);
-  assert.match(walletCard, /MetaMask, Rabby, or another injected EVM wallet/);
+  assert.match(walletCard, /id: "metaMask", name: "MetaMask"/);
+  assert.match(walletCard, /id: "rabby", name: "Rabby Wallet"/);
+  assert.match(walletCard, /id: "coinbaseWallet", name: "Coinbase Wallet"/);
+  assert.match(walletCard, /https:\/\/link\.metamask\.io\/dapp\//);
+  assert.match(walletCard, /https:\/\/go\.cb-w\.com\/dapp\?cb_url=/);
+  assert.match(walletCard, /rabby:\/\/wc\?uri=/);
+  assert.ok(!walletCard.includes("await switchChainAsync({ chainId: selectedChainId"));
+  assert.match(walletCard, /await connectAsync\(\{ connector: walletConnectConnector,/);
+  assert.match(walletCard, /window\.location\.href/);
+  assert.match(walletCard, /switchChainAsync\(\{ chainId: targetId, connector \}\)/);
+  assert.match(checkout, /switchChainAsync\(\{ chainId: targetChainId, connector: evmConnector \}\)/);
+  assert.match(checkout, /Refresh wallet network/);
+  assert.match(walletCard, /scheduleRabbyForWalletConnectRequest\(connector\.id\)/);
+  assert.match(checkout, /scheduleRabbyForWalletConnectRequest\(evmConnector\.id\)/);
+  assert.match(walletCard, /The switch request was sent, but this Rabby WalletConnect session did not approve the selected test network/);
+  assert.match(rabbyMobileHandoff, /window\.location\.assign\("rabby:\/\/"\)/);
+  assert.match(rabbyMobileHandoff, /walletConnectSessionIncludesChain/);
+  assert.match(checkout, /The switch request was sent, but this Rabby WalletConnect session did not approve the selected test network/);
+  assert.match(checkout, /idempotencyKey: createIdempotencyKey\(\)/);
+  assert.match(idempotencyKey, /cryptoApi\.getRandomValues/);
+  assert.match(checkout, /isUnsupportedEvmNetwork && \(/);
+  assert.ok(!checkout.includes("This Rabby WalletConnect session cannot switch"));
+  assert.match(walletCard, /MetaMask, Rabby, or Coinbase Wallet/);
+  assert.match(walletCard, /opens the selected wallet with this invoice/);
+  assert.match(walletCard, /is not available in this browser/);
   assert.match(walletCard, /connection was declined/i);
 });
 

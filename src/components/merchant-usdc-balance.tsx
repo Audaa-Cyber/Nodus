@@ -90,31 +90,27 @@ export default function MerchantUsdcBalance() {
     : [];
 
   return (
-    <div className="card-perspective stagger-item delay-2">
-      <div className="aether-card p-6 sm:p-7">
+    <div className="card-perspective stagger-item delay-2 min-w-0">
+      <div className="aether-card min-w-0 p-5 sm:p-7">
         <div className="top-highlight" />
         <div className="relative z-10">
-          <div className="flex items-start justify-between gap-3 mb-3">
-            <div>
+          <div className="flex min-w-0 items-start justify-between gap-3 mb-3">
+            <div className="min-w-0">
               <span className="text-[10px] font-semibold uppercase tracking-wider block" style={{ color: "var(--text-muted)" }}>
-                TOTAL RECEIVED THROUGH NODUS
+                NODUS RECEIVED
               </span>
-              <h3 className="text-base font-bold text-slate-900 mt-0.5">Verified invoice payments</h3>
             </div>
-            <div className="flex items-center gap-2">
-              {state.phase === "ok" && <span className="font-mono-code text-xs px-2.5 py-1 rounded-full font-semibold bg-emerald-500/10 text-emerald-600">Verified</span>}
-              {state.phase === "error" && <span className="font-mono-code text-xs px-2.5 py-1 rounded-full font-semibold bg-rose-500/10 text-rose-600">Unavailable</span>}
+            <div className="flex shrink-0 items-center">
               <button
                 type="button"
                 onClick={() => void fetchBalance()}
                 disabled={isRefreshing}
                 aria-label={isRefreshing ? "Refreshing NODUS received balance" : "Refresh NODUS received balance"}
                 aria-busy={isRefreshing}
-                className="w-7 h-7 rounded-full border flex items-center justify-center transition-colors hover:bg-slate-100 disabled:opacity-50"
-                style={{ borderColor: "var(--card-border)" }}
+                className="flex h-11 w-11 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-500 disabled:opacity-50 sm:h-10 sm:w-10"
                 title={isRefreshing ? "Refreshing received balance" : "Refresh received balance"}
               >
-                <svg className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin" : ""}`} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+                <svg className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
                   <path d="M13.5 2.5A6.5 6.5 0 1 1 8 1.5" strokeLinecap="round" />
                   <path d="M13.5 2.5V6h-3.5" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
@@ -133,28 +129,26 @@ export default function MerchantUsdcBalance() {
 
           {state.phase === "ok" && (
             <>
-              <p className="text-3xl font-bold tracking-tight text-slate-900 mt-1">
+              <p className="mt-1 text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
                 {formatUsdcBaseUnits(state.totalBaseUnits)} <span className="text-base font-semibold text-slate-500">USDC</span>
               </p>
               <p className="text-[11px] mt-1" style={{ color: "var(--text-muted)" }}>
-                Verified, successful NODUS invoice payments only. This is not your wallet balance.
+                Invoice payments through Nodus. Separate from wallet balance.
               </p>
               {state.refreshError && <p className="text-xs text-rose-600 mt-2" role="status">{state.refreshError}</p>}
 
-              <div className="flex items-center justify-between gap-3 mt-4 mb-2">
+              <div className="mt-4 mb-2 grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(180px,240px)] sm:items-center">
                 <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
-                  Chain breakdown
+                  By network
                 </span>
-                <label className="text-xs flex items-center gap-2" style={{ color: "var(--text-secondary)" }}>
-                  <span>View</span>
+                <label className="block min-w-0">
+                  <span className="sr-only">Filter Nodus received balance by network</span>
                   <select
-                    aria-label="Filter NODUS received balance by chain"
                     value={selectedChain}
                     onChange={(event) => setSelectedChain(event.target.value)}
-                    className="rounded-md border bg-white px-2 py-1 text-xs text-slate-700"
-                    style={{ borderColor: "var(--card-border)" }}
+                    className="nodus-input h-10 min-h-10 min-w-0 truncate py-2 text-xs"
                   >
-                    <option value="all">All chains</option>
+                    <option value="all">All networks</option>
                     {state.chains.map((chain) => (
                       <option key={chain.networkKey} value={chain.networkKey}>
                         {chain.networkLabel}{state.selectedNetwork === chain.networkKey ? " · selected" : ""}
@@ -164,23 +158,23 @@ export default function MerchantUsdcBalance() {
                 </label>
               </div>
 
-              <ul className="divide-y" style={{ borderColor: "var(--card-border)" }}>
+              <ul className="min-w-0 divide-y" style={{ borderColor: "var(--card-border)" }}>
                 {shownChains.map((chain) => (
-                  <li key={chain.networkKey} className="flex items-center justify-between py-2 text-xs">
-                    <span className="font-medium text-slate-700">{chain.networkLabel}</span>
-                    <span className="font-mono-code text-slate-900">
+                  <li key={chain.networkKey} className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-2 text-xs">
+                    <span className="min-w-0 break-words font-medium text-slate-700">{chain.networkLabel}</span>
+                    <span className="min-w-0 text-right font-mono-code text-slate-900">
                       {formatUsdcBaseUnits(chain.totalBaseUnits)} USDC
-                      <span className="ml-2 text-[10px] text-slate-500">{chain.paymentCount} payment{chain.paymentCount === 1 ? "" : "s"}</span>
+                      <span className="block text-[10px] text-slate-500">{chain.paymentCount} payment{chain.paymentCount === 1 ? "" : "s"}</span>
                     </span>
                   </li>
                 ))}
               </ul>
 
               {state.totalBaseUnits === "0" && (
-                <p className="text-[11px] mt-2" style={{ color: "var(--text-muted)" }}>No verified NODUS invoice payments have been received yet.</p>
+                <p className="text-[11px] mt-2" style={{ color: "var(--text-muted)" }}>No Nodus invoice payments received yet.</p>
               )}
               <p className="text-[10px] mt-2" style={{ color: "var(--text-muted)" }}>
-                Updated {state.fetchedAt.toLocaleTimeString()} · refreshes while this page is open.
+                Updated {state.fetchedAt.toLocaleTimeString()}
               </p>
             </>
           )}

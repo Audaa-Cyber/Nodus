@@ -9,14 +9,25 @@ import { getBusinessContext } from "@/lib/auth/business-context";
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const LINK_LIFETIME_MS = 365 * 24 * 60 * 60 * 1000;
 
+function isDevelopmentHost(hostname: string) {
+  const host = hostname.toLowerCase();
+  if (host === "localhost" || host === "127.0.0.1") return true;
+
+  const octets = host.split(".").map(Number);
+  if (octets.length !== 4 || octets.some((octet) => !Number.isInteger(octet) || octet < 0 || octet > 255)) return false;
+  return octets[0] === 10
+    || (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31)
+    || (octets[0] === 192 && octets[1] === 168);
+}
+
 async function getAppBaseUrl() {
   const configured = process.env.NEXT_PUBLIC_APP_URL?.trim();
+  let configuredDevelopmentOrigin: string | null = null;
   if (configured) {
     try {
       const url = new URL(configured);
-      if (url.protocol === "https:" || (url.protocol === "http:" && ["localhost", "127.0.0.1"].includes(url.hostname))) {
-        return url.origin;
-      }
+      if (url.protocol === "https:") return url.origin;
+      if (process.env.NODE_ENV === "development" && url.protocol === "http:" && isDevelopmentHost(url.hostname)) configuredDevelopmentOrigin = url.origin;
     } catch {
       // Invalid URL
     }
@@ -28,13 +39,16 @@ async function getAppBaseUrl() {
       const headerList = await headers();
       const host = headerList.get("x-forwarded-host") || headerList.get("host");
       const proto = headerList.get("x-forwarded-proto") || "http";
-      if (host && (host.startsWith("localhost:") || host.startsWith("127.0.0.1:") || host === "localhost")) {
-        return `${proto}://${host}`;
+      if (host) {
+        const requestUrl = new URL(`${proto}://${host}`);
+        if (["http:", "https:"].includes(requestUrl.protocol) && isDevelopmentHost(requestUrl.hostname)) {
+          return requestUrl.origin;
+        }
       }
     } catch {
       // Fallback if headers() is unavailable
     }
-    return "http://localhost:3000";
+    return configuredDevelopmentOrigin ?? "http://localhost:3000";
   }
 
   return null;

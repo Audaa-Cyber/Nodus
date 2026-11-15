@@ -1,51 +1,14 @@
-# NODUS Security Policy
+# Security
 
-## Reporting a Vulnerability
+## Reporting a vulnerability
 
-If you discover a security vulnerability in this codebase, **do NOT open a public GitHub issue**.  
-Contact the maintainer directly at the address listed in `package.json`.
+Report security issues privately to the repository maintainers. Use GitHub's private vulnerability reporting for this repository if it is enabled; otherwise contact the maintainers directly. Do not post credentials, exploit details, or customer data in a public issue.
 
----
+## Credentials
 
-## Secret Management Rules
+- `NEXT_PUBLIC_` values are browser-visible. Use this prefix only for values intended to be public, such as the Supabase URL and anon key.
+- Keep `SUPABASE_SERVICE_ROLE_KEY`, `CIRCLE_API_KEY`, `NEAR_SIGNER_PRIVATE_KEY`, and `NEAR_OUTBOX_WORKER_SECRET` on the server. The Supabase service-role key bypasses RLS.
+- Keep real credentials in `.env.local` or the deployment secret manager. `.env.example` is a template; replace its placeholder values locally and never commit real keys.
+- If a credential is exposed, revoke or rotate it with its provider immediately, then remove it from files and coordinate any required history cleanup.
 
-| Rule | Detail |
-|---|---|
-| **Never commit secrets** | `.env`, `.env.local`, and all `.env.*` files are blocked by `.gitignore` and `.gitattributes` |
-| **`NEXT_PUBLIC_` = public** | Only safe browser-visible values may use this prefix (Supabase URL and anon key) |
-| **`SUPABASE_SERVICE_ROLE_KEY` = server-only** | Grants RLS bypass. Must never appear in client bundles. Enforced by `import "server-only"` |
-| **`NEAR_SIGNER_PRIVATE_KEY` = server-only** | Blockchain signing key. Never prefix with `NEXT_PUBLIC_`, never import in client code |
-| **Pre-commit hook** | `.husky/pre-commit` scans staged files for secret patterns and blocks the commit |
-| **Pre-push hook** | `.husky/pre-push` does a final full-tree scan before any remote push |
-| **Rotate on exposure** | If a key is ever committed or leaked: rotate it immediately in Supabase/NEAR dashboard — invalidating it takes priority over everything else |
-
----
-
-## If a Secret Is Accidentally Committed
-
-1. **Immediately rotate the key** in the Supabase dashboard (Settings → API) or NEAR account.
-2. Remove the secret from the latest commit using `git rebase` or `git filter-repo`.
-3. Force-push to overwrite history (coordinate with all collaborators).
-4. Verify the secret is gone from **all branches and tags** using:
-   ```bash
-   git log --all -p | grep -i "the_leaked_value"
-   ```
-5. Check GitHub's "Secret scanning alerts" in the repository Security tab.
-
----
-
-## Environment Variable Reference
-
-| Variable | Scope | Required |
-|---|---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | Browser + Server | ✅ Phase 1 |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Browser + Server | ✅ Phase 1 |
-| `SUPABASE_SERVICE_ROLE_KEY` | **Server only** | ✅ Phase 1 |
-| `NEXT_PUBLIC_APP_URL` | Browser + Server | ✅ Phase 1 |
-| `NEAR_NETWORK_ID` | **Server only** | Phase 2+ |
-| `NEAR_RPC_URL` | **Server only** | Phase 2+ |
-| `NEAR_SIGNER_ACCOUNT_ID` | **Server only** | Phase 2+ |
-| `NEAR_SIGNER_PRIVATE_KEY` | **Server only** | Phase 2+ |
-
-Copy `.env.example` to `.env.local` and populate with real values. Never commit `.env.local`.
-
+The Husky pre-commit and pre-push hooks scan staged or tracked source for selected secret patterns. These checks are safeguards and do not replace provider-side key controls or review.

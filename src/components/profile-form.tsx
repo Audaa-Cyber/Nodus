@@ -105,14 +105,11 @@ export default function ProfileForm({
         <h1 id="pageMainHeading" className="text-3xl sm:text-[34px] font-bold tracking-tight text-slate-900 mb-1.5">
           Business profile
         </h1>
-        <p id="pageSubheading" className="text-xs sm:text-sm" style={{ color: "var(--text-secondary)" }}>
-          Manage the details attached to your Nodus account.
-        </p>
       </div>
 
       {/* Profile Card with 3D Tilt & Specular Chamfer Highlight */}
       <div id="view-business-profile" className="card-perspective">
-        <div id="profileCard" className="aether-card p-6 sm:p-8 stagger-item delay-2">
+        <div id="profileCard" className="aether-card p-4 sm:p-8 stagger-item delay-2">
           <div className="top-highlight" />
 
           <form id="businessProfileForm" onSubmit={handleSubmit} className="relative z-10" noValidate>
@@ -169,7 +166,7 @@ export default function ProfileForm({
                 </span>
               </div>
               <p className="text-xs leading-relaxed mb-4" style={{ color: "var(--text-secondary)" }}>
-                Live checkout currently supports USDC on Sepolia, Base Sepolia, Arbitrum Sepolia, and Optimism Sepolia.
+                Testnet checkout supports USDC on the four listed networks.
               </p>
 
               {/* Circle User-Controlled Wallet Option */}
@@ -210,7 +207,7 @@ export default function ProfileForm({
                   </p>
                 )}
                 <p className="mt-2 text-xs" style={{ color: "var(--text-secondary)" }}>
-                  Choose the exact network where this address should receive USDC. Do not select a testnet unless this address is intended to receive funds there.
+                  Choose where this address will receive USDC. Testnets are for test funds only.
                 </p>
               </div>
 

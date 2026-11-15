@@ -13,6 +13,7 @@ test("Google OAuth failures remain errors instead of becoming local success", as
   assert.match(oauthHandler[1], /provider: "google"/, "Google provider is selected explicitly");
   assert.doesNotMatch(oauthHandler[1], /triggerAuthSuccess\(/, "OAuth failure cannot synthesize success");
   assert.match(oauthHandler[1], /showStatus\(/, "OAuth failures are shown to the user");
+  assert.match(login, /isSignUp \? "Or sign up with" : "Or continue with"/, "Google is offered in both sign-up and sign-in modes");
 });
 
 test("login has no local OTP or demo-credential authentication shortcuts", async () => {
@@ -72,7 +73,8 @@ test("auth callback route sets cookies directly on redirect response and wraps e
 
   assert.match(callbackRoute, /redirectResponse\.cookies\.set\(/, "auth tokens are set directly on the outgoing redirect response");
   assert.match(callbackRoute, /try\s*\{[\s\S]*exchangeCodeForSession[\s\S]*\}\s*catch/, "code exchange is wrapped in a try/catch block");
-  assert.match(callbackRoute, /error=expired/, "gracefully handles expired or already consumed PKCE codes");
+  assert.match(callbackRoute, /authFailure\(isOAuthFlow \? "oauth_failed" : "expired"\)/, "gracefully handles expired or already consumed PKCE codes");
+  assert.match(callbackRoute, /isOAuthFlow \? "oauth_cancelled" : "confirmation"/, "returns cancelled OAuth to the matching auth page");
 });
 
 test("middleware recognizes chunked Supabase auth cookies and does not reject them as unauthenticated", async () => {

@@ -1,10 +1,12 @@
 import { createHash } from "node:crypto";
 import type { Metadata } from "next";
 import Link from "next/link";
+import Image from "next/image";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { formatMoney } from "@/lib/invoices";
 import { getWalletNetwork } from "@/lib/wallet/networks";
 import { LazyInvoiceWalletCheckout } from "@/components/wallet/lazy-wallet-checkout";
+import { PaymentSuccessCard, type LineItem } from "@/components/payment-success-card";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -92,7 +94,39 @@ export default async function PublicInvoicePage({ params }: { params: Promise<{ 
   const { data: receipts } = await supabase.rpc("lookup_shared_payment_receipts", { p_token_hash: tokenHash });
 
   const status = invoice.status;
-  const statusMessage = status === "paid"
+
+  if (status === "paid") {
+    return (
+      <main className="public-invoice-page">
+        <PaymentSuccessCard
+          invoiceNumber={invoice.invoice_number}
+          amountMinor={invoice.amount_minor}
+          currency={invoice.currency}
+          businessName={sellerName}
+          logoUrl={sellerLogo}
+          issueDate={invoice.issue_date}
+          dueDate={invoice.due_date}
+          destinationNetwork={destinationNetwork}
+          recipientAddress={recipientAddress}
+          receipt={receipts?.[0] ?? null}
+          receipts={receipts ?? []}
+          lineItems={Array.isArray(invoice.line_items) ? (invoice.line_items as unknown as LineItem[]) : null}
+          subtotalMinor={invoice.subtotal_minor}
+          taxRateBps={invoice.tax_rate_bps}
+          discountMinor={invoice.discount_minor}
+          sellerFooter={typeof seller.invoice_footer === "string" ? seller.invoice_footer : invoice.invoice_footer}
+          sellerDetails={{
+            email: sellerEmail,
+            phone: sellerPhone,
+            address: sellerAddress,
+            website: sellerWebsite,
+            taxId: sellerTaxId,
+          }}
+        />
+      </main>
+    );
+  }
+  const statusMessage = (status as string) === "paid"
     ? "This invoice has already been paid."
     : status === "cancelled"
       ? "This invoice has been cancelled and is no longer payable."
@@ -103,13 +137,13 @@ export default async function PublicInvoicePage({ params }: { params: Promise<{ 
           : "This invoice is not available for payment.";
 
   return <main className="public-invoice-page"><article className="public-invoice-card" aria-labelledby="public-invoice-title">
-    <header className="public-invoice-header">{sellerLogo ? <img src={sellerLogo} alt={sellerName ?? "Business logo"} style={{maxWidth:150,maxHeight:56,objectFit:"contain"}}/> : <span className="public-brand">{sellerName}</span>}<span className={`status status-${status}`}>{status}</span></header>
+    <header className="public-invoice-header">{sellerLogo ? <Image src={sellerLogo} alt={sellerName ?? "Business logo"} width={150} height={56} unoptimized style={{width:"auto",height:"auto",maxWidth:150,maxHeight:56,objectFit:"contain"}}/> : <span className="public-brand">{sellerName}</span>}<span className={`status status-${status}`}>{status}</span></header>
     <p className="eyebrow">INVOICE FROM {sellerName?.toLocaleUpperCase() ?? "BUSINESS"}</p>
     <h1 id="public-invoice-title">Invoice {invoice.invoice_number}</h1>
     <p className="public-invoice-business">{sellerName}</p>
     {(sellerEmail||sellerPhone||sellerAddress||sellerWebsite||sellerTaxId)&&<section className="public-invoice-dates" aria-label="Business details">{sellerAddress&&<p>{sellerAddress}</p>}{sellerPhone&&<p>{sellerPhone}</p>}{sellerEmail&&<p>{sellerEmail}</p>}{sellerWebsite&&<p>{sellerWebsite}</p>}{sellerTaxId&&<p>Tax ID: {sellerTaxId}</p>}</section>}
     <div className="public-invoice-amount"><span>INVOICE TOTAL</span><strong>{safeFormatMoney(invoice.amount_minor, invoice.currency)}</strong></div>
-    <section className="public-invoice-description" aria-label="Invoice items"><h2>Items</h2>{Array.isArray(invoice.line_items)&&invoice.line_items.length ? <div>{(invoice.line_items as unknown as Array<{description:string;quantity:number;unitPriceMinor:number;lineTotalMinor:number}>).map((item,index)=><div key={index} style={{display:"flex",justifyContent:"space-between",gap:16,padding:"9px 0",borderBottom:"1px solid #e5e5df"}}><span>{item.description}<small style={{display:"block",color:"#777"}}>{item.quantity} × {safeFormatMoney(item.unitPriceMinor,invoice.currency!)}</small></span><strong>{safeFormatMoney(item.lineTotalMinor,invoice.currency!)}</strong></div>)}</div>:<p>{invoice.description}</p>}{invoice.subtotal_minor!==null&&invoice.subtotal_minor!==undefined&&<p>Subtotal <strong>{safeFormatMoney(invoice.subtotal_minor,invoice.currency!)}</strong></p>}{(invoice.tax_rate_bps??0)>0&&<p>Tax ({((invoice.tax_rate_bps??0)/100).toFixed(2)}%) <strong>{safeFormatMoney(Math.round((invoice.subtotal_minor??invoice.amount_minor??0)*(invoice.tax_rate_bps??0)/10000),invoice.currency!)}</strong></p>}{(invoice.discount_minor??0)>0&&<p>Discount <strong>−{safeFormatMoney(invoice.discount_minor,invoice.currency!)}</strong></p>}</section>
+    <section className="public-invoice-description" aria-label="Invoice items"><h2>Items</h2>{Array.isArray(invoice.line_items)&&invoice.line_items.length ? <div>{(invoice.line_items as unknown as Array<{description:string;quantity:number;unitPriceMinor:number;lineTotalMinor:number}>).map((item,index)=><div key={index} style={{display:"flex",justifyContent:"space-between",gap:16,padding:"9px 0",borderBottom:"1px solid #e5e5df"}}><span>{item.description}<small style={{display:"block",color:"#777"}}>{item.quantity} × {safeFormatMoney(item.unitPriceMinor,invoice.currency!)}</small></span><strong>{safeFormatMoney(item.lineTotalMinor,invoice.currency!)}</strong></div>)}</div>:<p>{invoice.description}</p>}{invoice.subtotal_minor!==null&&invoice.subtotal_minor!==undefined&&<p>Subtotal <strong>{safeFormatMoney(invoice.subtotal_minor,invoice.currency!)}</strong></p>}{(invoice.tax_rate_bps??0)>0&&<p>Tax ({((invoice.tax_rate_bps??0)/100).toFixed(2)}%) <strong>{safeFormatMoney(Math.round((invoice.subtotal_minor??invoice.amount_minor??0)*(invoice.tax_rate_bps??0)/10000),invoice.currency!)}</strong></p>}{(invoice.discount_minor??0)>0&&<p>Discount <strong>−{safeFormatMoney(invoice.discount_minor ?? 0, invoice.currency!)}</strong></p>}</section>
     <dl className="public-invoice-dates">
       <div><dt>Issued</dt><dd>{displayDate(invoice.issue_date)}</dd></div>
       {invoice.due_date && <div><dt>Due</dt><dd>{displayDate(invoice.due_date)}</dd></div>}
@@ -146,6 +180,22 @@ export default async function PublicInvoicePage({ params }: { params: Promise<{ 
         status={status}
         destinationNetwork={destinationNetwork}
         recipientAddress={recipientAddress}
+        businessName={sellerName}
+        logoUrl={sellerLogo}
+        issueDate={invoice.issue_date}
+        dueDate={invoice.due_date}
+        sellerFooter={typeof seller.invoice_footer === "string" ? seller.invoice_footer : invoice.invoice_footer}
+        lineItems={Array.isArray(invoice.line_items) ? (invoice.line_items as unknown as LineItem[]) : null}
+        subtotalMinor={invoice.subtotal_minor}
+        taxRateBps={invoice.tax_rate_bps}
+        discountMinor={invoice.discount_minor}
+        sellerDetails={{
+          email: sellerEmail,
+          phone: sellerPhone,
+          address: sellerAddress,
+          website: sellerWebsite,
+          taxId: sellerTaxId,
+        }}
       />
     ) : (
       <p className="public-invoice-note">Wallet setup is unavailable for this invoice. No payment can be prepared.</p>

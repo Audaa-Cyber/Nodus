@@ -58,4 +58,4 @@ The visual language comes from the product: an invoice is a precise record, a QR
 
 ## Product truth
 
-Nodus is an invoice and QR checkout concept for business payments with stablecoins. The landing page demonstrates the customer flow only. Its payment action is explicitly simulated; it does not connect a wallet, submit a transaction, move funds, or verify settlement. A live product must verify the transaction on the relevant network before closing an invoice.
+The landing-page payment preview is simulated. It does not connect a wallet, submit a transaction, move funds, or verify settlement. Public invoice checkout is a separate product flow; an invoice can be marked paid only after settlement is verified.

@@ -12,7 +12,7 @@ export interface Database {
       invoices: {
         Row: { id: string; business_id: string; invoice_number: string; customer_name: string | null; customer_email: string | null; description: string | null; amount_minor: number; currency: string; issue_date: string; due_date: string | null; line_items?: Json; subtotal_minor?: number | null; tax_rate_bps?: number; discount_minor?: number; invoice_footer?: string | null; seller_snapshot?: Json | null; status: "draft" | "open" | "paid" | "cancelled" | "overdue"; near_registration_status: "pending" | "submitting" | "registered" | "failed"; near_registration_transaction_hash: string | null; near_invoice_reference: string | null; near_registered_at: string | null; near_registration_failure_reason: string | null; share_token_hash: string | null; share_token_expires_at: string | null; created_at: string; updated_at: string };
         Insert: { id?: string; business_id: string; invoice_number: string; customer_name?: string | null; customer_email?: string | null; description: string; amount_minor: number; currency: string; issue_date: string; due_date?: string | null; line_items?: Json; subtotal_minor?: number | null; tax_rate_bps?: number; discount_minor?: number; invoice_footer?: string | null; seller_snapshot?: Json | null; status: "draft" | "open" | "cancelled"; near_registration_status?: "pending" | "submitting" | "registered" | "failed"; near_registration_transaction_hash?: string | null; near_invoice_reference?: string | null; near_registered_at?: string | null; near_registration_failure_reason?: string | null; share_token_hash?: string | null; share_token_expires_at?: string | null; created_at?: string; updated_at?: string };
-        Update: { invoice_number?: string; customer_name?: string | null; customer_email?: string | null; description?: string | null; amount_minor?: number; currency?: string; issue_date?: string; due_date?: string | null; line_items?: Json; subtotal_minor?: number | null; tax_rate_bps?: number; discount_minor?: number; invoice_footer?: string | null; seller_snapshot?: Json | null; status: "draft" | "open" | "paid" | "cancelled" | "overdue"; near_registration_status?: "pending" | "submitting" | "registered" | "failed"; near_registration_transaction_hash?: string | null; near_invoice_reference?: string | null; near_registered_at?: string | null; near_registration_failure_reason?: string | null; share_token_hash?: string | null; share_token_expires_at?: string | null; updated_at?: string };
+        Update: { invoice_number?: string; customer_name?: string | null; customer_email?: string | null; description?: string | null; amount_minor?: number; currency?: string; issue_date?: string; due_date?: string | null; line_items?: Json; subtotal_minor?: number | null; tax_rate_bps?: number; discount_minor?: number; invoice_footer?: string | null; seller_snapshot?: Json | null; status?: "draft" | "open" | "paid" | "cancelled" | "overdue"; near_registration_status?: "pending" | "submitting" | "registered" | "failed"; near_registration_transaction_hash?: string | null; near_invoice_reference?: string | null; near_registered_at?: string | null; near_registration_failure_reason?: string | null; share_token_hash?: string | null; share_token_expires_at?: string | null; updated_at?: string };
         Relationships: [{ foreignKeyName: "invoices_business_id_fkey"; columns: ["business_id"]; isOneToOne: false; referencedRelation: "business_profiles"; referencedColumns: ["id"] }];
       };
       payment_attempts: {
@@ -36,6 +36,40 @@ export interface Database {
       near_invoice_registration_outbox: {
         Row: { id: string; invoice_id: string; status: "pending" | "processing" | "registered" | "failed"; attempt_count: number; next_attempt_at: string; lock_token: string | null; locked_until: string | null; near_transaction_hash: string | null; onchain_invoice_reference: string | null; failure_reason: string | null; created_at: string; updated_at: string; submitted_at: string | null; registered_at: string | null };
         Insert: never; Update: never; Relationships: [];
+      };
+      notifications: {
+        Row: {
+          id: string;
+          recipient_user_id: string;
+          business_id: string;
+          type: string;
+          title: string;
+          message: string;
+          invoice_id: string | null;
+          destination_url: string | null;
+          created_at: string;
+          read_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          recipient_user_id: string;
+          business_id: string;
+          type: string;
+          title: string;
+          message: string;
+          invoice_id?: string | null;
+          destination_url?: string | null;
+          created_at?: string;
+          read_at?: string | null;
+        };
+        Update: {
+          read_at?: string | null;
+        };
+        Relationships: [
+          { foreignKeyName: "notifications_recipient_user_id_fkey"; columns: ["recipient_user_id"]; isOneToOne: false; referencedRelation: "users"; referencedColumns: ["id"] },
+          { foreignKeyName: "notifications_business_id_fkey"; columns: ["business_id"]; isOneToOne: false; referencedRelation: "business_profiles"; referencedColumns: ["id"] },
+          { foreignKeyName: "notifications_invoice_id_fkey"; columns: ["invoice_id"]; isOneToOne: false; referencedRelation: "invoices"; referencedColumns: ["id"] }
+        ];
       };
     };
     Views: Record<string, never>;
