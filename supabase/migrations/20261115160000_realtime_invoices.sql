@@ -4,11 +4,6 @@
 -- Note: In accordance with NODUS safety boundaries, this migration is additive
 -- and does not modify any existing tables, functions, or prior migrations.
 
--- 1. Ensure REPLICA IDENTITY FULL is set on public.invoices so that
--- UPDATE and DELETE events include all column values for filtered Realtime evaluation.
-alter table public.invoices replica identity full;
-
--- 2. Add public.invoices to the supabase_realtime publication if not already present
 do $$
 begin
   if exists (

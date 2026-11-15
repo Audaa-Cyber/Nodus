@@ -43,8 +43,16 @@ export function InvoicesTable({
   // Subscribe to live Realtime updates from the business channel
   useEffect(() => {
     return subscribeToInvoices((updated) => {
-      setInvoices((prev) =>
-        prev.map((inv) =>
+      // Diagnostic 7: Whether the invoice table's React state update handler executes
+      console.log("[NODUS:REALTIME] 7. InvoicesTable received update:", {
+        id: updated.id,
+        newStatus: updated.status,
+      });
+
+      setInvoices((prev) => {
+        const found = prev.some((inv) => inv.id === updated.id);
+        console.log("[NODUS:REALTIME] 7b. InvoicesTable state update executing. Matching row found:", found, "Invoice:", updated.id);
+        return prev.map((inv) =>
           inv.id === updated.id
             ? {
                 ...inv,
@@ -59,8 +67,8 @@ export function InvoicesTable({
                     : inv.due_date,
               }
             : inv
-        )
-      );
+        );
+      });
     });
   }, [subscribeToInvoices]);
 
