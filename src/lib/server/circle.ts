@@ -7,6 +7,7 @@ export interface CircleChainInfo {
   cctpDomainId: number;
   usdcAddress: `0x${string}`;
   tokenMessengerAddress: `0x${string}`;
+  supportsFastTransfer?: boolean;
   messageTransmitterV2?: `0x${string}`;
   tokenMessengerWithFees?: `0x${string}`;
 }
@@ -119,6 +120,17 @@ export const TESTNET_CIRCLE_CHAINS: Record<string, CircleChainInfo> = {
     usdcAddress: "0x41E94Eb019C0762f9Bfcf9Fb1E58725BfB0e7582",
     tokenMessengerAddress: "0x8FE6B999Dc680CcFDD5Bf7EB0974218be2542DAA",
   },
+  arc_testnet: {
+    networkKey: "arc-testnet",
+    name: "Arc Testnet",
+    chainId: 5042002,
+    cctpDomainId: 26,
+    usdcAddress: "0x3600000000000000000000000000000000000000",
+    tokenMessengerAddress: "0x8FE6B999Dc680CcFDD5Bf7EB0974218be2542DAA",
+    supportsFastTransfer: false,
+    tokenMessengerWithFees: "0x8745D906D67C346E5eb1aEEED38Eb87F34DF0C0A",
+    messageTransmitterV2: "0xE737e5cEBEEBa77EFE34D4aa090756590b1CE275",
+  },
 };
 
 export function getCircleChain(networkKey: string, isTestnet = false): CircleChainInfo | null {
@@ -136,6 +148,7 @@ export function getCircleChain(networkKey: string, isTestnet = false): CircleCha
     if (clean === "optimism" || clean === "optimism-sepolia" || clean === "op-sepolia") return table.optimism ?? null;
     if (clean === "avalanche" || clean === "avalanche-fuji" || clean === "fuji") return table.avalanche ?? null;
     if (clean === "polygon" || clean === "polygon-amoy" || clean === "amoy") return table.polygon ?? null;
+    if (clean === "arc" || clean === "arc-testnet" || clean === "arc_testnet") return table.arc_testnet ?? null;
   } else {
     if (clean === "ethereum" || clean === "mainnet") return table.ethereum ?? null;
     if (clean === "base") return table.base ?? null;

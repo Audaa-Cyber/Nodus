@@ -26,6 +26,24 @@ const destination = {
   usdcAddress: "0x5fd84259d66Cd46123540766Be93DFE6D43130D7",
   tokenMessengerAddress: "0x8FE6B999Dc680CcFDD5Bf7EB0974218be2542DAA",
 };
+const arcSource = {
+  networkKey: "arc-testnet",
+  name: "Arc Testnet",
+  chainId: 5042002,
+  cctpDomainId: 26,
+  usdcAddress: "0x3600000000000000000000000000000000000000",
+  tokenMessengerAddress: "0x8FE6B999Dc680CcFDD5Bf7EB0974218be2542DAA",
+  tokenMessengerWithFees: "0x8745D906D67C346E5eb1aEEED38Eb87F34DF0C0A",
+  supportsFastTransfer: false,
+};
+const ethereumSepolia = {
+  networkKey: "ethereum",
+  name: "Ethereum Sepolia",
+  chainId: 11155111,
+  cctpDomainId: 0,
+  usdcAddress: "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
+  tokenMessengerAddress: "0x8FE6B999Dc680CcFDD5Bf7EB0974218be2542DAA",
+};
 const payer = "0x1111111111111111111111111111111111111111";
 const recipient = "0x2222222222222222222222222222222222222222";
 const signedQuote = `0x${"ab".repeat(65)}`;
@@ -40,6 +58,20 @@ test("Circle quote requests bind amount, source token and forwarding destination
   assert.equal(result.body.requests[0].params.destinationCaller, "0x0000000000000000000000000000000000000000");
   assert.equal(result.body.requests[0].params.hookData, `0x${Buffer.concat([Buffer.from("cctp-forward"), Buffer.alloc(20)]).toString("hex")}`);
   assert.equal(result.body.requests[1].type, "PRE_FINALITY");
+});
+
+test("Arc Testnet to Ethereum Sepolia requests only the supported Standard Transfer quote", () => {
+  const result = circleFeeQuoteRequest({ source: arcSource, destination: ethereumSepolia, amountBaseUnits: "50000000" });
+  assert.equal(result.url, "https://iris-api-sandbox.circle.com/v2/quote/burn/usdc/26/0");
+  assert.equal(result.body.amount, "50000000");
+  assert.equal(result.body.feeToken, arcSource.usdcAddress);
+  assert.deepEqual(result.body.requests.map((request) => request.type), ["FORWARD"]);
+});
+
+test("Ethereum Sepolia to Arc Testnet retains supported fast-transfer quote discovery", () => {
+  const result = circleFeeQuoteRequest({ source: ethereumSepolia, destination: arcSource, amountBaseUnits: "50000000" });
+  assert.equal(result.url, "https://iris-api-sandbox.circle.com/v2/quote/burn/usdc/0/26");
+  assert.deepEqual(result.body.requests.map((request) => request.type), ["FORWARD", "PRE_FINALITY"]);
 });
 
 test("quote validation binds signed quote to exact amount, domains, merchant, fee token and payer", () => {
@@ -130,6 +162,81 @@ test("server quote parsing derives debit and fees from Circle response only", as
     });
   } finally {
     globalThis.fetch = originalFetch;
+  }
+});
+
+test("Arc quote response is parsed and validated for exact amount, fee token, and fee total", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url, init) => {
+    assert.equal(url, "https://iris-api-sandbox.circle.com/v2/quote/burn/usdc/26/0");
+    assert.deepEqual(JSON.parse(init.body).requests.map((request) => request.type), ["FORWARD"]);
+    return Response.json({
+      signedQuote,
+      feeToken: arcSource.usdcAddress,
+      feeTotalAmount: "196714",
+      expiry: { mode: "TIMESTAMP", expiresAt: Date.parse(expiresAt) / 1000 },
+      items: [{ type: "FORWARD", amount: "196714" }],
+    });
+  };
+  try {
+    const quote = await fetchCircleReceiveExactQuote({ source: arcSource, destination: ethereumSepolia, amountBaseUnits: "50000000" });
+    assert.equal(quote.amountReceived, "50");
+    assert.equal(quote.feeTotal, "0.196714");
+    assert.equal(quote.totalDebit, "50.196714");
+    assert.deepEqual(quote.feeItems, [{ type: "FORWARD", amount: "0.196714" }]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("quote rejection preserves a safe Circle reason and HTTP status", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => Response.json({ errorCode: "INVALID_REQUEST", error: "USDC pre-finality fee is unavailable for this route" }, { status: 422 });
+  try {
+    await assert.rejects(
+      () => fetchCircleReceiveExactQuote({ source: arcSource, destination: ethereumSepolia, amountBaseUnits: "50000000" }),
+      (error) => {
+        assert.ok(error instanceof CircleQuoteValidationError);
+        assert.equal(error.reason, "fast_transfer_quote_unavailable");
+        assert.equal(error.providerStatus, 422);
+        return true;
+      },
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("live Circle Arc Testnet to Ethereum Sepolia quote is obtained and validates", {
+  skip: process.env.NODUS_LIVE_CIRCLE_QUOTE !== "1",
+}, async () => {
+  const amountBaseUnits = "50000000";
+  for (const [sourceChain, destinationChain] of [
+    [arcSource, ethereumSepolia],
+    [ethereumSepolia, arcSource],
+  ]) {
+    const quote = await fetchCircleReceiveExactQuote({
+      source: sourceChain,
+      destination: destinationChain,
+      amountBaseUnits,
+    });
+    assert.equal(quote.amountReceived, "50");
+    assert.match(quote.quote, /^0x(?:[0-9a-fA-F]{2})+$/);
+    assert.ok(quote.feeItems.some((item) => item.type === "FORWARD"));
+
+    await validateCircleSignedQuote({
+      source: sourceChain,
+      destination: destinationChain,
+      payer,
+      recipient,
+      amountBaseUnits,
+      quote: quote.quote,
+      feeTotal: quote.feeTotal,
+      feeItems: quote.feeItems,
+      expiresAt: quote.expiresAt,
+      expiryMode: quote.expiryMode,
+      ...(quote.expiresAtBlock !== undefined ? { expiresAtBlock: quote.expiresAtBlock } : {}),
+    });
   }
 });
 

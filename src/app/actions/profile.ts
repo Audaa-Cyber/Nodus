@@ -24,7 +24,7 @@ export async function updateBusinessProfileAction(_previous: FormState, formData
   const isSupportedCircleTestnet = circleTestnetUsdcNetworks.some((network) => network.key === receivingNetwork);
   const isExistingLegacyNetwork = receivingNetwork !== "" && receivingNetwork === business?.receiving_network;
   if (receivingNetwork && !isSupportedCircleTestnet && !isExistingLegacyNetwork) {
-    return { error: "Choose Sepolia, Base Sepolia, Arbitrum Sepolia, or Optimism Sepolia for live testnet checkout." };
+    return { error: "Choose Sepolia, Base Sepolia, Arbitrum Sepolia, Optimism Sepolia, or Arc Testnet for live testnet checkout." };
   }
 
   const { data, error } = await supabase.from("business_profiles").update({

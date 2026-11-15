@@ -1,5 +1,5 @@
 "use client";
-import { useActionState,useMemo,useState } from "react";
+import { useActionState, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import type { FormState } from "@/app/actions/auth";
 import { saveInvoiceAction } from "@/app/actions/invoices";
@@ -10,6 +10,16 @@ const fmt=(minor:number,currency:string)=>{try{return new Intl.NumberFormat("en-
 function addDays(date:string,days:number){const d=new Date(date+"T00:00:00Z");d.setUTCDate(d.getUTCDate()+days);return d.toISOString().slice(0,10)}
 export default function InvoiceForm({invoice,defaultCurrency="USD",paymentTermsDays=14,businessName="Your business",logoUrl="",businessEmail="",businessPhone="",businessAddress="",websiteUrl="",taxRegistrationNumber="",defaultFooter="Thank you for your business."}:{invoice?:Invoice;defaultCurrency?:string;paymentTermsDays?:number;businessName?:string;logoUrl?:string;businessEmail?:string;businessPhone?:string;businessAddress?:string;websiteUrl?:string;taxRegistrationNumber?:string;defaultFooter?:string}){
  const [state,action,pending]=useActionState<FormState,FormData>(saveInvoiceAction,{});
+ const [clientDraftId] = useState(() => invoice?.id ?? (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function" ? crypto.randomUUID() : ""));
+ const [isSubmitting, setIsSubmitting] = useState(false);
+ const [activeIntent, setActiveIntent] = useState<"draft" | "issue" | null>(null);
+
+ useEffect(() => {
+   if (!pending) {
+     setIsSubmitting(false);
+     setActiveIntent(null);
+   }
+ }, [pending]);
  const today=new Date().toISOString().slice(0,10);
  const oldItems=(invoice?.line_items as unknown as Array<{description?:string;quantity?:number;unitPriceMinor?:number}>|null)?.map(i=>({description:i.description??"",quantity:String(i.quantity??1),unitPrice:((i.unitPriceMinor??0)/100).toFixed(2)}));
  const [items,setItems]=useState<Line[]>(oldItems?.length?oldItems:invoice?[{description:invoice.description??"",quantity:"1",unitPrice:((invoice.amount_minor??0)/100).toFixed(2)}]:[blank()]);
@@ -18,8 +28,9 @@ export default function InvoiceForm({invoice,defaultCurrency="USD",paymentTermsD
  const subtotal=useMemo(()=>items.reduce((s,i)=>{const q=Number(i.quantity),u=Math.round(Number(i.unitPrice)*100);return s+(q>0&&Number.isFinite(q)&&Number.isSafeInteger(u)&&u>=0?Math.round(q*u):0)},0),[items]);
  const taxBps=Math.round(Math.min(100,Math.max(0,Number(tax)||0))*100),taxMinor=Math.round(subtotal*taxBps/10000),discountMinor=Math.max(0,Math.round((Number(discount)||0)*100)),total=Math.max(0,subtotal+taxMinor-discountMinor);
  const rows=items.map(i=>({description:i.description.trim(),quantity:Number(i.quantity),unitPriceMinor:Math.round(Number(i.unitPrice)*100)}));
- return <form action={action} className="business-form">
+ return <form action={action} className="business-form" onSubmit={(e) => { if (pending || isSubmitting) { e.preventDefault(); return; } setIsSubmitting(true); }}>
  {invoice&&<input type="hidden" name="invoiceId" value={invoice.id}/>}
+ {!invoice && clientDraftId && <input type="hidden" name="clientDraftId" value={clientDraftId} />}
  <input type="hidden" name="lineItems" value={JSON.stringify(rows)}/><input type="hidden" name="taxRateBps" value={String(taxBps)}/><input type="hidden" name="discountMinor" value={String(discountMinor)}/>
  <div className="form-grid">
  <label>Currency<select name="currency" value={currency} onChange={e=>setCurrency(e.target.value)}>{["USD","EUR","GBP","ETB","KES"].map(c=><option key={c}>{c}</option>)}</select></label>
@@ -38,7 +49,14 @@ export default function InvoiceForm({invoice,defaultCurrency="USD",paymentTermsD
  <section aria-label="Invoice totals" style={{marginTop:20,marginLeft:"auto",maxWidth:340,borderTop:"1px solid var(--card-border)",paddingTop:14}}>
  {[[ "Subtotal",subtotal ],[`Tax (${(taxBps/100).toFixed(2)}%)`,taxMinor],[ "Discount", -discountMinor]].map(([label,value])=><div key={String(label)} style={{display:"flex",justifyContent:"space-between",padding:"5px 0"}}><span>{label}</span><strong>{fmt(Number(value),currency)}</strong></div>)}
  <div style={{display:"flex",justifyContent:"space-between",borderTop:"1px solid var(--card-border)",marginTop:8,paddingTop:12,fontSize:18}}><span>Total due</span><strong>{fmt(total,currency)}</strong></div></section>
- {state.error&&<p className="form-error" role="alert">{state.error}</p>}<div className="form-actions"><button className="button button-dark" type="submit" name="intent" value="draft" disabled={pending||total<=0}>{pending?"Saving…":"Save draft"}</button><button className="button button-outline" type="submit" name="intent" value="issue" disabled={pending||total<=0}>{pending?"Saving…":(!invoice||invoice.status==="draft"?"Issue invoice":"Save changes")}</button></div>
+ {state.error&&<p className="form-error" role="alert">{state.error}</p>}<div className="form-actions">
+  <button className="button button-dark" type="submit" name="intent" value="draft" onClick={() => setActiveIntent("draft")} disabled={pending || isSubmitting || total <= 0}>
+    {pending && activeIntent === "draft" ? "Saving draft…" : "Save draft"}
+  </button>
+  <button className="button button-outline" type="submit" name="intent" value="issue" onClick={() => setActiveIntent("issue")} disabled={pending || isSubmitting || total <= 0}>
+    {pending && activeIntent === "issue" ? (!invoice || invoice.status === "draft" ? "Issuing invoice…" : "Saving changes…") : (!invoice || invoice.status === "draft" ? "Issue invoice" : "Save changes")}
+  </button>
+</div>
  <p className="form-help">Paid status is recorded only after settlement is verified.</p>
  <section className="invoice-preview" aria-label="Live invoice preview" style={{marginTop:32,border:"1px solid var(--card-border)",background:"#fff",color:"#171816",padding:24,boxShadow:"0 16px 40px rgba(20,24,30,.06)"}}>
  <div className="invoice-preview-header" style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:20,borderBottom:"1px solid #e5e5df",paddingBottom:18,marginBottom:18}}>{logoUrl?<Image src={logoUrl} alt="" width={140} height={58} unoptimized style={{maxWidth:140,maxHeight:58,objectFit:"contain",objectPosition:"left"}}/>:<strong style={{fontSize:18}}>{businessName}</strong>}<div style={{textAlign:"right"}}><span style={{fontSize:9,letterSpacing:".12em",color:"#777"}}>INVOICE</span><div style={{fontSize:16,fontWeight:600}}>{invoice?.invoice_number??"Assigned when saved"}</div><div style={{fontSize:11,color:"#666"}}>Issued {issueDate||"—"}</div>{dueDate&&<div style={{fontSize:11,color:"#666"}}>Due {dueDate}</div>}</div></div>

@@ -8,6 +8,7 @@ import { walletConnect } from "wagmi/connectors/walletConnect";
 import {
   arbitrum,
   arbitrumSepoliaChain,
+  arcTestnetChain,
   avalanche,
   base,
   baseSepoliaChain,
@@ -56,6 +57,7 @@ const evmConfig = createConfig({
     [baseSepoliaChain.id]: http(),
     [arbitrumSepoliaChain.id]: http(),
     [optimismSepoliaChain.id]: http(),
+    [arcTestnetChain.id]: http(),
   },
   ssr: true,
 });

@@ -129,9 +129,21 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
       });
     } catch (error) {
       if (error instanceof CircleQuoteValidationError && error.code === "unavailable") {
-        return NextResponse.json({ error: "circle_quote_provider_unavailable" }, { status: 503 });
+        return NextResponse.json({
+          error: "circle_quote_provider_unavailable",
+          ...(error.reason ? { providerReason: error.reason } : {}),
+          ...(error.providerStatus ? { providerStatus: error.providerStatus } : {}),
+        }, { status: 503 });
       }
-      return NextResponse.json({ error: "circle_quote_unavailable_for_route" }, { status: 422 });
+      return NextResponse.json({
+        error: error instanceof CircleQuoteValidationError && error.reason === "circle_route_unsupported"
+          ? "circle_route_unsupported"
+          : error instanceof CircleQuoteValidationError && error.reason === "circle_liquidity_or_fee_unavailable"
+            ? "circle_liquidity_or_fee_unavailable"
+            : "circle_quote_rejected",
+        ...(error instanceof CircleQuoteValidationError && error.reason ? { providerReason: error.reason } : {}),
+        ...(error instanceof CircleQuoteValidationError && error.providerStatus ? { providerStatus: error.providerStatus } : {}),
+      }, { status: 422 });
     }
   }
 

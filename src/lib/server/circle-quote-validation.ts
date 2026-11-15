@@ -7,7 +7,9 @@ const QUOTE_VALIDATION_ABI = "depositForBurnWithHookAndFees(uint256,uint32,bytes
 const ZERO_ADDRESS_BYTES32 = `0x${"0".repeat(64)}`;
 const QUOTE_SAFETY_WINDOW_SECONDS = 30;
 
-async function postCircleJson(url: string, body: Record<string, unknown>): Promise<{ status: number; payload: unknown }> {
+type CirclePostResponse = { status: number; payload: unknown };
+
+async function postCircleJson(url: string, body: Record<string, unknown>): Promise<CirclePostResponse> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 8_000);
   try {
@@ -18,9 +20,7 @@ async function postCircleJson(url: string, body: Record<string, unknown>): Promi
       signal: controller.signal,
     });
     let payload: unknown = null;
-    if (response.ok) {
-      try { payload = await response.json(); } catch { /* validated below */ }
-    }
+    try { payload = await response.json(); } catch { /* validated below */ }
     return { status: response.status, payload };
   } catch {
     throw new CircleQuoteValidationError("unavailable");
@@ -32,11 +32,13 @@ async function postCircleJson(url: string, body: Record<string, unknown>): Promi
 export class CircleQuoteValidationError extends Error {
   readonly code: "invalid" | "unavailable";
   readonly reason?: string;
+  readonly providerStatus?: number;
 
-  constructor(code: "invalid" | "unavailable", reason?: string) {
+  constructor(code: "invalid" | "unavailable", reason?: string, providerStatus?: number) {
     super(`circle_quote_${code}`);
     this.code = code;
     this.reason = reason;
+    this.providerStatus = providerStatus;
   }
 }
 
@@ -85,7 +87,7 @@ export function circleFeeQuoteRequest(input: {
       feeToken: input.source.usdcAddress,
       requests: [
         { type: "FORWARD", params: { hookData, destinationCaller: "0x0000000000000000000000000000000000000000" } },
-        { type: "PRE_FINALITY" },
+        ...(input.source.supportsFastTransfer === false ? [] : [{ type: "PRE_FINALITY" }]),
       ],
     },
   };
@@ -105,7 +107,25 @@ export async function fetchCircleReceiveExactQuote(input: {
   const { url, body } = circleFeeQuoteRequest(input);
   const response = await postCircleJson(url, body);
   if (response.status < 200 || response.status >= 300) {
-    throw new CircleQuoteValidationError(response.status >= 500 || response.status === 429 ? "unavailable" : "invalid");
+    const payload = response.payload && typeof response.payload === "object" && !Array.isArray(response.payload)
+      ? response.payload as Record<string, unknown> : {};
+    const providerError = typeof payload.error === "string" ? payload.error : "";
+    const providerCode = typeof payload.errorCode === "string" ? payload.errorCode : "";
+    const providerReason = `${providerCode} ${providerError}`.toLowerCase();
+    const reason = /pre.?finality.*unavailable|fast.*unavailable/.test(providerReason)
+      ? "fast_transfer_quote_unavailable"
+      : /unsupported.*route|route.*unsupported/.test(providerReason)
+        ? "circle_route_unsupported"
+        : /insufficient.*(liquidity|fee)|liquidity.*insufficient/.test(providerReason)
+          ? "circle_liquidity_or_fee_unavailable"
+          : providerError
+            ? providerError.replace(/[\r\n\t]+/g, " ").slice(0, 180)
+            : providerCode.replace(/[^a-zA-Z0-9_.-]/g, "").slice(0, 80) || "circle_provider_rejected_quote";
+    throw new CircleQuoteValidationError(
+      response.status >= 500 || response.status === 429 ? "unavailable" : "invalid",
+      reason,
+      response.status,
+    );
   }
 
   let result: Record<string, unknown>;

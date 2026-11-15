@@ -79,6 +79,7 @@ export type PaidInvoiceProps = {
     deposit_address: string | null;
     mode: "mock" | "live";
     status: string;
+    quote_snapshot?: unknown;
     created_at: string;
     updated_at: string;
   } | null;
@@ -91,6 +92,7 @@ export type PaidInvoiceProps = {
     created_at: string;
     attempt_count: number;
   } | null;
+  nearSettlementEligibility?: "eligible" | "not_applicable" | "unsupported" | "unknown";
   nearOutboxError?: boolean;
   nearInvoiceRegistration?: {
     id: string;
@@ -161,6 +163,7 @@ function formatNetworkLabel(networkKey: string | null | undefined): string {
   if (lower.includes("arbitrum")) return "Arbitrum Sepolia";
   if (lower.includes("base")) return "Base Sepolia";
   if (lower.includes("optimism") || lower.includes("op")) return "Optimism Sepolia";
+  if (lower.includes("arc")) return "Arc Testnet";
   if (lower.includes("ethereum") || lower.includes("sepolia")) return "Ethereum Sepolia";
   return networkKey;
 }
@@ -172,6 +175,7 @@ function explorerTxUrl(networkKey: string | null | undefined, txHash: string): s
     "arbitrum-sepolia": "https://sepolia.arbiscan.io/tx/",
     "sepolia": "https://sepolia.etherscan.io/tx/",
     "optimism-sepolia": "https://sepolia-optimism.etherscan.io/tx/",
+    "arc-testnet": "https://testnet.arcscan.app/tx/",
     "base": "https://basescan.org/tx/",
     "arbitrum": "https://arbiscan.io/tx/",
     "ethereum": "https://etherscan.io/tx/",
@@ -196,6 +200,7 @@ export function PaidInvoiceDetailView({
   primarySettlement,
   primaryAttempt,
   primaryNearEntry,
+  nearSettlementEligibility = "unknown",
   nearOutboxError,
   nearInvoiceRegistration,
   receipts,
@@ -529,7 +534,15 @@ export function PaidInvoiceDetailView({
           ) : !primaryNearEntry ? (
             <div className="near-status-pill is-pending">
               <span className="near-dot is-neutral" />
-              <span>NEAR reconciliation record not found for this payment.</span>
+              <span>
+                {nearSettlementEligibility === "not_applicable"
+                  ? "NEAR settlement recording is not applicable to this direct or same-chain payment."
+                  : nearSettlementEligibility === "eligible"
+                    ? "NEAR reconciliation outbox job is missing for this eligible payment. The EVM payment remains verified."
+                    : nearSettlementEligibility === "unsupported"
+                      ? "NEAR reconciliation is not configured for this payment route. The EVM payment is verified."
+                      : "NEAR reconciliation status is not available for this payment. The EVM payment is verified."}
+              </span>
             </div>
           ) : primaryNearEntry.status === "submitted" && primaryNearEntry.near_transaction_hash ? (
             <div className="near-status-pill is-success">
@@ -563,6 +576,24 @@ export function PaidInvoiceDetailView({
               <p className="near-error-text">
                 Error: {primaryNearEntry.last_error_code ?? "Unknown error"}
               </p>
+            </div>
+          ) : primaryNearEntry.near_transaction_hash ? (
+            <div className="near-status-pill is-processing">
+              <div className="near-status-header">
+                <span className="near-dot is-pulsing" />
+                <strong>Submitted to NEAR; awaiting contract confirmation</strong>
+              </div>
+              <p className="near-processing-sub">
+                Transaction: {shortHash(primaryNearEntry.near_transaction_hash)}. The outbox will retry contract readback without resubmitting this transaction.
+              </p>
+            </div>
+          ) : primaryNearEntry.status === "submitted" ? (
+            <div className="near-status-pill is-error">
+              <div className="near-status-header">
+                <span className="near-dot is-blocked" />
+                <strong>NEAR confirmation evidence is incomplete</strong>
+              </div>
+              <p className="near-error-text">The outbox is marked submitted but has no transaction hash to verify.</p>
             </div>
           ) : (
             <div className="near-status-pill is-processing">

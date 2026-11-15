@@ -1,6 +1,5 @@
 import test, { mock } from "node:test";
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
 
 mock.module("server-only", { defaultExport: {} });
 
@@ -22,6 +21,10 @@ let mockSourceVerifyResult = null;
 let mockSourceVerifyError = null;
 let mockDestVerifyResult = null;
 let mockDestVerifyError = null;
+let invoiceStatus = "open";
+let afterTasks = [];
+let nearWorkerCalls = 0;
+let nearWorkerError = null;
 
 mock.module(new URL("../src/lib/supabase/admin.ts", import.meta.url).href, {
   namedExports: {
@@ -33,7 +36,10 @@ mock.module(new URL("../src/lib/supabase/admin.ts", import.meta.url).href, {
         if (fn === "lookup_shared_payment_receipts") return { data: mockReceipts, error: null };
         if (fn === "record_circle_recovery_progress") return { data: null, error: null };
         if (fn === "update_live_attempt_status") return { data: null, error: null };
-        if (fn === "record_payment_reconciliation") return { data: { id: "reconciliation-id" }, error: null };
+        if (fn === "record_payment_reconciliation") {
+          invoiceStatus = "paid";
+          return { data: { id: "reconciliation-id" }, error: null };
+        }
         return { data: null, error: null };
       },
     }),
@@ -70,7 +76,10 @@ mock.module(new URL("../src/lib/server/cctp-v2-chain.ts", import.meta.url).href,
 
 mock.module(new URL("../src/lib/server/near-settlement-outbox.ts", import.meta.url).href, {
   namedExports: {
-    processNearSettlementOutbox: async () => {},
+    processNearSettlementOutbox: async () => {
+      nearWorkerCalls += 1;
+      if (nearWorkerError) throw nearWorkerError;
+    },
   },
 });
 
@@ -82,6 +91,7 @@ mock.module(new URL("../node_modules/next/server.js", import.meta.url).href, {
         headers: { "Content-Type": "application/json", ...init.headers },
       }),
     },
+    after: (task) => { afterTasks.push(task); },
   },
 });
 
@@ -160,6 +170,10 @@ function resetFixtures() {
     transactionHashes: [destTxHash],
   };
   mockDestVerifyError = null;
+  invoiceStatus = "open";
+  afterTasks = [];
+  nearWorkerCalls = 0;
+  nearWorkerError = null;
 }
 
 // ---------------------------------------------------------------------------
@@ -253,4 +267,21 @@ test("status route completes destination verification and settles invoice withou
   const settledCall = rpcCalls.filter((c) => c.fn === "record_circle_recovery_progress").pop();
   assert.ok(settledCall);
   assert.equal(settledCall.args.p_state, "SETTLED");
+});
+
+test("verified payment returns paid before post-response NEAR work and NEAR failure cannot undo it", async () => {
+  resetFixtures();
+  nearWorkerError = new Error("simulated NEAR RPC failure");
+
+  const res = await invoke();
+  const data = await res.json();
+  assert.equal(data.settled, true);
+  assert.equal(invoiceStatus, "paid");
+  assert.equal(nearWorkerCalls, 0, "NEAR work must not delay the verified payment response");
+  assert.equal(afterTasks.length, 1, "prompt worker dispatch is registered after durable outbox commit");
+  assert.ok(rpcCalls.find((call) => call.fn === "record_payment_reconciliation"));
+
+  await afterTasks[0]();
+  assert.equal(nearWorkerCalls, 1);
+  assert.equal(invoiceStatus, "paid", "NEAR failure must not change verified invoice status");
 });

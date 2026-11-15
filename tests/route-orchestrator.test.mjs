@@ -98,7 +98,7 @@ test("route discovery: Base Sepolia to Arbitrum Sepolia selects Circle CCTP", as
 
 test("route discovery: payer and merchant can choose any listed same-network testnet for direct USDC", async () => {
   assert.deepEqual(circleTestnetUsdcNetworks.map((network) => network.key), [
-    "sepolia", "base-sepolia", "arbitrum-sepolia", "optimism-sepolia",
+    "sepolia", "base-sepolia", "arbitrum-sepolia", "optimism-sepolia", "arc-testnet",
   ]);
 
   for (const network of circleTestnetUsdcNetworks) {
@@ -156,7 +156,7 @@ test("route discovery: CCTP is available for every distinct supported testnet US
       routeCount += result.routes.length;
     }
   }
-  assert.equal(routeCount, 12);
+  assert.equal(routeCount, 20);
 });
 
 test("route discovery: unsupported cross-network choices do not invent a route", async () => {

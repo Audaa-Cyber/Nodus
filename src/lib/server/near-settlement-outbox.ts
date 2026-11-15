@@ -1,12 +1,26 @@
 import "server-only";
 
+import { randomUUID } from "node:crypto";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getCircleChain } from "@/lib/server/circle";
 import { buildNearSettlementPayload, type NearSettlementPayload } from "@/lib/payments/near-settlement-payload";
 import { deliverClaimedNearSettlement, PermanentNearOutboxError } from "@/lib/payments/near-outbox-delivery";
 import { createNearSettlementClient, isNearPermanentError } from "@/lib/server/near-settlement-client";
+import {
+  measureNearSettlementStage,
+  type NearSettlementEntryPoint,
+  type NearSettlementLogContext,
+  logNearSettlementTiming,
+} from "@/lib/server/near-settlement-telemetry";
 
-type OutboxJob = { id: string; reconciliation_id: string; lock_token: string };
+type OutboxJob = {
+  id: string;
+  reconciliation_id: string;
+  payment_attempt_id: string;
+  lock_token: string;
+  near_transaction_hash: string | null;
+  created_at: string;
+};
 type NearRecord = {
   reconciliation_id: string; invoice_id: string; attempt_id: string;
   source_transaction_hash: string; destination_transaction_hash: string;
@@ -16,23 +30,42 @@ type NearRecord = {
 
 const getString = (object: Record<string, unknown>, key: string) => object[key] == null ? "" : String(object[key]);
 
-export async function processNearSettlementOutbox(limit = 10): Promise<{ claimed: number; submitted: number; retry: number; blocked: number }> {
+export async function processNearSettlementOutbox(
+  limit = 10,
+  options: { entryPoint?: NearSettlementEntryPoint; correlationId?: string } = {},
+): Promise<{ claimed: number; submitted: number; retry: number; blocked: number }> {
+  const entryPoint = options.entryPoint ?? "scheduled_worker";
+  const runCorrelationId = options.correlationId ?? randomUUID();
+  const runContext: NearSettlementLogContext = { entryPoint, correlationId: runCorrelationId };
+  const workerStartedAt = performance.now();
   const admin = getSupabaseAdminClient();
   const near = createNearSettlementClient();
-  const { data, error } = await admin.rpc("claim_near_settlement_outbox", { p_limit: limit });
+  const { data, error } = await measureNearSettlementStage(runContext, "outbox_claim", () =>
+    admin.rpc("claim_near_settlement_outbox", { p_limit: limit }));
   if (error) throw new Error("near_outbox_claim_failed");
   const jobs = (data ?? []) as OutboxJob[];
   const counts = { claimed: jobs.length, submitted: 0, retry: 0, blocked: 0 };
   for (const job of jobs) {
+    const context: NearSettlementLogContext = {
+      entryPoint,
+      correlationId: job.payment_attempt_id || job.reconciliation_id,
+      jobId: job.id,
+    };
+    const queueAgeMs = Date.now() - Date.parse(job.created_at);
+    if (Number.isFinite(queueAgeMs)) logNearSettlementTiming(context, "queue_wait", queueAgeMs, "ok");
+    const measure = <T>(stage: string, operation: () => PromiseLike<T>) =>
+      measureNearSettlementStage(context, stage, operation);
+    const jobStartedAt = performance.now();
     const result = await deliverClaimedNearSettlement(job, {
       loadPayload: async (claimed) => {
-        const { data: outbox, error: outboxError } = await admin.from("near_settlement_outbox").select("*")
-          .eq("id", claimed.id).eq("lock_token", claimed.lock_token).single();
+        const { data: outbox, error: outboxError } = await measure("outbox_row_load", () =>
+          admin.from("near_settlement_outbox").select("*")
+            .eq("id", claimed.id).eq("lock_token", claimed.lock_token).single());
         if (outboxError || !outbox) throw new Error("near_outbox_job_unavailable");
         const [settlementResult, attemptResult, invoiceResult] = await Promise.all([
-          admin.from("payment_settlements").select("*").eq("id", outbox.payment_settlement_id).single(),
-          admin.from("payment_attempts").select("*").eq("id", outbox.payment_attempt_id).single(),
-          admin.from("invoices").select("*").eq("id", outbox.invoice_id).single(),
+          measure("settlement_row_load", () => admin.from("payment_settlements").select("*").eq("id", outbox.payment_settlement_id).single()),
+          measure("attempt_row_load", () => admin.from("payment_attempts").select("*").eq("id", outbox.payment_attempt_id).single()),
+          measure("invoice_row_load", () => admin.from("invoices").select("*").eq("id", outbox.invoice_id).single()),
         ]);
         if (settlementResult.error || attemptResult.error || invoiceResult.error) throw new Error("near_settlement_source_unavailable");
         const destinationNetwork = settlementResult.data.destination_network;
@@ -83,7 +116,11 @@ export async function processNearSettlementOutbox(limit = 10): Promise<{ claimed
       },
       ensureInvoiceAndAttempt: async (payload) => {
         const invoice = payload.invoiceArgs as NearSettlementPayload["invoiceArgs"];
-        const existingInvoice = await near.view<Record<string, unknown>>("get_invoice", { invoice_id: invoice.invoice_id });
+        const attempt = payload.attemptArgs as NearSettlementPayload["attemptArgs"];
+        const [existingInvoice, existingAttempt] = await Promise.all([
+          measure("invoice_registry_read", () => near.view<Record<string, unknown>>("get_invoice", { invoice_id: invoice.invoice_id })),
+          measure("attempt_registry_read", () => near.view<Record<string, unknown>>("get_attempt", { attempt_id: attempt.attempt_id })),
+        ]);
         if (existingInvoice) {
           const terms = existingInvoice.terms as Record<string, unknown> | undefined;
           if (getString(existingInvoice, "invoice_id") !== invoice.invoice_id
@@ -96,14 +133,12 @@ export async function processNearSettlementOutbox(limit = 10): Promise<{ claimed
             throw new PermanentNearOutboxError("near_invoice_registry_mismatch");
           }
         } else {
-          try { await near.call("register_invoice", invoice); }
+          try { await measure("invoice_register_finality", () => near.call("register_invoice", invoice)); }
           catch (error) {
             if (!isNearPermanentError(error)) throw error;
             throw new PermanentNearOutboxError("near_invoice_registration_rejected");
           }
         }
-        const attempt = payload.attemptArgs as NearSettlementPayload["attemptArgs"];
-        const existingAttempt = await near.view<Record<string, unknown>>("get_attempt", { attempt_id: attempt.attempt_id });
         const sourceTokenByChainId: Record<number, string> = {
           11155111: "0x1c7d4b196cb0c7b01d743fbc6116a902379c7238",
           84532: "0x036cbd53842c5426634e7929541ec2318f3dcf7e",
@@ -118,7 +153,7 @@ export async function processNearSettlementOutbox(limit = 10): Promise<{ claimed
             throw new PermanentNearOutboxError("near_attempt_registry_mismatch");
           }
         } else {
-          try { await near.call("register_attempt", attempt); }
+          try { await measure("attempt_register_finality", () => near.call("register_attempt", attempt)); }
           catch (error) {
             if (!isNearPermanentError(error)) throw error;
             throw new PermanentNearOutboxError("near_attempt_registration_rejected");
@@ -150,8 +185,11 @@ export async function processNearSettlementOutbox(limit = 10): Promise<{ claimed
         });
         if (blockedError) throw new Error("near_outbox_block_failed");
       },
+      measureStage: measure,
     });
     counts[result] += 1;
+    logNearSettlementTiming(context, "job_total", performance.now() - jobStartedAt, "ok");
   }
+  logNearSettlementTiming(runContext, "worker_total", performance.now() - workerStartedAt, "ok");
   return counts;
 }

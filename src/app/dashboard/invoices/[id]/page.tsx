@@ -9,7 +9,6 @@ import { InvoiceDetailLiveSync } from "@/components/invoice-detail-live-sync";
 import { retryNearInvoiceRegistrationAction } from "@/app/actions/invoices";
 import { getBusinessContext } from "@/lib/auth/business-context";
 import { effectiveStatus, formatMoney, formatUtcDate } from "@/lib/invoices";
-import { withTransitionDelay } from "@/lib/utils/timing";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 function formatUtcDateTime(dateString: string): string {
@@ -96,7 +95,7 @@ export default async function InvoiceDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ cancelled?: string; error?: string }>;
+  searchParams: Promise<{ cancelled?: string; error?: string; issued?: string; token?: string }>;
 }) {
   const [{ id }, query] = await Promise.all([params, searchParams]);
   if (
@@ -114,8 +113,7 @@ export default async function InvoiceDetailPage({
     { data: settlements },
     { data: attempts },
     { data: nearInvoiceRegistration },
-  ] = await withTransitionDelay(
-    Promise.all([
+  ] = await Promise.all([
       supabase
         .from("invoices")
         .select("*")
@@ -141,7 +139,7 @@ export default async function InvoiceDetailPage({
       supabase
         .from("payment_attempts")
         .select(
-          "id,source_asset_id,source_network,destination_asset_id,destination_network,transaction_hash,requested_amount,expected_received_amount,deposit_address,mode,status,created_at,updated_at"
+          "id,source_asset_id,source_network,destination_asset_id,destination_network,transaction_hash,requested_amount,expected_received_amount,deposit_address,mode,status,quote_snapshot,created_at,updated_at"
         )
         .eq("invoice_id", id)
         .eq("business_id", business.id)
@@ -152,9 +150,7 @@ export default async function InvoiceDetailPage({
         .select("id,status,attempt_count,near_transaction_hash,failure_reason,registered_at")
         .eq("invoice_id", id)
         .maybeSingle(),
-    ]),
-    700
-  );
+    ]);
 
   if (error || !invoice) notFound();
   const sellerSnapshot = invoice.seller_snapshot && typeof invoice.seller_snapshot === "object" && !Array.isArray(invoice.seller_snapshot) ? invoice.seller_snapshot as Record<string, unknown> : {};
@@ -178,6 +174,16 @@ export default async function InvoiceDetailPage({
   const status = effectiveStatus(invoice);
   const isPaid = invoice.status === "paid";
   const isCancelled = invoice.status === "cancelled";
+
+  let initialPayUrl: string | null = null;
+  if (query.token && invoice.share_token_hash) {
+    const { createHash } = await import("node:crypto");
+    const calculatedHash = createHash("sha256").update(query.token, "utf8").digest("hex");
+    if (calculatedHash === invoice.share_token_hash) {
+      const origin = process.env.NEXT_PUBLIC_APP_URL?.trim() || "http://localhost:3000";
+      initialPayUrl = `${origin}/pay/${query.token}`;
+    }
+  }
 
   // Share panel state
   const shareState = !invoice.share_token_hash
@@ -205,6 +211,30 @@ export default async function InvoiceDetailPage({
   const primaryNearEntry = primaryAttempt
     ? nearOutbox?.find((n) => n.payment_attempt_id === primaryAttempt.id) ?? null
     : null;
+  const nearCctpNetworks = new Set(["sepolia", "base-sepolia", "arbitrum-sepolia", "optimism-sepolia"]);
+  const primaryQuoteSnapshot = primaryAttempt?.quote_snapshot && typeof primaryAttempt.quote_snapshot === "object"
+    ? primaryAttempt.quote_snapshot as Record<string, unknown>
+    : null;
+  const hasCrossChainNearCctpRoute = Boolean(primaryAttempt && primarySettlement
+    && primaryAttempt.mode === "live"
+    && primaryQuoteSnapshot?.type === "circle_cctp"
+    && primaryAttempt.source_network !== primaryAttempt.destination_network
+    && nearCctpNetworks.has(primaryAttempt.source_network)
+    && nearCctpNetworks.has(primaryAttempt.destination_network)
+    && primaryAttempt.source_asset_id === `${primaryAttempt.source_network}:usdc`
+    && primaryAttempt.destination_asset_id === `${primaryAttempt.destination_network}:usdc`
+    && primarySettlement.destination_network === primaryAttempt.destination_network
+    && primarySettlement.destination_asset_id === primaryAttempt.destination_asset_id);
+  const nearSettlementEligibility = hasCrossChainNearCctpRoute
+    ? "eligible"
+    : primaryAttempt
+      && (primaryAttempt.mode !== "live"
+        || primaryQuoteSnapshot?.type === "circle_direct"
+        || primaryAttempt.source_network === primaryAttempt.destination_network)
+      ? "not_applicable"
+      : primaryAttempt
+        ? "unsupported"
+        : "unknown";
 
   // Extract validated destination tx hashes
   const destinationHashes = Array.isArray(primarySettlement?.destination_tx_hashes)
@@ -240,6 +270,7 @@ export default async function InvoiceDetailPage({
           primarySettlement={primarySettlement}
           primaryAttempt={primaryAttempt}
           primaryNearEntry={primaryNearEntry}
+          nearSettlementEligibility={nearSettlementEligibility}
           nearOutboxError={!!nearOutboxError}
           nearInvoiceRegistration={nearInvoiceRegistration}
           receipts={receipts}
@@ -273,6 +304,11 @@ export default async function InvoiceDetailPage({
         </div>
       </header>
 
+      {query.issued && (
+        <p className="form-success" role="status">
+          Invoice issued successfully. Ready for customer payment.
+        </p>
+      )}
       {query.cancelled && (
         <p className="form-success" role="status">
           Invoice cancelled. It can no longer be payable.
@@ -330,6 +366,7 @@ export default async function InvoiceDetailPage({
           shareState={shareState}
           expiresAt={invoice.share_token_expires_at}
           canShare={canShare}
+          initialUrl={initialPayUrl ?? undefined}
         />
       )}
 

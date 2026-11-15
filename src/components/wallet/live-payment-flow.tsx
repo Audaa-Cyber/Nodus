@@ -5,6 +5,7 @@ import { useAccount, useSendTransaction, useSwitchChain } from "wagmi";
 import { formatMoney } from "@/lib/invoices";
 import { createIdempotencyKey } from "@/lib/idempotency-key";
 import { evmWalletChains, getWalletNetwork } from "@/lib/wallet/networks";
+import { getCircleChain } from "@/lib/server/circle";
 import { isMobileWalletBrowser, setWalletConnectSessionDefaultChain } from "@/lib/wallet/rabby-mobile-handoff";
 import { createPublicClient, custom, formatEther, http, parseAbi } from "viem";
 import { executeCircleBridgeAfterFreshReservation } from "@/lib/payments/circle-execution-reservation";
@@ -34,6 +35,7 @@ const CHAIN_ID_TO_BLOCKCHAIN: Record<number, string> = {
   421614: "Arbitrum_Sepolia",
   10: "Optimism",
   11155420: "Optimism_Sepolia",
+  5042002: "Arc_Testnet",
 };
 
 const CHAIN_ID_TO_BRIDGE_CHAIN: Record<number, string> = {
@@ -45,6 +47,7 @@ const CHAIN_ID_TO_BRIDGE_CHAIN: Record<number, string> = {
   421614: "Arbitrum_Sepolia",
   10: "Optimism",
   11155420: "Optimism_Sepolia",
+  5042002: "Arc_Testnet",
 };
 
 function formatUnits(baseUnits: string, decimals: number): string {
@@ -68,10 +71,16 @@ function shortHash(hash: string): string {
 
 function getRouteDiscoveryErrorMessage(code: unknown): string {
   if (code === "unsupported_circle_testnet_destination_network") {
-    return "This invoice's receiving network is not enabled for testnet checkout. The merchant must choose Sepolia, Base Sepolia, Arbitrum Sepolia, or Optimism Sepolia in their business profile.";
+    return "This invoice's receiving network is not enabled for testnet checkout. The merchant must choose Sepolia, Base Sepolia, Arbitrum Sepolia, Optimism Sepolia, or Arc Testnet in their business profile.";
   }
   if (code === "unsupported_circle_testnet_source_asset") {
     return "The selected token is not a supported Circle testnet USDC asset. Choose USDC on one of the supported testnet networks.";
+  }
+  if (code === "circle_route_unsupported") {
+    return "Circle does not support this source and destination route.";
+  }
+  if (code === "circle_liquidity_or_fee_unavailable") {
+    return "Circle cannot provide the required fee or liquidity for this route right now. Retry quote discovery later.";
   }
   return typeof code === "string" && code ? code : "No route found for this token.";
 }
@@ -151,7 +160,9 @@ export function LivePaymentFlow({
 
       const data = await response.json();
       if (!response.ok || !data.success || !Array.isArray(data.routes)) {
-        throw new Error(getRouteDiscoveryErrorMessage(data.error));
+        const message = getRouteDiscoveryErrorMessage(data.error);
+        const providerReason = typeof data.providerReason === "string" ? data.providerReason : "";
+        throw new Error(providerReason ? `${message} Circle: ${providerReason}` : message);
       }
 
       setRoutes(data.routes);
@@ -261,6 +272,8 @@ export function LivePaymentFlow({
         const requiredUsdc = usdcToBaseUnits(totalDebit);
         const requiredUsdcBaseUnits = BigInt(requiredUsdc);
         const publicClient = createPublicClient({ chain: sourceChain, transport: custom(provider as never) });
+        const sourceCircle = getCircleChain(sourceNetwork.key, true);
+        const tokenMessengerSpender = sourceCircle?.tokenMessengerWithFees ?? sourceCircle?.tokenMessengerAddress ?? CIRCLE_TESTNET_TOKEN_MESSENGER_WITH_FEES;
         const gasEstimate = await estimateCircleSourceGas({
           payerAddress: activeAddress as `0x${string}`,
           amountBaseUnits: requiredUsdcBaseUnits,
@@ -268,7 +281,7 @@ export function LivePaymentFlow({
           fallbackChain: sourceChain,
           fallbackRpcUrl: sourceChain.rpcUrls.default.http[0],
           usdcAddress: selectedAsset.contractAddress as `0x${string}`,
-          tokenMessengerWithFeesAddress: CIRCLE_TESTNET_TOKEN_MESSENGER_WITH_FEES,
+          tokenMessengerWithFeesAddress: tokenMessengerSpender,
         });
         const estimatedGasWei = gasEstimate.estimatedGasWei;
         let usdcBalance: bigint;
@@ -295,8 +308,17 @@ export function LivePaymentFlow({
             fallbackClient.getBalance({ address: activeAddress as `0x${string}` }),
           ]);
         }
-        if (usdcBalance < requiredUsdcBaseUnits) throw new Error(`Insufficient ${sourceNetwork.label} USDC for the Circle quote.`);
-        if (nativeBalance < estimatedGasWei) throw new Error(`Insufficient ${sourceNetwork.label} ${sourceChain.nativeCurrency.symbol} for estimated bridge gas.`);
+        if (sourceChain.id === 5042002) {
+          // Arc Testnet uses native USDC (18 decimals) for execution gas, drawn from the same account balance as ERC-20 USDC (6 decimals).
+          // Convert estimated gas wei to 6-decimal units with ceiling division to prevent double counting or underestimating.
+          const gasInUsdc6Decimals = (estimatedGasWei + 10n ** 12n - 1n) / (10n ** 12n);
+          if (usdcBalance < requiredUsdcBaseUnits + gasInUsdc6Decimals) {
+            throw new Error(`Insufficient ${sourceNetwork.label} USDC to cover payment amount and transaction gas.`);
+          }
+        } else {
+          if (usdcBalance < requiredUsdcBaseUnits) throw new Error(`Insufficient ${sourceNetwork.label} USDC for the Circle quote.`);
+          if (nativeBalance < estimatedGasWei) throw new Error(`Insufficient ${sourceNetwork.label} ${sourceChain.nativeCurrency.symbol} for estimated bridge gas.`);
+        }
         setCircleQuote({
           quote: signedQuote,
           amountReceived,
@@ -569,7 +591,12 @@ export function LivePaymentFlow({
               amount: (amountMinor / 100).toFixed(2),
               token: "USDC",
               quote: circleQuote?.quote,
-              config: { feePayment: "source" },
+              config: {
+                feePayment: "source",
+                ...(getCircleChain(selectedRoute.sourceNetwork, true)?.supportsFastTransfer === false
+                  ? { transferSpeed: "SLOW" as const }
+                  : {}),
+              },
             }),
           );
           await persistCircleProgress(bridgeRes.state);

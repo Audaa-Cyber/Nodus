@@ -8,11 +8,23 @@ import { formatUtcDate } from "@/lib/invoices";
 
 type ShareState = "active" | "expired" | "none";
 
-export default function InvoiceSharePanel({ invoiceId, shareState, expiresAt, canShare }: { invoiceId: string; shareState: ShareState; expiresAt: string | null; canShare: boolean }) {
-  const [url, setUrl] = useState("");
-  const [currentShareState, setCurrentShareState] = useState(shareState);
+export default function InvoiceSharePanel({
+  invoiceId,
+  shareState,
+  expiresAt,
+  canShare,
+  initialUrl,
+}: {
+  invoiceId: string;
+  shareState: ShareState;
+  expiresAt: string | null;
+  canShare: boolean;
+  initialUrl?: string;
+}) {
+  const [url, setUrl] = useState(initialUrl ?? "");
+  const [currentShareState, setCurrentShareState] = useState<ShareState>(initialUrl ? "active" : shareState);
   const [currentExpiry, setCurrentExpiry] = useState(expiresAt);
-  const [notice, setNotice] = useState("");
+  const [notice, setNotice] = useState(initialUrl ? "QR code and share link are ready." : "");
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
   const [showUrl, setShowUrl] = useState(false);

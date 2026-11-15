@@ -19,6 +19,13 @@ const receivedAbi = parseAbi(["event MessageReceived(address indexed caller,uint
 const transferAbi = parseAbi(["event Transfer(address indexed from,address indexed to,uint256 value)"]);
 const HASH = /^0x[0-9a-fA-F]{64}$/;
 
+const DEFAULT_SETTLEMENT_RPC_URLS: Record<string, string> = {
+  "arc-testnet": "https://rpc.testnet.arc.network",
+};
+const DEFAULT_SETTLEMENT_CONFIRMATIONS: Record<string, number> = {
+  "arc-testnet": 2,
+};
+
 function envMap<T>(name: string): Record<string, T> {
   try {
     const value: unknown = JSON.parse(process.env[name] ?? "{}");
@@ -44,13 +51,13 @@ export function checkCctpCorridorReadiness(
   const rpcs = envMap<string>("SETTLEMENT_RPC_URLS_JSON");
   const confs = envMap<number>("SETTLEMENT_CONFIRMATIONS_JSON");
 
-  const sourceRpc = rpcs[sourceNetwork];
+  const sourceRpc = rpcs[sourceNetwork] ?? DEFAULT_SETTLEMENT_RPC_URLS[sourceNetwork];
   const sourceRpcValid = Boolean(sourceRpc && /^https:\/\//i.test(sourceRpc));
 
-  const destRpc = rpcs[destinationNetwork];
+  const destRpc = rpcs[destinationNetwork] ?? DEFAULT_SETTLEMENT_RPC_URLS[destinationNetwork];
   const destRpcValid = Boolean(destRpc && /^https:\/\//i.test(destRpc));
 
-  const confirmations = confs[destinationNetwork];
+  const confirmations = confs[destinationNetwork] ?? DEFAULT_SETTLEMENT_CONFIRMATIONS[destinationNetwork];
   const confsValid = Number.isInteger(confirmations) && confirmations >= 1 && confirmations <= 10_000;
 
   const missing: string[] = [];
@@ -72,7 +79,7 @@ export function checkCctpCorridorReadiness(
 
 function clientFor(network: string) {
   const walletNetwork = getWalletNetwork(network);
-  const rpcUrl = envMap<string>("SETTLEMENT_RPC_URLS_JSON")[network];
+  const rpcUrl = envMap<string>("SETTLEMENT_RPC_URLS_JSON")[network] ?? DEFAULT_SETTLEMENT_RPC_URLS[network];
   const chain = walletNetwork?.chainId && evmWalletChains.find((item) => item.id === walletNetwork.chainId);
   if (!walletNetwork || walletNetwork.family !== "evm" || !chain || !rpcUrl || !/^https:\/\//i.test(rpcUrl)) {
     throw new Error("cctp_verification_rpc_not_configured");

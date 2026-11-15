@@ -10,7 +10,12 @@ export type NearSettlementRecord = {
   cctp_message_nonce: string | null;
 };
 
-export type NearOutboxJob = { id: string; reconciliation_id: string; lock_token: string };
+export type NearOutboxJob = {
+  id: string;
+  reconciliation_id: string;
+  lock_token: string;
+  near_transaction_hash?: string | null;
+};
 export type NearSettlementDeliveryPayload<TPayload> = {
   invoiceArgs: Record<string, unknown>;
   attemptArgs: Record<string, unknown>;
@@ -57,38 +62,48 @@ export async function deliverClaimedNearSettlement<TPayload>(
     markSubmitted: (job: NearOutboxJob, transactionHash: string | null) => Promise<void>;
     scheduleRetry: (job: NearOutboxJob, errorCode: string) => Promise<void>;
     markBlocked: (job: NearOutboxJob, errorCode: string) => Promise<void>;
+    measureStage?: <T>(stage: string, operation: () => PromiseLike<T>) => Promise<T>;
   },
 ): Promise<"submitted" | "retry" | "blocked"> {
-  let payload: Awaited<ReturnType<typeof dependencies.loadPayload>>;
-  try {
-    payload = await dependencies.loadPayload(job);
-  } catch (error) {
-    if (isPermanent(error)) {
-      await dependencies.markBlocked(job, error.code);
+  const measure = dependencies.measureStage ?? ((_stage, operation) => operation());
+  const [payloadResult, settlementResult] = await Promise.allSettled([
+    measure("payload_load", () => dependencies.loadPayload(job)),
+    measure("settlement_read_before_send", () => dependencies.getSettlement(job.reconciliation_id)),
+  ]);
+  if (payloadResult.status === "rejected") {
+    if (isPermanent(payloadResult.reason)) {
+      await dependencies.markBlocked(job, payloadResult.reason.code);
       return "blocked";
     }
     await dependencies.scheduleRetry(job, "near_outbox_payload_unavailable");
     return "retry";
   }
-
-  let existing: NearSettlementRecord | null;
-  try {
-    existing = await dependencies.getSettlement(job.reconciliation_id);
-  } catch {
+  if (settlementResult.status === "rejected") {
     await dependencies.scheduleRetry(job, "near_rpc_unavailable");
     return "retry";
   }
+  const payload = payloadResult.value;
+  const existing = settlementResult.value;
   if (existing) {
     if (!settlementMatches(payload.settlementRecord, existing)) {
       await dependencies.markBlocked(job, "near_existing_settlement_mismatch");
       return "blocked";
     }
-    await dependencies.markSubmitted(job, null);
+    await measure("outbox_mark_submitted", () => dependencies.markSubmitted(job, job.near_transaction_hash ?? null));
     return "submitted";
   }
 
+  // A finalized transaction hash is persisted before readback. If a later view
+  // call is stale or temporarily unavailable, retry readback without signing a
+  // second settlement transaction.
+  if (job.near_transaction_hash) {
+    await dependencies.scheduleRetry(job, "near_readback_pending");
+    return "retry";
+  }
+
+  let submittedTransactionHash: string | null = null;
   try {
-    await dependencies.ensureInvoiceAndAttempt(payload);
+    await measure("registry_sync", () => dependencies.ensureInvoiceAndAttempt(payload));
   } catch (error) {
     if (isPermanent(error)) {
       await dependencies.markBlocked(job, error.code);
@@ -99,11 +114,12 @@ export async function deliverClaimedNearSettlement<TPayload>(
   }
 
   try {
-    const transactionHash = await dependencies.attestSettlement(payload.attestationArgs.input);
-    await dependencies.recordSubmission(job, transactionHash);
+    const transactionHash = await measure("attest_submit_and_finality", () => dependencies.attestSettlement(payload.attestationArgs.input));
+    submittedTransactionHash = transactionHash;
+    await measure("submission_persist", () => dependencies.recordSubmission(job, transactionHash));
     let verified: NearSettlementRecord | null;
     try {
-      verified = await dependencies.getSettlement(job.reconciliation_id);
+      verified = await measure("settlement_readback", () => dependencies.getSettlement(job.reconciliation_id));
     } catch {
       await dependencies.scheduleRetry(job, "near_readback_unavailable");
       return "retry";
@@ -116,12 +132,12 @@ export async function deliverClaimedNearSettlement<TPayload>(
       await dependencies.markBlocked(job, "near_existing_settlement_mismatch");
       return "blocked";
     }
-    await dependencies.markSubmitted(job, transactionHash);
+    await measure("outbox_mark_submitted", () => dependencies.markSubmitted(job, transactionHash));
     return "submitted";
   } catch (error) {
     let recovered: NearSettlementRecord | null;
     try {
-      recovered = await dependencies.getSettlement(job.reconciliation_id);
+      recovered = await measure("settlement_readback_after_uncertain_submission", () => dependencies.getSettlement(job.reconciliation_id));
     } catch {
       await dependencies.scheduleRetry(job, "near_submission_uncertain");
       return "retry";
@@ -131,7 +147,7 @@ export async function deliverClaimedNearSettlement<TPayload>(
         await dependencies.markBlocked(job, "near_existing_settlement_mismatch");
         return "blocked";
       }
-      await dependencies.markSubmitted(job, null);
+      await measure("outbox_mark_submitted", () => dependencies.markSubmitted(job, submittedTransactionHash));
       return "submitted";
     }
     if (isPermanent(error)) {

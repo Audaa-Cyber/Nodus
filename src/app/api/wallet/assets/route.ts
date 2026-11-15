@@ -50,6 +50,8 @@ const SUPPORTED_ASSETS: WalletAsset[] = [
   { assetId: "sepolia:usdc", symbol: "USDC", decimals: 6, network: getWalletNetwork("sepolia")!, contractAddress: "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238" },
   { assetId: "arbitrum-sepolia:usdc", symbol: "USDC", decimals: 6, network: getWalletNetwork("arbitrum-sepolia")!, contractAddress: "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d" },
   { assetId: "optimism-sepolia:usdc", symbol: "USDC", decimals: 6, network: getWalletNetwork("optimism-sepolia")!, contractAddress: "0x5fd84259d66Cd46123540766Be93DFE6D43130D7" },
+  { assetId: "arc-testnet:usdc", symbol: "USDC", decimals: 6, network: getWalletNetwork("arc-testnet")!, contractAddress: "0x3600000000000000000000000000000000000000" },
+
 ];
 
 export async function GET() {

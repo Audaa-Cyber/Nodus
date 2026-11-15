@@ -166,7 +166,7 @@ export default function ProfileForm({
                 </span>
               </div>
               <p className="text-xs leading-relaxed mb-4" style={{ color: "var(--text-secondary)" }}>
-                Testnet checkout supports USDC on the four listed networks.
+                Testnet checkout supports USDC on the five listed networks.
               </p>
 
               {/* Circle User-Controlled Wallet Option */}

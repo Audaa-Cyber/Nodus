@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "test:http-route": "node --experimental-strip-types --experimental-test-module-mocks --test tests/start-route.test.mjs",
     "test:payments": "node --experimental-strip-types --experimental-test-module-mocks --test tests/*.test.mjs",
+    "postinstall": "node scripts/apply-circle-bridge-kit-arc-compat.mjs",
     "prepare": "husky"
   },
   "dependencies": {

@@ -96,6 +96,10 @@ test("Section 4: NEAR reconciliation is kept visible as a separate section with 
   assert.ok(viewSource.includes("nearblocks.io/txns"), "links to nearblocks");
   assert.ok(viewSource.includes("Reconciliation confirmed on NEAR"), "shows confirmed status");
   assert.ok(viewSource.includes("formatUtcDateTime(primaryNearEntry.submitted_at)"), "formats submitted timestamp");
+  assert.ok(viewSource.includes("NEAR settlement recording is not applicable"), "distinguishes direct and same-chain payments");
+  assert.ok(viewSource.includes("outbox job is missing for this eligible payment"), "reports a missing eligible outbox job accurately");
+  assert.ok(viewSource.includes("Submitted to NEAR; awaiting contract confirmation"), "distinguishes a saved transaction from verified readback");
+  assert.ok(!viewSource.includes("NEAR reconciliation record not found for this payment."), "does not label an empty outbox as a missing contract record");
 });
 
 test("Section 5: Expandable technical details is collapsed by default and preserves all existing payment evidence", () => {

@@ -7,6 +7,13 @@ import type { DestinationTransferProof } from "../payments/settlement-policy.ts"
 const transferAbi = parseAbi(["event Transfer(address indexed from, address indexed to, uint256 value)"]);
 const HASH = /^0x[0-9a-fA-F]{64}$/;
 
+const DEFAULT_SETTLEMENT_RPC_URLS: Record<string, string> = {
+  "arc-testnet": "https://rpc.testnet.arc.network",
+};
+const DEFAULT_SETTLEMENT_CONFIRMATIONS: Record<string, number> = {
+  "arc-testnet": 2,
+};
+
 function readJsonMap<T>(name: string): Record<string, T> {
   try {
     const raw = process.env[name];
@@ -42,8 +49,8 @@ export async function verifyEvmDestinationTransfers(input: {
     throw new Error("unsupported_or_invalid_destination_proof");
   }
   const key = network.key;
-  const rpcUrl = readJsonMap<string>("SETTLEMENT_RPC_URLS_JSON")[key];
-  const confirmations = readJsonMap<number>("SETTLEMENT_CONFIRMATIONS_JSON")[key];
+  const rpcUrl = readJsonMap<string>("SETTLEMENT_RPC_URLS_JSON")[key] ?? DEFAULT_SETTLEMENT_RPC_URLS[key];
+  const confirmations = readJsonMap<number>("SETTLEMENT_CONFIRMATIONS_JSON")[key] ?? DEFAULT_SETTLEMENT_CONFIRMATIONS[key];
   if (!rpcUrl || !/^https:\/\//i.test(rpcUrl) || !Number.isInteger(confirmations) || confirmations < 1 || confirmations > 10_000) {
     throw new Error("settlement_chain_not_configured");
   }

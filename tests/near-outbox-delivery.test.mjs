@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { deliverClaimedNearSettlement } from "../src/lib/payments/near-outbox-delivery.ts";
+import { deliverClaimedNearSettlement, PermanentNearOutboxError } from "../src/lib/payments/near-outbox-delivery.ts";
 
 const job = { id: "outbox-1", reconciliation_id: "settlement-1", lock_token: "lease-1" };
 const input = {
@@ -55,14 +55,29 @@ function dependencies(overrides = {}) {
 test("reconciles an existing matching settlement without submitting a duplicate", async () => {
   let sends = 0;
   let completed = 0;
-  const result = await deliverClaimedNearSettlement(job, dependencies({
+  const result = await deliverClaimedNearSettlement({ ...job, near_transaction_hash: "near-tx-1" }, dependencies({
     getSettlement: async () => record(),
     attestSettlement: async () => { sends += 1; return "unexpected"; },
-    markSubmitted: async (_job, txHash) => { assert.equal(txHash, null); completed += 1; },
+    markSubmitted: async (_job, txHash) => { assert.equal(txHash, "near-tx-1"); completed += 1; },
   }));
   assert.equal(result, "submitted");
   assert.equal(sends, 0);
   assert.equal(completed, 1);
+});
+
+test("retries delayed contract readback without submitting the saved transaction again", async () => {
+  let sends = 0;
+  let retried = 0;
+  const submittedJob = { ...job, near_transaction_hash: "near-tx-1" };
+  const deps = dependencies({
+    getSettlement: async () => null,
+    attestSettlement: async () => { sends += 1; return "duplicate"; },
+    scheduleRetry: async (_job, code) => { assert.equal(code, "near_readback_pending"); retried += 1; },
+  });
+  assert.equal(await deliverClaimedNearSettlement(submittedJob, deps), "retry");
+  assert.equal(await deliverClaimedNearSettlement(submittedJob, deps), "retry");
+  assert.equal(sends, 0);
+  assert.equal(retried, 2);
 });
 
 test("synchronizes invoice and attempt before attestation", async () => {
@@ -93,6 +108,19 @@ test("recovers an uncertain submission by querying get_settlement before retry",
   assert.equal(calls, 2);
   assert.equal(completed, 1);
   assert.equal(retried, 0);
+});
+
+test("preserves the transaction hash when outbox persistence fails but contract readback succeeds", async () => {
+  let reads = 0;
+  let completedHash = null;
+  const result = await deliverClaimedNearSettlement(job, dependencies({
+    attestSettlement: async () => "near-tx-1",
+    recordSubmission: async () => { throw new Error("database temporarily unavailable"); },
+    getSettlement: async () => reads++ === 0 ? null : record(),
+    markSubmitted: async (_job, txHash) => { completedHash = txHash; },
+  }));
+  assert.equal(result, "submitted");
+  assert.equal(completedHash, "near-tx-1");
 });
 
 test("leaves a failed submission retryable when get_settlement is still empty", async () => {
@@ -131,6 +159,16 @@ test("blocks an on-chain settlement with a different full-width CCTP nonce", asy
   }));
   assert.equal(result, "blocked");
   assert.equal(sends, 0);
+  assert.equal(blocked, 1);
+});
+
+test("marks a permanent NEAR transaction failure as blocked", async () => {
+  let blocked = 0;
+  const result = await deliverClaimedNearSettlement(job, dependencies({
+    attestSettlement: async () => { throw new PermanentNearOutboxError("near_contract_call_rejected"); },
+    markBlocked: async (_job, code) => { assert.equal(code, "near_contract_call_rejected"); blocked += 1; },
+  }));
+  assert.equal(result, "blocked");
   assert.equal(blocked, 1);
 });
 
