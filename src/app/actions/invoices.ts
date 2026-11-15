@@ -64,14 +64,12 @@ export async function saveInvoiceAction(_previous: FormState, formData: FormData
     let issuedRedirectToken: string | null = null;
 
     if (isTransitioningToOpen) {
-      if (!existing.share_token_hash) {
-        const creds = createPayLinkCredentials();
-        shareTokenUpdate = {
-          share_token_hash: creds.tokenHash,
-          share_token_expires_at: creds.expiresAt,
-        };
-        issuedRedirectToken = creds.token;
-      }
+      const creds = createPayLinkCredentials();
+      shareTokenUpdate = {
+        share_token_hash: creds.tokenHash,
+        share_token_expires_at: creds.expiresAt,
+      };
+      issuedRedirectToken = creds.token;
     }
 
     const updateValues = {
@@ -148,9 +146,18 @@ export async function saveInvoiceAction(_previous: FormState, formData: FormData
   const { data: invoice, error } = await supabase.from("invoices").insert(insertPayload).select("id").single();
   if (error) {
     if (error.code === "23505" && UUID_PATTERN.test(clientDraftId)) {
-      revalidatePath("/dashboard/invoices");
-      revalidatePath(`/dashboard/invoices/${clientDraftId}`);
-      redirect(`/dashboard/invoices/${clientDraftId}`, RedirectType.replace);
+      const { data: existingDraft } = await supabase
+        .from("invoices")
+        .select("id")
+        .eq("id", clientDraftId)
+        .eq("business_id", business.id)
+        .maybeSingle();
+
+      if (existingDraft) {
+        revalidatePath("/dashboard/invoices");
+        revalidatePath(`/dashboard/invoices/${existingDraft.id}`);
+        redirect(`/dashboard/invoices/${existingDraft.id}`, RedirectType.replace);
+      }
     }
     return { error: error.code === "23505" ? "That invoice number is already in use." : "Could not create the invoice. Check the details and try again." };
   }

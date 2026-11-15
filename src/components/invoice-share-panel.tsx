@@ -1,51 +1,102 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { QRCodeSVG } from "qrcode.react";
 import { generateInvoiceShareLinkAction, revokeInvoiceShareLinkAction } from "@/app/actions/sharing";
-import { formatUtcDate } from "@/lib/invoices";
 
-type ShareState = "active" | "expired" | "none";
+export interface InvoiceSharePanelProps {
+  invoiceId: string;
+  invoiceNumber?: string;
+  shareState: "active" | "expired" | "none";
+  expiresAt: string | null;
+  canShare: boolean;
+  initialUrl?: string;
+}
 
 export default function InvoiceSharePanel({
   invoiceId,
+  invoiceNumber,
   shareState,
   expiresAt,
   canShare,
   initialUrl,
-}: {
-  invoiceId: string;
-  shareState: ShareState;
-  expiresAt: string | null;
-  canShare: boolean;
-  initialUrl?: string;
-}) {
+}: InvoiceSharePanelProps) {
   const [url, setUrl] = useState(initialUrl ?? "");
-  const [currentShareState, setCurrentShareState] = useState<ShareState>(initialUrl ? "active" : shareState);
-  const [currentExpiry, setCurrentExpiry] = useState(expiresAt);
-  const [notice, setNotice] = useState(initialUrl ? "QR code and share link are ready." : "");
+  const [currentShareState, setCurrentShareState] = useState<"active" | "expired" | "none">(
+    initialUrl ? "active" : shareState
+  );
+  const [, setCurrentExpiry] = useState<string | null>(expiresAt);
+  const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
-  const [showUrl, setShowUrl] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [canShareWeb, setCanShareWeb] = useState(false);
   const qrFrame = useRef<HTMLDivElement>(null);
+  const noticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // State & Local Storage Persistence (Refresh Safety)
+  useEffect(() => {
+    const storageKey = `nodus:invoice-qr:${invoiceId}`;
+    if (initialUrl) {
+      try {
+        localStorage.setItem(
+          storageKey,
+          JSON.stringify({ url: initialUrl, expiresAt })
+        );
+      } catch {
+        // Safe fallback if localStorage is unavailable
+      }
+    } else if (shareState === "active") {
+      try {
+        const cachedRaw = localStorage.getItem(storageKey);
+        if (cachedRaw) {
+          const cached = JSON.parse(cachedRaw);
+          if (cached && typeof cached.url === "string" && cached.url) {
+            const isExpired =
+              cached.expiresAt && new Date(cached.expiresAt).getTime() <= Date.now();
+            if (!isExpired) {
+              setUrl(cached.url);
+              setCurrentShareState("active");
+              if (cached.expiresAt) setCurrentExpiry(cached.expiresAt);
+            }
+          }
+        }
+      } catch {
+        // Safe fallback if JSON parse fails
+      }
+    }
+  }, [invoiceId, initialUrl, shareState, expiresAt]);
+
+  useEffect(() => {
+    if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
+      setCanShareWeb(true);
+    }
+    return () => {
+      if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
+    };
+  }, []);
 
   async function generateLink() {
     setPending(true);
     setError("");
     setNotice("");
-    setShowUrl(false);
     try {
       const result = await generateInvoiceShareLinkAction(invoiceId);
-      if (result.error) setError(result.error);
-      else if (result.url) {
-        const replacedExistingLink = currentShareState === "active";
+      if (result.error) {
+        setError(result.error);
+      } else if (result.url) {
         setUrl(result.url);
         setCurrentShareState("active");
         setCurrentExpiry(result.expiresAt ?? null);
-        setNotice(replacedExistingLink
-          ? "QR code ready. The previous share link has been replaced."
-          : "QR code and share link are ready.");
+        try {
+          localStorage.setItem(
+            `nodus:invoice-qr:${invoiceId}`,
+            JSON.stringify({ url: result.url, expiresAt: result.expiresAt ?? null })
+          );
+        } catch {
+          // ignore
+        }
       }
     } catch {
       setError("A share link could not be created. Please try again.");
@@ -60,12 +111,17 @@ export default function InvoiceSharePanel({
     setNotice("");
     try {
       const result = await revokeInvoiceShareLinkAction(invoiceId);
-      if (result.error) setError(result.error);
-      else {
+      if (result.error) {
+        setError(result.error);
+      } else {
         setUrl("");
-        setShowUrl(false);
         setCurrentShareState("none");
         setCurrentExpiry(null);
+        try {
+          localStorage.removeItem(`nodus:invoice-qr:${invoiceId}`);
+        } catch {
+          // ignore
+        }
         setNotice(result.success ?? "Share link revoked.");
       }
     } catch {
@@ -76,13 +132,19 @@ export default function InvoiceSharePanel({
   }
 
   async function copyLink() {
+    if (!url) return;
     try {
       await navigator.clipboard.writeText(url);
-      setNotice("Invoice link copied.");
+      setCopied(true);
+      setNotice("Payment link copied to clipboard ✓");
       setError("");
+      if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
+      noticeTimerRef.current = setTimeout(() => {
+        setNotice("");
+        setCopied(false);
+      }, 2500);
     } catch {
-      setShowUrl(true);
-      setError("Copy is unavailable in this browser. The link is shown below for manual copying.");
+      setError("Unable to copy link to clipboard.");
     }
   }
 
@@ -91,35 +153,154 @@ export default function InvoiceSharePanel({
     if (!svg) return;
     const copy = svg.cloneNode(true) as SVGSVGElement;
     copy.setAttribute("xmlns", "http://www.w3.org/2000/svg");
-    const blob = new Blob([new XMLSerializer().serializeToString(copy)], { type: "image/svg+xml;charset=utf-8" });
+    const blob = new Blob([new XMLSerializer().serializeToString(copy)], {
+      type: "image/svg+xml;charset=utf-8",
+    });
     const objectUrl = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = objectUrl;
-    anchor.download = `nodus-invoice-qr.svg`;
+    const filename = invoiceNumber
+      ? `nodus-invoice-${invoiceNumber}-qr.svg`
+      : `nodus-invoice-qr.svg`;
+    anchor.download = filename;
     anchor.click();
     window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
   }
 
-  return <section className="share-panel" aria-labelledby="share-invoice-heading">
-    <div className="share-panel-heading"><div><p className="eyebrow">CUSTOMER ACCESS</p><h2 id="share-invoice-heading">Share invoice</h2></div>{currentShareState === "active" && <span className="status status-open">Link active</span>}</div>
-    {currentShareState === "active" && !url && <p className="form-help">An active link is saved. To copy it again, generate a replacement; the previous link will stop working. This link expires {currentExpiry ? formatUtcDate(currentExpiry) : "after one year"}.</p>}
-    {currentShareState === "expired" && !url && <p className="form-help">The previous link has expired. Generate a new link to share this invoice.</p>}
-    {currentShareState === "none" && !url && (canShare
-      ? <p className="form-help">Create a secure public link and QR code for the customer to view this invoice.</p>
-      : <p className="form-help">This draft has no public link yet. <Link className="share-issue-link" href={`/dashboard/invoices/${invoiceId}/edit`}>Open the draft to issue it</Link>, then create its share link here.</p>)}
-    {error && <p className="form-error" role="alert">{error}</p>}
-    {notice && <p className="form-success" role="status">{notice}</p>}
-    <div className="share-actions">
-      <button className="button button-dark" type="button" onClick={generateLink} disabled={pending || !canShare}>
-        {pending && <span className="button-spinner" aria-hidden="true" />}
-        {pending ? "Working…" : url || currentShareState === "active" ? "Generate replacement link" : "Generate QR code"}
-      </button>
-      {currentShareState === "active" && !url && <button className="button button-outline" type="button" onClick={revokeLink} disabled={pending}>Revoke current link</button>}
-    </div>
-    {url && <div className="share-result">
-      <div className="share-qr-wrap"><div className="share-qr" ref={qrFrame}><QRCodeSVG value={url} size={224} level="M" marginSize={4} title="QR code for the public invoice page" /></div><p>Scan to open this invoice on a phone. Link expires in one year.</p></div>
-      <div className="share-actions"><button className="button button-outline" type="button" onClick={copyLink}>Copy link</button><a className="button button-outline" href={url} target="_blank" rel="noopener noreferrer">Open public page</a><button className="button button-outline" type="button" onClick={downloadQr}>Download QR</button><button className="button button-outline" type="button" onClick={revokeLink} disabled={pending}>Revoke link</button></div>
-      {showUrl && <label className="business-form share-url-field"><span>Public invoice URL</span><input value={url} readOnly onFocus={(event) => event.currentTarget.select()} aria-label="Public invoice URL" /></label>}
-    </div>}
-  </section>;
+  async function handleShare() {
+    if (!url || typeof navigator === "undefined" || !navigator.share) return;
+    try {
+      await navigator.share({
+        title: `Invoice ${invoiceNumber ?? ""}`.trim(),
+        url,
+      });
+    } catch (err) {
+      if ((err as Error)?.name !== "AbortError") {
+        setError("Could not share invoice link.");
+      }
+    }
+  }
+
+  return (
+    <section className="share-panel invoice-share-panel no-print" aria-labelledby="share-invoice-heading">
+      <div className="share-panel-heading">
+        <div>
+          <p className="eyebrow">CUSTOMER ACCESS</p>
+          <h2 id="share-invoice-heading">Scan to Pay</h2>
+        </div>
+        {currentShareState === "active" && <span className="status status-open">Link active</span>}
+      </div>
+
+      {error && <p className="form-error" role="alert">{error}</p>}
+      {notice && <p className="form-success" role="status">{notice}</p>}
+
+      {!url && (
+        <>
+          {currentShareState === "none" && !canShare ? (
+            <p className="form-help">
+              This draft has no public link yet.{" "}
+              <Link className="share-issue-link" href={`/dashboard/invoices/${invoiceId}/edit`}>
+                Open the draft to issue it
+              </Link>
+              , then create its share link here.
+            </p>
+          ) : (
+            <p className="form-help">
+              {currentShareState === "expired"
+                ? "The previous link has expired. Generate a new QR code to accept payments."
+                : currentShareState === "active"
+                  ? "An active link exists on the server. Generate or restore the QR code to display it."
+                  : "Create a secure payment link and QR code for the customer to pay this invoice."}
+            </p>
+          )}
+
+          <div className="share-actions">
+            <button
+              className="button button-dark"
+              type="button"
+              onClick={generateLink}
+              disabled={pending || !canShare}
+            >
+              {pending && <span className="button-spinner" aria-hidden="true" />}
+              {pending ? "Working…" : "Generate QR code"}
+            </button>
+            {currentShareState === "active" && (
+              <button
+                className="button button-outline"
+                type="button"
+                onClick={revokeLink}
+                disabled={pending}
+              >
+                Revoke link
+              </button>
+            )}
+          </div>
+        </>
+      )}
+
+      {url && (
+        <div className="share-result">
+          <div className="qr-hero-card">
+            <span className="qr-badge">SCAN TO PAY</span>
+            <div className="qr-frame" ref={qrFrame}>
+              <QRCodeSVG
+                value={url}
+                size={260}
+                level="M"
+                marginSize={4}
+                bgColor="#ffffff"
+                fgColor="#171816"
+                title={`Scan to pay invoice ${invoiceNumber ?? ""}`}
+              />
+            </div>
+            <p className="qr-instructions">
+              Scan with any mobile phone camera or crypto wallet to pay.
+            </p>
+          </div>
+
+          <div className="share-actions">
+            <button
+              className="button button-dark"
+              type="button"
+              onClick={copyLink}
+              aria-label="Copy payment link"
+            >
+              {copied ? (
+                <>
+                  <span aria-hidden="true" style={{ marginRight: 6 }}>✓</span>
+                  Copied!
+                </>
+              ) : (
+                "Copy payment link"
+              )}
+            </button>
+            <button className="button button-outline" type="button" onClick={downloadQr}>
+              Download QR
+            </button>
+            {canShareWeb && (
+              <button className="button button-outline" type="button" onClick={handleShare}>
+                Share
+              </button>
+            )}
+            <button
+              className="button button-outline"
+              type="button"
+              onClick={generateLink}
+              disabled={pending}
+            >
+              {pending ? "Working…" : "Regenerate link"}
+            </button>
+            <button
+              className="button button-outline button-danger-quiet"
+              type="button"
+              onClick={revokeLink}
+              disabled={pending}
+            >
+              Revoke link
+            </button>
+          </div>
+        </div>
+      )}
+    </section>
+  );
 }

@@ -5,6 +5,7 @@ const TESTNET_USDC_CHAINS: Record<string, { chainId: number; cctpDomainId: numbe
   "base-sepolia": { chainId: 84532, cctpDomainId: 6, token: "0x036cbd53842c5426634e7929541ec2318f3dcf7e" },
   "arbitrum-sepolia": { chainId: 421614, cctpDomainId: 3, token: "0x75faf114eafb1bdbe2f0316df893fd58ce46aa4d" },
   "optimism-sepolia": { chainId: 11155420, cctpDomainId: 2, token: "0x5fd84259d66cd46123540766be93dfe6d43130d7" },
+  "arc-testnet": { chainId: 5042002, cctpDomainId: 26, token: "0x3600000000000000000000000000000000000000" },
 };
 const VERIFIER_POLICY_VERSION = 1;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -107,9 +108,17 @@ function safeU32(value: unknown): number {
 }
 
 function canonicalCctpNonce(value: unknown): string {
-  const nonce = text(value);
-  if (!/^0x[0-9a-fA-F]{64}$/.test(nonce)) invalid("near_evidence_nonce_invalid");
-  return nonce.toLowerCase();
+  if (typeof value === "string" && /^0x[0-9a-fA-F]{64}$/.test(value)) {
+    return value.toLowerCase();
+  }
+  const decimalStr = typeof value === "string" ? value : typeof value === "number" && Number.isSafeInteger(value) ? String(value) : "";
+  if (/^[1-9][0-9]*$/.test(decimalStr)) {
+    const parsed = BigInt(decimalStr);
+    if (parsed > 0n && parsed < (1n << 256n)) {
+      return `0x${parsed.toString(16).padStart(64, "0")}`;
+    }
+  }
+  return invalid("near_evidence_nonce_invalid");
 }
 
 function uuidBytes(value: string): Buffer {

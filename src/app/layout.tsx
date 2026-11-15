@@ -5,6 +5,10 @@ export const metadata: Metadata = {
   title: "Nodus — Business payments, made clear",
   description:
     "Create itemized bills, let guests pay by QR code with supported stablecoins, and give every completed payment a clear digital receipt.",
+  icons: {
+    icon: "/logo.svg",
+    shortcut: "/logo.svg",
+  },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

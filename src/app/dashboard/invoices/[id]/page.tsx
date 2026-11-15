@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { notFound, redirect } from "next/navigation";
+import { createHash } from "node:crypto";
 import CancelInvoiceForm from "@/components/cancel-invoice-form";
 import InvoiceSharePanel from "@/components/invoice-share-panel";
 import InvoicePrintButton from "@/components/invoice-print-button";
@@ -177,10 +178,9 @@ export default async function InvoiceDetailPage({
 
   let initialPayUrl: string | null = null;
   if (query.token && invoice.share_token_hash) {
-    const { createHash } = await import("node:crypto");
     const calculatedHash = createHash("sha256").update(query.token, "utf8").digest("hex");
     if (calculatedHash === invoice.share_token_hash) {
-      const origin = process.env.NEXT_PUBLIC_APP_URL?.trim() || "http://localhost:3000";
+      const origin = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
       initialPayUrl = `${origin}/pay/${query.token}`;
     }
   }
@@ -211,7 +211,7 @@ export default async function InvoiceDetailPage({
   const primaryNearEntry = primaryAttempt
     ? nearOutbox?.find((n) => n.payment_attempt_id === primaryAttempt.id) ?? null
     : null;
-  const nearCctpNetworks = new Set(["sepolia", "base-sepolia", "arbitrum-sepolia", "optimism-sepolia"]);
+  const nearCctpNetworks = new Set(["sepolia", "base-sepolia", "arbitrum-sepolia", "optimism-sepolia", "arc-testnet"]);
   const primaryQuoteSnapshot = primaryAttempt?.quote_snapshot && typeof primaryAttempt.quote_snapshot === "object"
     ? primaryAttempt.quote_snapshot as Record<string, unknown>
     : null;
@@ -304,10 +304,11 @@ export default async function InvoiceDetailPage({
         </div>
       </header>
 
-      {query.issued && (
-        <p className="form-success" role="status">
-          Invoice issued successfully. Ready for customer payment.
-        </p>
+      {(query.issued === "1" || query.issued) && (
+        <div className="notice-banner" role="status">
+          <span className="notice-icon" aria-hidden="true">✓</span>
+          <span>Invoice issued successfully. Ready for customer payment.</span>
+        </div>
       )}
       {query.cancelled && (
         <p className="form-success" role="status">
@@ -318,6 +319,18 @@ export default async function InvoiceDetailPage({
         <p className="form-error" role="alert">
           Invoice could not be cancelled.
         </p>
+      )}
+
+      {/* Primary Hero: Scan to Pay QR code — hidden for paid and cancelled invoices */}
+      {!isPaid && !isCancelled && (
+        <InvoiceSharePanel
+          invoiceId={id}
+          invoiceNumber={invoice.invoice_number}
+          shareState={shareState}
+          expiresAt={invoice.share_token_expires_at}
+          canShare={canShare}
+          initialUrl={initialPayUrl ?? undefined}
+        />
       )}
 
       {/* Invoice details */}
@@ -359,16 +372,7 @@ export default async function InvoiceDetailPage({
         <footer style={{display:"flex",justifyContent:"space-between",alignItems:"end",gap:16,borderTop:"1px solid var(--card-border)",paddingTop:16,marginTop:20}}><p className="invoice-thank-you" style={{margin:0,fontSize:22,color:"var(--text-secondary)"}}>{invoiceSellerFooter}</p><span style={{fontSize:10,color:"var(--text-muted)",whiteSpace:"nowrap"}}>Powered by nodus.</span></footer>
       </section>
 
-      {/* Share panel — hidden for paid and cancelled invoices */}
-      {!isPaid && !isCancelled && (
-        <InvoiceSharePanel
-          invoiceId={id}
-          shareState={shareState}
-          expiresAt={invoice.share_token_expires_at}
-          canShare={canShare}
-          initialUrl={initialPayUrl ?? undefined}
-        />
-      )}
+
 
       {invoice.status !== "draft" && nearInvoiceRegistration && (
         <section className="invoice-detail-sheet" aria-label="NEAR invoice registration" style={{ marginTop: 18, padding: 18 }}>

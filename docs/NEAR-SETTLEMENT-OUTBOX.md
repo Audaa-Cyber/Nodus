@@ -31,6 +31,15 @@ Issued invoices are durably queued by the invoice trigger in `near_invoice_regis
 
 The currently deployed testnet configuration places owner, registrar and attestor roles on the same NODUS testnet account. This is a centralized testnet trust arrangement for integration testing, not production separation of duties. The backend must retain its PostgreSQL-first reconciliation and must not treat a NEAR attestation as the payment source of truth.
 
+## Evidence eligibility and CCTP V2 format
+
+Settlement evidence stored in PostgreSQL must satisfy `public.near_settlement_evidence_eligible` before an outbox job transitions to `pending` delivery:
+- Source and destination chains must be supported testnets (Ethereum Sepolia, Base Sepolia, Arbitrum Sepolia, or Optimism Sepolia).
+- The CCTP nonce in `sourceProof.nonce` can be either a decimal string or a standard 32-byte hexadecimal string (`0x` followed by 64 hex characters) as emitted by Circle CCTP V2.
+- The `destinationProof` must include confirmed finality, valid transaction hashes, and a matching message hash.
+
+Migration `supabase/migrations/20261116000000_fix_near_evidence_ineligible_outbox.sql` ensures that CCTP V2 32-byte hex nonces are recognized by the eligibility validator and prevents valid cross-chain settlements from being blocked.
+
 ## Validation
 
-`tests/near-settlement-payload.test.mjs` checks ABI payload construction and evidence rejection. `tests/near-outbox-delivery.test.mjs` checks deduplication, uncertain-send recovery, retries, conflicts and query failures. `tests/near-settlement-outbox.postgres.test.mjs` checks trigger idempotency, claim/retry/recovery and blocked evidence against a local PostgreSQL instance.
+`tests/near-evidence-eligibility.test.mjs` checks nonce parsing and evidence eligibility criteria across all supported networks. `tests/near-settlement-payload.test.mjs` checks ABI payload construction and evidence rejection. `tests/near-outbox-delivery.test.mjs` checks deduplication, uncertain-send recovery, retries, conflicts and query failures. `tests/near-settlement-outbox.postgres.test.mjs` checks trigger idempotency, claim/retry/recovery and blocked evidence against a local PostgreSQL instance.

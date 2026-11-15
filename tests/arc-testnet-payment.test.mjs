@@ -223,10 +223,7 @@ test("Settlement verification: Arc Testnet resolves fallback RPC and confirmatio
   assert.equal(reverseReadiness.sourceRpcConfigured, true);
 });
 
-test("NEAR settlement outbox compatibility blocker: Arc is recognized as unsupported by deployed NEAR contract", () => {
-  // Test that attempting to construct a NEAR attestation for Arc fails closed with
-  // near_settlement_route_unsupported rather than crashing or broadcasting invalid data
-  // to the deployed NEAR contract (which only supports chain IDs 11155111, 84532, 421614, 11155420).
+test("NEAR settlement payload accepts Arc destination after contract compatibility is prepared", () => {
   const mockPayloadInput = {
     settlement: {
       id: "00000000-0000-4000-8000-00000000000b",
@@ -269,7 +266,7 @@ test("NEAR settlement outbox compatibility blocker: Arc is recognized as unsuppo
       destination_asset_id: "arc-testnet:usdc",
       recipient_address: MERCHANT_ADDRESS,
       transaction_hash: "0x" + "b".repeat(64),
-      quote_snapshot: { type: "circle_cctp", sourceUsdc: "0x036cbd53842c5426634e7929541ec2318f3dcf7e" },
+    quote_snapshot: { type: "circle_cctp", sourceUsdc: "0x036cbd53842c5426634e7929541ec2318f3dcf7e", sourceDomain: 6 },
     },
     invoice: {
       id: "00000000-0000-4000-8000-000000000001",
@@ -279,9 +276,8 @@ test("NEAR settlement outbox compatibility blocker: Arc is recognized as unsuppo
     canonicalTokenAddress: ARC_USDC_CONTRACT,
   };
 
-  assert.throws(
-    () => buildNearSettlementPayload(mockPayloadInput),
-    /near_settlement_route_unsupported/,
-    "Arc route must be flagged as unsupported for the deployed NEAR contract"
-  );
+  const payload = buildNearSettlementPayload(mockPayloadInput);
+  assert.equal(payload.invoiceArgs.terms.destination_chain_id, 5042002);
+  assert.equal(payload.invoiceArgs.terms.token_address, ARC_USDC_CONTRACT.toLowerCase());
+  assert.equal(payload.attestationArgs.input.cctp_source_domain, 6);
 });

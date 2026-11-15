@@ -163,6 +163,7 @@ test("builds NEAR attestations for each supported testnet source and destination
     "base-sepolia": { chainId: 84532, domain: 6, token: "0x036cbd53842c5426634e7929541ec2318f3dcf7e" },
     "arbitrum-sepolia": { chainId: 421614, domain: 3, token: "0x75faf114eafb1bdbe2f0316df893fd58ce46aa4d" },
     "optimism-sepolia": { chainId: 11155420, domain: 2, token: "0x5fd84259d66cd46123540766be93dfe6d43130d7" },
+    "arc-testnet": { chainId: 5042002, domain: 26, token: "0x3600000000000000000000000000000000000000" },
   };
   for (const [sourceNetwork, source] of Object.entries(supported)) {
     for (const [destinationNetwork, destination] of Object.entries(supported)) {

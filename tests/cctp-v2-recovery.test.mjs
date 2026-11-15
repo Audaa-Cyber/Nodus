@@ -81,6 +81,24 @@ test("checkCctpCorridorReadiness flags missing destination confirmations", () =>
   }
 });
 
+test("Arc Testnet to Ethereum Sepolia uses the documented two-confirmation Sepolia fallback", () => {
+  const origRpc = process.env.SETTLEMENT_RPC_URLS_JSON;
+  const origConf = process.env.SETTLEMENT_CONFIRMATIONS_JSON;
+  try {
+    process.env.SETTLEMENT_RPC_URLS_JSON = JSON.stringify({ sepolia: "https://rpc.sepolia.org" });
+    process.env.SETTLEMENT_CONFIRMATIONS_JSON = JSON.stringify({});
+
+    const result = checkCctpCorridorReadiness("arc-testnet", "sepolia");
+    assert.equal(result.ready, true);
+    assert.equal(result.destinationRpcConfigured, true);
+    assert.equal(result.confirmationsConfigured, true);
+    assert.equal(result.requiredConfirmations, 2);
+  } finally {
+    process.env.SETTLEMENT_RPC_URLS_JSON = origRpc;
+    process.env.SETTLEMENT_CONFIRMATIONS_JSON = origConf;
+  }
+});
+
 // ---------------------------------------------------------------------------
 // 2. Circle App Kit Bridge Recovery & No Duplicate Burn
 // ---------------------------------------------------------------------------

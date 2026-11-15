@@ -12,6 +12,7 @@ const ETHEREUM_SEPOLIA_CHAIN_ID: u64 = 11_155_111;
 const BASE_SEPOLIA_CHAIN_ID: u64 = 84_532;
 const ARBITRUM_SEPOLIA_CHAIN_ID: u64 = 421_614;
 const OPTIMISM_SEPOLIA_CHAIN_ID: u64 = 11_155_420;
+const ARC_TESTNET_CHAIN_ID: u64 = 5_042_002;
 const CCTP_V2_NONCES_PREFIX: &[u8] = b"cctp_v2_nonces_by_reconciliation";
 const CCTP_V2_EVIDENCE_DOMAIN: &[u8] = b"NODUS_CCTP_SETTLEMENT_EVIDENCE_V2\0";
 
@@ -21,6 +22,7 @@ fn testnet_usdc_for_chain(chain_id: u64) -> Option<&'static str> {
         BASE_SEPOLIA_CHAIN_ID => Some("0x036cbd53842c5426634e7929541ec2318f3dcf7e"),
         ARBITRUM_SEPOLIA_CHAIN_ID => Some("0x75faf114eafb1bdbe2f0316df893fd58ce46aa4d"),
         OPTIMISM_SEPOLIA_CHAIN_ID => Some("0x5fd84259d66cd46123540766be93dfe6d43130d7"),
+        ARC_TESTNET_CHAIN_ID => Some("0x3600000000000000000000000000000000000000"),
         _ => None,
     }
 }
@@ -31,6 +33,7 @@ fn cctp_domain_for_chain(chain_id: u64) -> Option<u32> {
         BASE_SEPOLIA_CHAIN_ID => Some(6),
         ARBITRUM_SEPOLIA_CHAIN_ID => Some(3),
         OPTIMISM_SEPOLIA_CHAIN_ID => Some(2),
+        ARC_TESTNET_CHAIN_ID => Some(26),
         _ => None,
     }
 }

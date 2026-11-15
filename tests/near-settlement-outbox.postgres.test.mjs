@@ -9,6 +9,7 @@ const circleTestnetUsdc = {
   "base-sepolia": "0x036cbd53842c5426634e7929541ec2318f3dcf7e",
   "arbitrum-sepolia": "0x75faf114eafb1bdbe2f0316df893fd58ce46aa4d",
   "optimism-sepolia": "0x5fd84259d66cd46123540766be93dfe6d43130d7",
+  "arc-testnet": "0x3600000000000000000000000000000000000000",
 };
 const psqlAvailable = spawnSync("psql", ["--version"], { encoding: "utf8" }).status === 0;
 let localDatabase = false;

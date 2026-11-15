@@ -367,7 +367,7 @@ export async function GET(
           providerProgress: {
             provider: "circle_cctp",
             forwardState: cctp.forwardState,
-            message: "Destination transfer delivered on Arbitrum Sepolia. Awaiting block confirmations.",
+            message: `Destination transfer delivered on ${attempt.destination_network}. Awaiting block confirmations.`,
           },
         });
       }

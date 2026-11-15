@@ -10,7 +10,7 @@ const fmt=(minor:number,currency:string)=>{try{return new Intl.NumberFormat("en-
 function addDays(date:string,days:number){const d=new Date(date+"T00:00:00Z");d.setUTCDate(d.getUTCDate()+days);return d.toISOString().slice(0,10)}
 export default function InvoiceForm({invoice,defaultCurrency="USD",paymentTermsDays=14,businessName="Your business",logoUrl="",businessEmail="",businessPhone="",businessAddress="",websiteUrl="",taxRegistrationNumber="",defaultFooter="Thank you for your business."}:{invoice?:Invoice;defaultCurrency?:string;paymentTermsDays?:number;businessName?:string;logoUrl?:string;businessEmail?:string;businessPhone?:string;businessAddress?:string;websiteUrl?:string;taxRegistrationNumber?:string;defaultFooter?:string}){
  const [state,action,pending]=useActionState<FormState,FormData>(saveInvoiceAction,{});
- const [clientDraftId] = useState(() => invoice?.id ?? (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function" ? crypto.randomUUID() : ""));
+ const [clientDraftId] = useState(() => invoice?.id ?? (typeof crypto !== "undefined" ? crypto.randomUUID() : ""));
  const [isSubmitting, setIsSubmitting] = useState(false);
  const [activeIntent, setActiveIntent] = useState<"draft" | "issue" | null>(null);
 
@@ -30,7 +30,7 @@ export default function InvoiceForm({invoice,defaultCurrency="USD",paymentTermsD
  const rows=items.map(i=>({description:i.description.trim(),quantity:Number(i.quantity),unitPriceMinor:Math.round(Number(i.unitPrice)*100)}));
  return <form action={action} className="business-form" onSubmit={(e) => { if (pending || isSubmitting) { e.preventDefault(); return; } setIsSubmitting(true); }}>
  {invoice&&<input type="hidden" name="invoiceId" value={invoice.id}/>}
- {!invoice && clientDraftId && <input type="hidden" name="clientDraftId" value={clientDraftId} />}
+ {!invoice && <input type="hidden" name="clientDraftId" value={clientDraftId} />}
  <input type="hidden" name="lineItems" value={JSON.stringify(rows)}/><input type="hidden" name="taxRateBps" value={String(taxBps)}/><input type="hidden" name="discountMinor" value={String(discountMinor)}/>
  <div className="form-grid">
  <label>Currency<select name="currency" value={currency} onChange={e=>setCurrency(e.target.value)}>{["USD","EUR","GBP","ETB","KES"].map(c=><option key={c}>{c}</option>)}</select></label>

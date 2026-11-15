@@ -207,6 +207,7 @@ fn accepts_circle_testnet_usdc_sources_and_destinations() {
         (84_532, "0x036cbd53842c5426634e7929541ec2318f3dcf7e"),
         (421_614, "0x75faf114eafb1bdbe2f0316df893fd58ce46aa4d"),
         (11_155_420, "0x5fd84259d66cd46123540766be93dfe6d43130d7"),
+        (5_042_002, "0x3600000000000000000000000000000000000000"),
     ];
     for (index, (chain_id, token)) in cases.into_iter().enumerate() {
         let mut contract = setup("registrar.near");
@@ -219,6 +220,26 @@ fn accepts_circle_testnet_usdc_sources_and_destinations() {
         contract.register_attempt(attempt_id.clone(), invoice_id, chain_id);
         assert_eq!(contract.get_attempt(attempt_id).unwrap().source_token_address, token);
     }
+}
+
+#[test]
+fn arc_source_domain_26_records_settlement_with_existing_evidence_checks() {
+    let mut contract = setup("registrar.near");
+    register_invoice(&mut contract);
+    let attempt_id = "00000000-0000-4000-8000-000000000002";
+    register_attempt_for_chain(&mut contract, attempt_id, 5_042_002);
+    testing_env!(VMContextBuilder::new()
+        .predecessor_account_id(account("attestor.near"))
+        .build());
+
+    let mut input = v2_attestation(attempt_id, 100_000_000, "b", &format!("0x{}", "ab".repeat(32)));
+    input.source_chain_id = 5_042_002;
+    input.cctp_source_domain = 26;
+    input.evidence_digest = evidence_digest_for_v2("00000000-0000-4000-8000-000000000001", &input);
+    let record = contract.attest_settlement_v2(input);
+    assert_eq!(record.source_chain_id, 5_042_002);
+    assert_eq!(record.cctp_source_domain, Some(26));
+    assert_eq!(record.cctp_message_nonce.as_deref(), Some(format!("0x{}", "ab".repeat(32)).as_str()));
 }
 
 #[test]

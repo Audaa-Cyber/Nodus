@@ -12,6 +12,7 @@ const DEFAULT_SETTLEMENT_RPC_URLS: Record<string, string> = {
 };
 const DEFAULT_SETTLEMENT_CONFIRMATIONS: Record<string, number> = {
   "arc-testnet": 2,
+  sepolia: 2,
 };
 
 function readJsonMap<T>(name: string): Record<string, T> {

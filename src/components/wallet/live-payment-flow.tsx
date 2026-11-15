@@ -122,6 +122,7 @@ export function LivePaymentFlow({
   const [flowError, setFlowError] = useState("");
   const [attemptId, setAttemptId] = useState<string | null>(null);
   const [recoveryRequired, setRecoveryRequired] = useState(false);
+  const [sourceTransactionReferenceMissing, setSourceTransactionReferenceMissing] = useState(false);
   const [walletRejected, setWalletRejected] = useState(false);
   const [depositTxHash, setDepositTxHash] = useState<string | null>(null);
   const [approvalTxHash, setApprovalTxHash] = useState<string | null>(null);
@@ -227,6 +228,15 @@ export function LivePaymentFlow({
           : undefined;
         if (!sourceNetwork || !sourceChain || !selectedAsset.contractAddress) {
           throw new Error("The selected source network is not configured for Circle USDC bridging.");
+        }
+        const sourceChainKey = CHAIN_ID_TO_BRIDGE_CHAIN[sourceChain.id];
+        if (!sourceChainKey) throw new Error("The selected source network has no Circle Bridge Kit chain mapping.");
+        const { AppKit } = await import("@circle-fin/app-kit");
+        const sourceFeeChains = new AppKit().getSupportedChains("bridge", { sourceFeeSupported: true });
+        if (!sourceFeeChains.some((chain) => chain.chain === sourceChainKey)) {
+          throw new Error(
+            `Circle App Kit ${sourceNetwork.label} source-fee support is not loaded. Restart the NODUS server to apply its Arc compatibility patch, then request a fresh quote. No payment attempt was reserved.`,
+          );
         }
         const walletConnectChainAligned = connector.id === "walletConnect" && isMobileWalletBrowser()
           ? await setWalletConnectSessionDefaultChain(connector, sourceChain.id, activeAddress)
@@ -751,6 +761,8 @@ export function LivePaymentFlow({
 
         if (data.settled || data.attempt?.status === "SUCCESS") {
           clearInterval(interval);
+          setSourceTransactionReferenceMissing(false);
+          setRecoveryRequired(false);
           window.localStorage.removeItem(`nodus:live-attempt:${shareToken}`);
           window.localStorage.removeItem(`nodus:live-tx:${shareToken}`);
           setStage("settled");
@@ -762,17 +774,22 @@ export function LivePaymentFlow({
           onPaymentSuccess?.(data.receipts);
         } else if (data.attempt?.status === "FAILED") {
           clearInterval(interval);
+          setSourceTransactionReferenceMissing(false);
+          setRecoveryRequired(false);
           window.localStorage.removeItem(`nodus:live-attempt:${shareToken}`);
           setStage("error");
           setWalletRejected(false);
           setFlowError("Payment failed on-chain. Funds were not settled.");
         } else if (data.expired) {
           clearInterval(interval);
+          setSourceTransactionReferenceMissing(false);
+          setRecoveryRequired(false);
           window.localStorage.removeItem(`nodus:live-attempt:${shareToken}`);
           setStage("error");
           setWalletRejected(false);
           setFlowError("The payment quote expired before a source transaction was recorded. Request a fresh quote to continue.");
         } else if (typeof data.attempt?.transaction_hash === "string") {
+          setSourceTransactionReferenceMissing(false);
           setDepositTxHash(data.attempt.transaction_hash);
           if (data.attempt?.circle_approval_tx_hash) {
             setApprovalTxHash(data.attempt.circle_approval_tx_hash);
@@ -780,12 +797,23 @@ export function LivePaymentFlow({
           setRecoveryRequired(Boolean(data.recoveryRequired));
           setStatusMessage("NODUS saved the source transaction and is verifying the Circle settlement. No action is needed.");
         } else if (data.recoveryState === "APPROVAL_CONFIRMED" || data.attempt?.circle_approval_tx_hash) {
+          setSourceTransactionReferenceMissing(Boolean(data.sourceTransactionReferenceMissing));
+          if (typeof data.recoveryRequired === "boolean") setRecoveryRequired(data.recoveryRequired);
           setApprovalTxHash(data.attempt.circle_approval_tx_hash);
           setStage("idle");
           setStatusMessage("USDC approval confirmed on Base Sepolia. Ready to authorize transfer.");
+        } else if (data.sourceTransactionReferenceMissing) {
+          setSourceTransactionReferenceMissing(true);
+          if (typeof data.recoveryRequired === "boolean") setRecoveryRequired(data.recoveryRequired);
+          setStatusMessage(
+            "No approval or source burn hash is saved to this reserved attempt. NODUS cannot safely restart it until its status is reviewed. Do not start another payment; reference the Attempt ID below.",
+          );
         } else if (data.recoveryRequired) {
+          setSourceTransactionReferenceMissing(false);
           setRecoveryRequired(true);
           setStatusMessage(data.providerProgress?.message || "Payment verification requires operator assistance. Please reference the Attempt ID below.");
+        } else if (typeof data.recoveryRequired === "boolean") {
+          setRecoveryRequired(data.recoveryRequired);
         }
       } catch {
         // Transient network error in polling - retry next interval
@@ -967,17 +995,19 @@ export function LivePaymentFlow({
             </p>
           )}
 
-          {recoveryRequired && attemptId && (
+          {(recoveryRequired || sourceTransactionReferenceMissing) && attemptId && (
             <div className="wallet-recovery-panel" role="alert" style={{ background: "#fef2f2", border: "1px solid #fecaca", padding: "1rem", borderRadius: "8px", margin: "1rem 0" }}>
               <p style={{ fontWeight: 600, color: "#991b1b", margin: "0 0 0.5rem 0", fontSize: "0.9375rem" }}>
-                Operator Verification Required
+                {sourceTransactionReferenceMissing ? "Transaction Reference Not Saved" : "Operator Verification Required"}
               </p>
               <p className="wallet-recovery-copy" style={{ color: "#7f1d1d", margin: "0 0 0.75rem 0", fontSize: "0.8125rem" }}>
-                {walletRejected
+                {sourceTransactionReferenceMissing
+                  ? statusMessage
+                  : walletRejected
                   ? "Your wallet rejected a request. NODUS is checking whether Circle submitted a source burn. No action is needed; do not start another payment."
                   : "Execution status is uncertain. NODUS is checking the saved Circle attempt and will resume verification automatically. No action is needed; do not start another payment."}
               </p>
-              <p className="wallet-recovery-copy">If Circle submitted a source burn, NODUS will verify it and continue destination settlement automatically.</p>
+              {!sourceTransactionReferenceMissing && <p className="wallet-recovery-copy">If Circle submitted a source burn, NODUS will verify it and continue destination settlement automatically.</p>}
               <div style={{ padding: "0.625rem", background: "#ffffff", borderRadius: "6px", border: "1px solid #e2e8f0", fontSize: "0.8125rem", fontFamily: "monospace", color: "#334155", margin: "0.5rem 0" }}>
                 <div><strong>Support Reference (Attempt ID):</strong> {attemptId}</div>
                 <div><strong>Invoice Reference:</strong> {invoiceNumber}</div>

@@ -20,6 +20,14 @@ test("wallet rejection and uncertain Circle execution remain distinct without cl
   assert.doesNotMatch(flow, /clearCircleExecutionReservation|releaseCircleExecutionReservation/);
 });
 
+test("Circle source-fee SDK capability is checked before reserving an attempt", () => {
+  const capabilityCheck = flow.indexOf('getSupportedChains("bridge", { sourceFeeSupported: true })');
+  const reservationRequest = flow.indexOf("/attempt/${currentAttemptId}/start");
+  assert.ok(capabilityCheck >= 0);
+  assert.ok(reservationRequest > capabilityCheck, "SDK capability check must run before the one-shot reservation");
+  assert.match(flow, /Circle App Kit .* source-fee support is not loaded[\s\S]*No payment attempt was reserved/);
+});
+
 test("Circle authorization explains approval, burn authorization, and the limits of cancellation", () => {
   assert.match(flow, /Step 1: USDC approval/);
   assert.match(flow, /Step 2: CCTP burn authorization/);
@@ -36,9 +44,12 @@ test("Circle fee disclosure avoids a duplicated total and separates expected fro
 });
 
 test("recovery automatically verifies the saved source hash without asking the payer to paste it", () => {
-  const recovery = flow.slice(flow.indexOf("{recoveryRequired && attemptId"), flow.indexOf("{destinationReceipts.length"));
+  const recovery = flow.slice(flow.indexOf("{(recoveryRequired || sourceTransactionReferenceMissing) && attemptId"), flow.indexOf("{destinationReceipts.length"));
   assert.match(flow, /typeof data\.attempt\?\.transaction_hash === "string"/);
   assert.match(flow, /setDepositTxHash\(data\.attempt\.transaction_hash\)/);
+  assert.match(flow, /else if \(data\.sourceTransactionReferenceMissing\) \{[\s\S]*?No approval or source burn hash is saved to this reserved attempt/);
+  assert.match(recovery, /sourceTransactionReferenceMissing \? "Transaction Reference Not Saved"/);
+  assert.match(recovery, /sourceTransactionReferenceMissing\s*\? statusMessage/);
   assert.match(flow, /\/progress`/);
   assert.match(flow, /kit\.retryBridge\(bridgeRes, \{ from: adapter \}\)/);
   assert.doesNotMatch(recovery, /<input|transaction hash below|Resume verification/);

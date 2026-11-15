@@ -24,6 +24,7 @@ const DEFAULT_SETTLEMENT_RPC_URLS: Record<string, string> = {
 };
 const DEFAULT_SETTLEMENT_CONFIRMATIONS: Record<string, number> = {
   "arc-testnet": 2,
+  sepolia: 2,
 };
 
 function envMap<T>(name: string): Record<string, T> {
@@ -272,7 +273,8 @@ export async function verifyCctpV2DestinationTransaction(input: {
     merchantRecipient: input.recipient,
     minimumReceived: input.minimumReceived,
   });
-  const confirmations = envMap<number>("SETTLEMENT_CONFIRMATIONS_JSON")[input.destinationNetwork];
+  const confirmations = envMap<number>("SETTLEMENT_CONFIRMATIONS_JSON")[input.destinationNetwork]
+    ?? DEFAULT_SETTLEMENT_CONFIRMATIONS[input.destinationNetwork];
   if (!Number.isInteger(confirmations) || confirmations < 1 || confirmations > 10_000) {
     throw new Error("settlement_chain_not_configured");
   }

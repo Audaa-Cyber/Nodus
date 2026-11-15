@@ -41,3 +41,7 @@ yarn-error.log*
 .playwright-mcp/
 .snapshots/
 supabase/.temp/
+.codex/
+.backup/
+.tmp*
+*.tmp

@@ -73,7 +73,8 @@ export function InvoiceRealtimeProvider({
     const triggerRefresh = () => {
       if (refreshDebounceTimeout) clearTimeout(refreshDebounceTimeout);
       refreshDebounceTimeout = setTimeout(() => {
-        routerRef.current.refresh();
+        const router = routerRef.current;
+        router.refresh();
       }, 120);
     };
 
