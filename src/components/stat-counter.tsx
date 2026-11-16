@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useAnimatedInteger } from "@/components/use-data-motion";
 
 interface StatCounterProps {
   value: number;
@@ -8,21 +8,11 @@ interface StatCounterProps {
 }
 
 export function StatCounter({ value, className = "" }: StatCounterProps) {
-  const prevValue = useRef(value);
-  const [isChanged, setIsChanged] = useState(false);
-
-  useEffect(() => {
-    if (prevValue.current !== value) {
-      setIsChanged(true);
-      const timer = window.setTimeout(() => setIsChanged(false), 550);
-      prevValue.current = value;
-      return () => window.clearTimeout(timer);
-    }
-  }, [value]);
+  const { displayed, changed } = useAnimatedInteger(BigInt(value), "invoice-count", 550);
 
   return (
-    <strong className={`${className} nodus-stat-value ${isChanged ? "is-changed" : ""}`}>
-      {value}
+    <strong className={`${className} nodus-stat-value ${changed ? "is-changed" : ""}`} aria-label={String(value)}>
+      <span aria-hidden="true">{displayed.toString()}</span>
     </strong>
   );
 }

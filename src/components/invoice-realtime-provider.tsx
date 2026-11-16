@@ -135,6 +135,18 @@ export function InvoiceRealtimeProvider({
           .on(
             "postgres_changes",
             {
+              event: "INSERT",
+              schema: "public",
+              table: "invoices",
+              filter: `business_id=eq.${businessId}`,
+            },
+            (payload) => {
+              if (payload.new.business_id === businessId) triggerRefresh();
+            },
+          )
+          .on(
+            "postgres_changes",
+            {
               event: "UPDATE",
               schema: "public",
               table: "invoices",
@@ -222,8 +234,20 @@ export function InvoiceRealtimeProvider({
 
     setupRealtime();
 
+    // Recover missed events after reconnecting or returning to this tab. Also
+    // recalculate date-derived overdue counts when the UTC date changes.
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") triggerRefresh();
+    };
+    const refreshInterval = window.setInterval(refreshWhenVisible, 30_000);
+    window.addEventListener("focus", refreshWhenVisible);
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+
     return () => {
       isCancelled = true;
+      window.clearInterval(refreshInterval);
+      window.removeEventListener("focus", refreshWhenVisible);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
       if (refreshDebounceTimeout) clearTimeout(refreshDebounceTimeout);
       if (authListener) {
         try {
