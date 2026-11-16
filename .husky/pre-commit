@@ -1,0 +1,54 @@
+#!/usr/bin/env sh
+# =============================================================================
+# NODUS — Pre-commit Secret Scanner
+# Blocks any commit that would leak credentials or private keys.
+# =============================================================================
+
+# ── 1. Block .env files from ever being committed ────────────────────────────
+STAGED_ENV=$(git diff --cached --name-only | grep -E '^\.(env)' | grep -v '\.env\.example$' || true)
+if [ -n "$STAGED_ENV" ]; then
+  echo ""
+  echo "🚨 SECURITY BLOCK: Attempted to commit secret file(s):"
+  echo "$STAGED_ENV"
+  echo ""
+  echo "   .env files are blocked from version control."
+  echo "   Only .env.example (with placeholder values) may be committed."
+  echo ""
+  exit 1
+fi
+
+# ── 2. Scan staged source files for hardcoded secrets ────────────────────────
+# Genuine secret patterns to detect:
+# - Supabase secret keys (sb_secret_...)
+# - Hardcoded project publishable key (sb_publishable_wf1uMx4uP1)
+# - Ed25519 private keys (Base58 ed25519:[1-9A-HJ-NP-Za-km-z]{40,}, Base64 ed25519:[a-zA-Z0-9+/=]{40,})
+# - NEAR signer private key assignments (NEAR_SIGNER_PRIVATE_KEY)
+# - PEM private key headers (-----BEGIN ... PRIVATE KEY ...)
+# - OpenAI sk- keys / Anthropic sk-ant- / Stripe sk_live_, sk_test_
+# - GitHub tokens (ghp_, gho_, ghu_, ghs_, ghr_, github_pat_)
+# - Hardcoded assignments of sensitive keys with cryptographic token values (SUPABASE_SERVICE_ROLE_KEY, NEAR_SIGNER_PRIVATE_KEY)
+# - Raw JWT tokens (eyJ...)
+SECRET_PATTERNS='(sb_secret_[a-zA-Z0-9_-]{16,}|sb_publishable_wf1uMx4uP1|ed25519:[1-9A-HJ-NP-Za-km-z]{40,}|ed25519:[a-zA-Z0-9+/=]{40,}|sk-[a-zA-Z0-9_-]{20,}|sk_(live|test)_[0-9a-zA-Z]{24,}|gh[pousr]_[a-zA-Z0-9]{36,}|github_pat_[a-zA-Z0-9]{22}_[a-zA-Z0-9]{59,}|-----BEGIN (RSA |EC |OPENSSH |DSA |ENCRYPTED )?PRIVATE KEY( BLOCK)?-----|(SUPABASE_SERVICE_ROLE_KEY|NEAR_SIGNER_PRIVATE_KEY)[[:space:]]*[:=][[:space:]]*["'"'"']?[a-zA-Z0-9_.:+/=-]{20,}["'"'"']?|eyJ[a-zA-Z0-9_-]{10,}\.eyJ[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,})'
+
+# Safe exclusions: ignore lines that are explicitly placeholders, documentation, or environment lookups
+SAFE_EXCLUSIONS='(<[^>]+>|your-service-role-key|your-private-key|your-anon-key|your-project|placeholder|example-key|example|dummy|mock|process\.env\.|env\.|:\s*string|to service_role;)'
+
+FOUND=$(git diff --cached --diff-filter=d -U0 -- ':(top,exclude).husky/**' '*.ts' '*.tsx' '*.js' '*.jsx' '*.json' '*.yaml' '*.yml' '*.toml' '*.sh' 2>/dev/null \
+  | grep '^+' | grep -v '^+++' \
+  | grep -Ei "$SECRET_PATTERNS" \
+  | grep -Evi "$SAFE_EXCLUSIONS" || true)
+
+if [ -n "$FOUND" ]; then
+  echo ""
+  echo "🚨 SECURITY BLOCK: Potential secret detected in staged changes:"
+  echo ""
+  echo "$FOUND" | head -20
+  echo ""
+  echo "   Review the above lines. Remove any real credentials or private keys."
+  echo "   If using placeholders, use format <your-key-here> or prefix with placeholder."
+  echo ""
+  exit 1
+fi
+
+# ── 3. Run lint-staged (ESLint on changed files) ─────────────────────────────
+npx lint-staged

@@ -1,0 +1,1 @@
+C:\Users\Nimox\OneDrive\Documents\nodus\Nodus\contracts\payment-registry\target\wasm32-unknown-unknown\release\nodus_payment_registry.wasm: C:\Users\Nimox\OneDrive\Documents\nodus\Nodus\contracts\payment-registry\src\lib.rs

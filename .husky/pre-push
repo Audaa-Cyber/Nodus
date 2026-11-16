@@ -1,0 +1,27 @@
+#!/usr/bin/env sh
+# =============================================================================
+# NODUS — Pre-push Secret Scanner (last line of defence before remote push)
+# =============================================================================
+
+echo "🔍 Running pre-push secret audit..."
+
+# Patterns that must NEVER reach a remote
+HARD_PATTERNS='(sb_secret_[a-zA-Z0-9_-]{16,}|sb_publishable_wf1uMx4uP1|ed25519:[1-9A-HJ-NP-Za-km-z]{40,}|ed25519:[a-zA-Z0-9+/=]{40,}|sk-[a-zA-Z0-9_-]{20,}|sk_(live|test)_[0-9a-zA-Z]{24,}|gh[pousr]_[a-zA-Z0-9]{36,}|github_pat_[a-zA-Z0-9]{22}_[a-zA-Z0-9]{59,}|-----BEGIN (RSA |EC |OPENSSH |DSA |ENCRYPTED )?PRIVATE KEY( BLOCK)?-----|(SUPABASE_SERVICE_ROLE_KEY|NEAR_SIGNER_PRIVATE_KEY)[[:space:]]*[:=][[:space:]]*["'"'"']?[a-zA-Z0-9_.:+/=-]{20,}["'"'"']?|eyJ[a-zA-Z0-9_-]{10,}\.eyJ[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,})'
+
+SAFE_EXCLUSIONS='(<[^>]+>|your-service-role-key|your-private-key|your-anon-key|your-project|placeholder|example-key|example|dummy|mock|process\.env\.|env\.|:\s*string|to service_role;)'
+
+# Scan every tracked source file in the working tree (excluding .husky) using native git grep
+FOUND=$(git grep -I -n -E "$HARD_PATTERNS" -- ':(top,exclude).husky/**' '*.ts' '*.tsx' '*.js' '*.jsx' '*.json' '*.yaml' '*.yml' '*.sh' 2>/dev/null \
+  | grep -Evi "$SAFE_EXCLUSIONS" || true)
+
+if [ -n "$FOUND" ]; then
+  echo ""
+  echo "🚨 PRE-PUSH BLOCKED: Secret pattern detected in:"
+  echo "$FOUND" | head -20
+  echo ""
+  echo "   Rotate any exposed keys immediately, then remove them from files."
+  echo ""
+  exit 1
+fi
+
+echo "✅ Pre-push secret audit passed — no secrets detected."

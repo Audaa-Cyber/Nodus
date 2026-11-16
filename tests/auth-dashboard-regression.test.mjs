@@ -1,0 +1,95 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import test from "node:test";
+
+const read = (path) => readFile(new URL(path, import.meta.url), "utf8");
+
+test("Google OAuth failures remain errors instead of becoming local success", async () => {
+  const login = await read("../src/components/executive-login-card.tsx");
+  const oauthHandler = login.match(/const handleSocialAuth = async\s*\(\)\s*=>\s*\{([\s\S]*?)\n  \};/);
+
+  assert.ok(oauthHandler, "Google OAuth handler exists");
+  assert.match(oauthHandler[1], /signInWithOAuth\(/, "Google uses the Supabase OAuth provider");
+  assert.match(oauthHandler[1], /provider: "google"/, "Google provider is selected explicitly");
+  assert.doesNotMatch(oauthHandler[1], /triggerAuthSuccess\(/, "OAuth failure cannot synthesize success");
+  assert.match(oauthHandler[1], /showStatus\(/, "OAuth failures are shown to the user");
+  assert.match(login, /isSignUp \? "Or sign up with" : "Or continue with"/, "Google is offered in both sign-up and sign-in modes");
+});
+
+test("login has no local OTP or demo-credential authentication shortcuts", async () => {
+  const login = await read("../src/components/executive-login-card.tsx");
+
+  assert.doesNotMatch(
+    login,
+    /SAMPLE_CODES|triggerAuthSuccess|alex\.morgan@aether\.studio|verifyOtpBtn/,
+    "login contains no mock OTP or demo-auth path"
+  );
+  assert.match(login, /isSignUp \? signUpAction : signInAction/, "all password auth uses server actions");
+});
+
+test("dashboard route transitions use the route loader without a second shell overlay", async () => {
+  const shell = await read("../src/components/dashboard-shell-effects.tsx");
+  const nav = await read("../src/components/dashboard-nav.tsx");
+  const logout = await read("../src/components/logout-button.tsx");
+  const profile = await read("../src/components/profile-form.tsx");
+  const routeLoader = await read("../src/app/dashboard/loading.tsx");
+
+  assert.doesNotMatch(shell, /sectionLoaderOverlay|loader-capsule/, "shell does not render another loader");
+  assert.doesNotMatch(nav, /useDashboardLoader|triggerLoader/, "nav does not start a second loader");
+  assert.doesNotMatch(logout, /useDashboardLoader|triggerLoader/, "logout does not start a second loader");
+  assert.doesNotMatch(profile, /useDashboardLoader|triggerLoader/, "profile save does not start a second loader");
+  assert.match(logout, /signOutAction/, "dashboard logout calls the real sign-out action");
+  assert.match(routeLoader, /PageLoader/, "Next route boundary keeps the dashboard loader");
+});
+
+test("dashboard background canvas is fixed and cannot add document-flow height", async () => {
+  const styles = await read("../src/app/globals.css");
+
+  const canvasRule = styles.match(/\.dashboard-executive\s+#dotMatrixCanvas\s*\{[^}]*\}/s)?.[0] ?? "";
+  assert.match(canvasRule, /position:\s*fixed/, "dashboard canvas is removed from document flow");
+  assert.match(canvasRule, /height:\s*100%/, "dashboard canvas fills the viewport");
+});
+
+test("dashboard dot matrix is a static texture with no animation loop", async () => {
+  const shell = await read("../src/components/dashboard-shell-effects.tsx");
+  const backgroundEffect = shell.match(/\/\/ 2\. Static Dot-Matrix Background Texture([\s\S]*?)\n\s*return \(/)?.[1] ?? "";
+
+  assert.ok(backgroundEffect, "dashboard background effect exists");
+  assert.doesNotMatch(backgroundEffect, /requestAnimationFrame/, "background does not schedule continuous frames");
+  assert.match(backgroundEffect, /const t = 0/, "dot pattern uses a stable phase");
+  assert.match(backgroundEffect, /renderDotMatrix\(\)/, "pattern redraws when its canvas is initialized or resized");
+});
+
+test("login page dot matrix has an autonomous animation loop with canvas ref", async () => {
+  const login = await read("../src/components/executive-login-card.tsx");
+
+  assert.match(login, /<canvas id="dotMatrixCanvas" ref=\{dotCanvasRef\}/, "login page renders the dot-matrix canvas");
+  assert.match(login, /requestAnimationFrame\(renderDotMatrix\)/, "login page runs an autonomous animation loop");
+  assert.match(login, /cancelAnimationFrame\(animFrameId\)/, "login page cleans up animation frame on unmount");
+});
+
+test("auth callback route sets cookies directly on redirect response and wraps exchange in try/catch", async () => {
+  const callbackRoute = await read("../src/app/auth/callback/route.ts");
+
+  assert.match(callbackRoute, /redirectResponse\.cookies\.set\(/, "auth tokens are set directly on the outgoing redirect response");
+  assert.match(callbackRoute, /try\s*\{[\s\S]*exchangeCodeForSession[\s\S]*\}\s*catch/, "code exchange is wrapped in a try/catch block");
+  assert.match(callbackRoute, /authFailure\(isOAuthFlow \? "oauth_failed" : "expired"\)/, "gracefully handles expired or already consumed PKCE codes");
+  assert.match(callbackRoute, /isOAuthFlow \? "oauth_cancelled" : "confirmation"/, "returns cancelled OAuth to the matching auth page");
+});
+
+test("middleware recognizes chunked Supabase auth cookies and does not reject them as unauthenticated", async () => {
+  const middlewareCode = await read("../middleware.ts");
+
+  assert.ok(
+    middlewareCode.includes("c.name.includes(\"-auth-token\")") ||
+    middlewareCode.includes("includes(\"-token\")"),
+    "middleware must match chunked Supabase auth cookies (e.g. sb-*-auth-token.0)"
+  );
+  assert.doesNotMatch(
+    middlewareCode,
+    /c\.name\.endsWith\("-auth-token"\)/,
+    "middleware must not strictly require endsWith('-auth-token') which drops chunked cookies"
+  );
+});
+
+

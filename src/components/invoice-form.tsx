@@ -1,0 +1,68 @@
+"use client";
+import { useActionState, useEffect, useMemo, useState } from "react";
+import Image from "next/image";
+import type { FormState } from "@/app/actions/auth";
+import { saveInvoiceAction } from "@/app/actions/invoices";
+import type { Invoice } from "@/lib/invoices";
+type Line={description:string;quantity:string;unitPrice:string};
+const blank=():Line=>({description:"",quantity:"1",unitPrice:""});
+const fmt=(minor:number,currency:string)=>{try{return new Intl.NumberFormat("en-US",{style:"currency",currency}).format(minor/100)}catch{return (minor/100).toFixed(2)+" "+currency}};
+function addDays(date:string,days:number){const d=new Date(date+"T00:00:00Z");d.setUTCDate(d.getUTCDate()+days);return d.toISOString().slice(0,10)}
+export default function InvoiceForm({invoice,defaultCurrency="USD",paymentTermsDays=14,businessName="Your business",logoUrl="",businessEmail="",businessPhone="",businessAddress="",websiteUrl="",taxRegistrationNumber="",defaultFooter="Thank you for your business."}:{invoice?:Invoice;defaultCurrency?:string;paymentTermsDays?:number;businessName?:string;logoUrl?:string;businessEmail?:string;businessPhone?:string;businessAddress?:string;websiteUrl?:string;taxRegistrationNumber?:string;defaultFooter?:string}){
+ const [state,action,pending]=useActionState<FormState,FormData>(saveInvoiceAction,{});
+ const [clientDraftId] = useState(() => invoice?.id ?? (typeof crypto !== "undefined" ? crypto.randomUUID() : ""));
+ const [isSubmitting, setIsSubmitting] = useState(false);
+ const [activeIntent, setActiveIntent] = useState<"draft" | "issue" | null>(null);
+
+ useEffect(() => {
+   if (!pending) {
+     setIsSubmitting(false);
+     setActiveIntent(null);
+   }
+ }, [pending]);
+ const today=new Date().toISOString().slice(0,10);
+ const oldItems=(invoice?.line_items as unknown as Array<{description?:string;quantity?:number;unitPriceMinor?:number}>|null)?.map(i=>({description:i.description??"",quantity:String(i.quantity??1),unitPrice:((i.unitPriceMinor??0)/100).toFixed(2)}));
+ const [items,setItems]=useState<Line[]>(oldItems?.length?oldItems:invoice?[{description:invoice.description??"",quantity:"1",unitPrice:((invoice.amount_minor??0)/100).toFixed(2)}]:[blank()]);
+ const [currency,setCurrency]=useState(invoice?.currency??defaultCurrency),[tax,setTax]=useState(String((invoice?.tax_rate_bps??0)/100)),[discount,setDiscount]=useState(String((invoice?.discount_minor??0)/100));
+ const [issueDate,setIssueDate]=useState(invoice?.issue_date??today),[dueDate,setDueDate]=useState(invoice?.due_date??(paymentTermsDays?addDays(today,paymentTermsDays):"")),[footer,setFooter]=useState(invoice?.invoice_footer??defaultFooter);
+ const subtotal=useMemo(()=>items.reduce((s,i)=>{const q=Number(i.quantity),u=Math.round(Number(i.unitPrice)*100);return s+(q>0&&Number.isFinite(q)&&Number.isSafeInteger(u)&&u>=0?Math.round(q*u):0)},0),[items]);
+ const taxBps=Math.round(Math.min(100,Math.max(0,Number(tax)||0))*100),taxMinor=Math.round(subtotal*taxBps/10000),discountMinor=Math.max(0,Math.round((Number(discount)||0)*100)),total=Math.max(0,subtotal+taxMinor-discountMinor);
+ const rows=items.map(i=>({description:i.description.trim(),quantity:Number(i.quantity),unitPriceMinor:Math.round(Number(i.unitPrice)*100)}));
+ return <form action={action} className="business-form" onSubmit={(e) => { if (pending || isSubmitting) { e.preventDefault(); return; } setIsSubmitting(true); }}>
+ {invoice&&<input type="hidden" name="invoiceId" value={invoice.id}/>}
+ {!invoice && <input type="hidden" name="clientDraftId" value={clientDraftId} />}
+ <input type="hidden" name="lineItems" value={JSON.stringify(rows)}/><input type="hidden" name="taxRateBps" value={String(taxBps)}/><input type="hidden" name="discountMinor" value={String(discountMinor)}/>
+ <div className="form-grid">
+ <label>Currency<select name="currency" value={currency} onChange={e=>setCurrency(e.target.value)}>{["USD","EUR","GBP","ETB","KES"].map(c=><option key={c}>{c}</option>)}</select></label>
+ <label>Issue date<input name="issueDate" type="date" required value={issueDate} onChange={e=>{setIssueDate(e.target.value);if(dueDate&&dueDate<e.target.value)setDueDate(e.target.value)}}/></label>
+ <label>Due date <span>(optional)</span><input name="dueDate" type="date" value={dueDate} onChange={e=>setDueDate(e.target.value)}/></label>
+ <div className="form-wide" style={{marginTop:8}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,marginBottom:12}}><strong>Items</strong><button type="button" className="button button-outline" onClick={()=>setItems(v=>[...v,blank()])}>+ Add item</button></div>
+ {items.map((item,index)=><div key={index} className="form-grid" style={{borderTop:"1px solid var(--card-border)",paddingTop:14,marginBottom:14}}>
+ <label className="form-wide">Item description<input required maxLength={500} value={item.description} onChange={e=>setItems(all=>all.map((v,i)=>i===index?{...v,description:e.target.value}:v))} placeholder="Product or service"/></label>
+ <label>Quantity<input type="number" min="0.01" max="1000000" step="0.01" required value={item.quantity} onChange={e=>setItems(all=>all.map((v,i)=>i===index?{...v,quantity:e.target.value}:v))}/></label>
+ <label>Unit price<input type="number" min="0" max="9999999999.99" step="0.01" required value={item.unitPrice} onChange={e=>setItems(all=>all.map((v,i)=>i===index?{...v,unitPrice:e.target.value}:v))}/></label>
+ <div style={{display:"flex",alignItems:"end",justifyContent:"space-between",gap:12}}><span className="form-help">Line total <strong>{fmt(Math.round((Number(item.quantity)||0)*(Number(item.unitPrice)||0)*100),currency)}</strong></span>{items.length>1&&<button type="button" className="button button-outline" onClick={()=>setItems(all=>all.filter((_,i)=>i!==index))} aria-label={`Remove item ${index+1}`}>Remove</button>}</div>
+ </div>)}</div>
+ <label>Tax (%) <span>(optional)</span><input type="number" min="0" max="100" step="0.01" value={tax} onChange={e=>setTax(e.target.value)}/></label>
+ <label>Discount ({currency}) <span>(optional)</span><input type="number" min="0" step="0.01" value={discount} onChange={e=>setDiscount(e.target.value)}/></label>
+ <label className="form-wide">Thank-you note <span>(optional)</span><textarea name="invoiceFooter" rows={2} maxLength={1000} value={footer} onChange={e=>setFooter(e.target.value)} placeholder="Thank you for your business."/></label></div>
+ <section aria-label="Invoice totals" style={{marginTop:20,marginLeft:"auto",maxWidth:340,borderTop:"1px solid var(--card-border)",paddingTop:14}}>
+ {[[ "Subtotal",subtotal ],[`Tax (${(taxBps/100).toFixed(2)}%)`,taxMinor],[ "Discount", -discountMinor]].map(([label,value])=><div key={String(label)} style={{display:"flex",justifyContent:"space-between",padding:"5px 0"}}><span>{label}</span><strong>{fmt(Number(value),currency)}</strong></div>)}
+ <div style={{display:"flex",justifyContent:"space-between",borderTop:"1px solid var(--card-border)",marginTop:8,paddingTop:12,fontSize:18}}><span>Total due</span><strong>{fmt(total,currency)}</strong></div></section>
+ {state.error&&<p className="form-error" role="alert">{state.error}</p>}<div className="form-actions">
+  <button className="button button-dark" type="submit" name="intent" value="draft" onClick={() => setActiveIntent("draft")} disabled={pending || isSubmitting || total <= 0}>
+    {pending && activeIntent === "draft" ? "Saving draft…" : "Save draft"}
+  </button>
+  <button className="button button-outline" type="submit" name="intent" value="issue" onClick={() => setActiveIntent("issue")} disabled={pending || isSubmitting || total <= 0}>
+    {pending && activeIntent === "issue" ? (!invoice || invoice.status === "draft" ? "Issuing invoice…" : "Saving changes…") : (!invoice || invoice.status === "draft" ? "Issue invoice" : "Save changes")}
+  </button>
+</div>
+ <p className="form-help">Paid status is recorded only after settlement is verified.</p>
+ <section className="invoice-preview" aria-label="Live invoice preview" style={{marginTop:32,border:"1px solid var(--card-border)",background:"#fff",color:"#171816",padding:24,boxShadow:"0 16px 40px rgba(20,24,30,.06)"}}>
+ <div className="invoice-preview-header" style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:20,borderBottom:"1px solid #e5e5df",paddingBottom:18,marginBottom:18}}>{logoUrl?<Image src={logoUrl} alt="" width={140} height={58} unoptimized style={{maxWidth:140,maxHeight:58,objectFit:"contain",objectPosition:"left"}}/>:<strong style={{fontSize:18}}>{businessName}</strong>}<div style={{textAlign:"right"}}><span style={{fontSize:9,letterSpacing:".12em",color:"#777"}}>INVOICE</span><div style={{fontSize:16,fontWeight:600}}>{invoice?.invoice_number??"Assigned when saved"}</div><div style={{fontSize:11,color:"#666"}}>Issued {issueDate||"—"}</div>{dueDate&&<div style={{fontSize:11,color:"#666"}}>Due {dueDate}</div>}</div></div>
+ <div style={{fontSize:12,color:"#444",marginBottom:18}}><strong>{businessName}</strong>{businessAddress&&<div>{businessAddress}</div>}{businessPhone&&<div>{businessPhone}</div>}{businessEmail&&<div>{businessEmail}</div>}{websiteUrl&&<div>{websiteUrl}</div>}{taxRegistrationNumber&&<div>Tax ID: {taxRegistrationNumber}</div>}</div>
+ <div className="invoice-preview-items" style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:"10px 18px",fontSize:12,borderBottom:"1px solid #e5e5df",paddingBottom:14}}><strong>Item</strong><strong style={{textAlign:"right"}}>Total</strong>{items.map((item,index)=><div key={index} style={{display:"contents"}}><span>{item.description||"Item description"}<small style={{display:"block",color:"#777"}}>{item.quantity||"0"} × {fmt(Math.round((Number(item.unitPrice)||0)*100),currency)}</small></span><strong style={{textAlign:"right"}}>{fmt(Math.round((Number(item.quantity)||0)*(Number(item.unitPrice)||0)*100),currency)}</strong></div>)}</div>
+ <div style={{maxWidth:280,marginLeft:"auto",paddingTop:14,fontSize:12}}>{[["Subtotal",subtotal],["Tax",taxMinor],["Discount",-discountMinor]].map(([label,value])=><div key={String(label)} style={{display:"flex",justifyContent:"space-between",padding:"4px 0"}}><span>{label}</span><span>{fmt(Number(value),currency)}</span></div>)}<div style={{display:"flex",justifyContent:"space-between",fontSize:16,fontWeight:700,borderTop:"1px solid #e5e5df",marginTop:8,paddingTop:10}}><span>Total due</span><span>{fmt(total,currency)}</span></div></div>
+ <footer className="invoice-preview-footer" style={{display:"flex",justifyContent:"space-between",alignItems:"end",gap:14,borderTop:"1px solid #e5e5df",marginTop:22,paddingTop:14}}><span className="invoice-thank-you" style={{fontSize:22,color:"#555"}}>{footer||"Thank you for your business."}</span><span style={{fontSize:9,color:"#888",whiteSpace:"nowrap"}}>Powered by nodus.</span></footer>
+ </section></form>;
+}
