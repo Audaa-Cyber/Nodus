@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { circleTestnetUsdcNetworks } from "@/lib/wallet/networks";
-import { buildThirtyDayDateRange, computeDailyReceipts } from "@/lib/dashboard/daily-receipts";
 
 export const dynamic = "force-dynamic";
 
@@ -19,43 +18,22 @@ export async function GET() {
     return NextResponse.json({ error: "Business profile not found." }, { status: 404 });
   }
 
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setUTCDate(thirtyDaysAgo.getUTCDate() - 29);
-  thirtyDaysAgo.setUTCHours(0, 0, 0, 0);
-
   // The RPC is security-invoker and derives its merchant scope from auth.uid().
   // It reads only verified, paid NODUS invoice settlements under the caller's RLS.
-  // The 30-day verified settlement query retrieves historical receipts for the chart.
-  const [balanceResult, settlementsResult] = await Promise.all([
-    supabase.rpc("merchant_nodus_received_by_chain"),
-    supabase
-      .from("payment_settlements")
-      .select("destination_network, received_amount_base_units, received_asset_decimals, created_at")
-      .eq("business_id", business.id)
-      .eq("outcome", "VERIFIED")
-      .eq("provider_status", "SUCCESS")
-      .gte("created_at", thirtyDaysAgo.toISOString())
-      .order("created_at", { ascending: true }),
-  ]);
+  const { data: rows, error: balanceError } = await supabase.rpc("merchant_nodus_received_by_chain");
 
-  if (balanceResult.error || !balanceResult.data) {
+  if (balanceError || !rows) {
     return NextResponse.json({ error: "NODUS received balance is unavailable." }, { status: 503 });
   }
-
-  const rows = balanceResult.data;
-  const verifiedSettlements = settlementsResult.data ?? [];
-  const thirtyDayRange = buildThirtyDayDateRange();
 
   const totalsByNetwork = new Map(rows.map((row) => [row.destination_network, row]));
   const chains = circleTestnetUsdcNetworks.map((network) => {
     const row = totalsByNetwork.get(network.key);
-    const dailyReceipts = computeDailyReceipts(verifiedSettlements, network.key, thirtyDayRange);
     return {
       networkKey: network.key,
       networkLabel: network.label,
       totalBaseUnits: row?.total_base_units ?? "0",
       paymentCount: row?.payment_count ?? 0,
-      dailyReceipts,
     };
   });
   const totalBaseUnits = chains.reduce((total, chain) => total + BigInt(chain.totalBaseUnits), 0n).toString();

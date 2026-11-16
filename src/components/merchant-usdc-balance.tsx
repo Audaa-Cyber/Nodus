@@ -7,14 +7,12 @@ import { NetworkLogo } from "@/components/network-logo";
 import { circleTestnetUsdcNetworks } from "@/lib/wallet/networks";
 import { useAnimatedInteger } from "@/components/use-data-motion";
 import { MerchantDonutChart } from "@/components/merchant-donut-chart";
-import type { DailyReceiptPoint } from "@/lib/dashboard/daily-receipts";
 
 type ChainBalance = {
   networkKey: string;
   networkLabel: string;
   totalBaseUnits: string;
   paymentCount: number;
-  dailyReceipts?: DailyReceiptPoint[];
 };
 
 type BalanceState =

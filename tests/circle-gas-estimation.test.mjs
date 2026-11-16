@@ -2,14 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   estimateCircleSourceGas,
-  fetchCircleAllowance,
-  fetchCircleGasPriceWei,
   withTimeout,
   CIRCLE_GAS_ESTIMATE_UNAVAILABLE_MESSAGE,
   APPROVE_GAS_LIMIT,
   DEPOSIT_FOR_BURN_WITH_FEES_GAS_LIMIT,
-  BASE_SEPOLIA_USDC_ADDRESS,
-  BASE_SEPOLIA_TOKEN_MESSENGER_WITH_FEES,
 } from "../src/lib/payments/circle-gas-estimation.ts";
 
 const VALID_PAYER = "0x1111111111111111111111111111111111111111";

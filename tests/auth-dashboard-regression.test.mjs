@@ -50,14 +50,9 @@ test("dashboard background canvas is fixed and cannot add document-flow height",
   assert.match(canvasRule, /height:\s*100%/, "dashboard canvas fills the viewport");
 });
 
-test("dashboard dot matrix is a static texture with no animation loop", async () => {
+test("dashboard shell keeps the dashboard free of a second background animation", async () => {
   const shell = await read("../src/components/dashboard-shell-effects.tsx");
-  const backgroundEffect = shell.match(/\/\/ 2\. Static Dot-Matrix Background Texture([\s\S]*?)\n\s*return \(/)?.[1] ?? "";
-
-  assert.ok(backgroundEffect, "dashboard background effect exists");
-  assert.doesNotMatch(backgroundEffect, /requestAnimationFrame/, "background does not schedule continuous frames");
-  assert.match(backgroundEffect, /const t = 0/, "dot pattern uses a stable phase");
-  assert.match(backgroundEffect, /renderDotMatrix\(\)/, "pattern redraws when its canvas is initialized or resized");
+  assert.doesNotMatch(shell, /requestAnimationFrame|renderDotMatrix|dotMatrixCanvas/, "dashboard shell does not add a second background effect");
 });
 
 test("login page dot matrix has an autonomous animation loop with canvas ref", async () => {
