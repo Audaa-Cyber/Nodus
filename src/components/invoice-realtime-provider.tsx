@@ -3,6 +3,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { parseNearReconciliationUpdate, type NearReconciliationUpdate } from "@/lib/realtime/near-reconciliation-state";
 
 export type InvoiceRealtimeUpdate = {
   id: string;
@@ -16,15 +17,18 @@ export type InvoiceRealtimeUpdate = {
 };
 
 type InvoiceListener = (invoice: InvoiceRealtimeUpdate) => void;
+type NearReconciliationListener = (update: NearReconciliationUpdate) => void;
 
 interface InvoiceRealtimeContextValue {
   businessId: string | null;
   subscribeToInvoices: (listener: InvoiceListener) => () => void;
+  subscribeToNearReconciliation: (listener: NearReconciliationListener) => () => void;
 }
 
 const InvoiceRealtimeContext = createContext<InvoiceRealtimeContextValue>({
   businessId: null,
   subscribeToInvoices: () => () => {},
+  subscribeToNearReconciliation: () => () => {},
 });
 
 export function useInvoiceRealtime() {
@@ -33,11 +37,13 @@ export function useInvoiceRealtime() {
 
 interface InvoiceRealtimeProviderProps {
   businessId?: string | null;
+  userId: string;
   children: React.ReactNode;
 }
 
 export function InvoiceRealtimeProvider({
   businessId,
+  userId,
   children,
 }: InvoiceRealtimeProviderProps) {
   const router = useRouter();
@@ -45,11 +51,13 @@ export function InvoiceRealtimeProvider({
   routerRef.current = router;
 
   const listenersRef = useRef<Set<InvoiceListener>>(new Set());
+  const nearListenersRef = useRef<Set<NearReconciliationListener>>(new Set());
   const hasSubscribedInitialRef = useRef<boolean>(false);
 
-  // Diagnostic 1: Provider mounted and business ID resolved
   useEffect(() => {
-    console.log("[NODUS:REALTIME] 1. Provider mounted. Resolved business ID:", businessId ? businessId : "(null/undefined)");
+    if (process.env.NODE_ENV !== "production") {
+      console.debug("[NODUS:REALTIME] dashboard provider mounted; business resolved:", Boolean(businessId));
+    }
   }, [businessId]);
 
   const subscribeToInvoices = useCallback((listener: InvoiceListener) => {
@@ -59,12 +67,20 @@ export function InvoiceRealtimeProvider({
     };
   }, []);
 
+  const subscribeToNearReconciliation = useCallback((listener: NearReconciliationListener) => {
+    nearListenersRef.current.add(listener);
+    return () => {
+      nearListenersRef.current.delete(listener);
+    };
+  }, []);
+
   useEffect(() => {
     if (!businessId) {
-      console.warn("[NODUS:REALTIME] Provider has no businessId; skipping Realtime subscription.");
+      if (process.env.NODE_ENV !== "production") console.warn("[NODUS:REALTIME] subscription skipped: business context unavailable");
       return;
     }
 
+    hasSubscribedInitialRef.current = false;
     let isCancelled = false;
     let channel: ReturnType<ReturnType<typeof getSupabaseBrowserClient>["channel"]> | null = null;
     let authListener: { unsubscribe: () => void } | null = null;
@@ -82,18 +98,20 @@ export function InvoiceRealtimeProvider({
       try {
         const supabase = getSupabaseBrowserClient();
 
-        // Diagnostic 2: Authenticated Supabase session available
         let session = null;
         try {
           const sessionRes = await supabase.auth.getSession();
           session = sessionRes.data?.session ?? null;
-          console.log("[NODUS:REALTIME] 2. Supabase session checked. Session available:", Boolean(session), "Has access_token:", Boolean(session?.access_token), "User ID:", session?.user?.id ?? null);
-          if (session?.access_token) {
+          if (session?.access_token && session.user.id === userId) {
             await supabase.realtime.setAuth(session.access_token);
+          } else {
+            if (process.env.NODE_ENV !== "production") console.warn("[NODUS:REALTIME] subscription skipped: authenticated session unavailable");
+            return;
           }
         } catch (err: unknown) {
-          const msg = err instanceof Error ? err.message : String(err);
-          console.error("[NODUS:REALTIME] 2. Error fetching session / setting auth:", msg);
+          const code = err && typeof err === "object" && "code" in err ? String(err.code) : "unknown";
+          if (process.env.NODE_ENV !== "production") console.warn("[NODUS:REALTIME] auth setup failed:", code);
+          return;
         }
 
         if (isCancelled) return;
@@ -103,7 +121,6 @@ export function InvoiceRealtimeProvider({
         const existing = supabase.getChannels().find((c) => c.topic === `realtime:${topic}`);
         if (existing) {
           try {
-            console.log("[NODUS:REALTIME] Removing existing channel before subscribing:", existing.topic);
             await supabase.removeChannel(existing);
           } catch {
             // Ignore channel removal error
@@ -111,8 +128,6 @@ export function InvoiceRealtimeProvider({
         }
 
         if (isCancelled) return;
-
-        console.log("[NODUS:REALTIME] Creating channel topic:", topic, "with filter: business_id=eq." + businessId);
 
         // 3. Create and subscribe authenticated channel scoped to the business ID
         channel = supabase
@@ -126,34 +141,24 @@ export function InvoiceRealtimeProvider({
               filter: `business_id=eq.${businessId}`,
             },
             (payload) => {
-              // Diagnostic 4: Whether an invoice UPDATE event is received
-              console.log("[NODUS:REALTIME] 4. postgres_changes event received. Event type:", payload.eventType, "Table:", payload.table);
+              if (process.env.NODE_ENV !== "production") console.debug("[NODUS:REALTIME] database event received:", payload.eventType);
 
               const updated = payload.new as InvoiceRealtimeUpdate;
               if (!updated || !updated.id) {
-                console.warn("[NODUS:REALTIME] Received payload without valid payload.new.id:", payload);
+                if (process.env.NODE_ENV !== "production") console.warn("[NODUS:REALTIME] ignored invoice event without an ID");
                 return;
               }
 
               // Diagnostic 5: Whether the received event's new.business_id matches the active business
               const matchesBusiness = updated.business_id === businessId;
-              console.log("[NODUS:REALTIME] 5. business_id check. Event business_id:", updated.business_id, "Active businessId:", businessId, "Matches:", matchesBusiness);
+              if (!matchesBusiness) return;
 
-              // Diagnostic 6: Whether the invoice ID and new status are correctly extracted
-              console.log("[NODUS:REALTIME] 6. Extracted invoice data:", {
-                invoiceId: updated.id,
-                status: updated.status,
-                invoiceNumber: updated.invoice_number,
-                amountMinor: updated.amount_minor,
-              });
-
-              // Notify all active component listeners immediately (e.g. InvoicesTable, InvoiceDetailLiveSync)
-              console.log("[NODUS:REALTIME] Notifying active listeners count:", listenersRef.current.size);
+              if (process.env.NODE_ENV !== "production") console.debug("[NODUS:REALTIME] invoice handler dispatching; listeners:", listenersRef.current.size);
               listenersRef.current.forEach((listener) => {
                 try {
                   listener(updated);
-                } catch (err) {
-                  console.error("[NODUS:REALTIME] Error in invoice update listener:", err);
+                } catch {
+                  if (process.env.NODE_ENV !== "production") console.warn("[NODUS:REALTIME] invoice listener threw");
                 }
               });
 
@@ -161,9 +166,29 @@ export function InvoiceRealtimeProvider({
               triggerRefresh();
             }
           )
-          .subscribe(async (subStatus, err) => {
-            // Diagnostic 3: Realtime channel subscription status
-            console.log("[NODUS:REALTIME] 3. Realtime subscription status:", subStatus, "Topic:", topic, err ? { error: err.message } : "");
+          .on(
+            "postgres_changes",
+            {
+              event: "*",
+              schema: "public",
+              table: "near_reconciliation_status",
+              filter: `business_id=eq.${businessId}`,
+            },
+            (payload) => {
+              const update = parseNearReconciliationUpdate(payload.new, businessId);
+              if (!update) return;
+              if (process.env.NODE_ENV !== "production") console.debug("[NODUS:REALTIME] NEAR status event received:", update.status);
+              nearListenersRef.current.forEach((listener) => {
+                try {
+                  listener(update);
+                } catch {
+                  // A component listener must not interrupt the shared channel.
+                }
+              });
+            },
+          )
+          .subscribe(async (subStatus) => {
+            if (process.env.NODE_ENV !== "production") console.debug("[NODUS:REALTIME] subscription status:", subStatus);
 
             if (subStatus === "SUBSCRIBED") {
               if (!hasSubscribedInitialRef.current) {
@@ -177,19 +202,21 @@ export function InvoiceRealtimeProvider({
 
         // Keep Realtime authenticated across token refreshes
         const { data: authData } = supabase.auth.onAuthStateChange(async (event, newSession) => {
-          console.log("[NODUS:REALTIME] Auth state change event:", event, "Has new token:", Boolean(newSession?.access_token));
-          if ((event === "TOKEN_REFRESHED" || event === "SIGNED_IN") && newSession?.access_token) {
+          if ((event === "TOKEN_REFRESHED" || event === "SIGNED_IN") && newSession?.access_token && newSession.user.id === userId) {
             try {
               await supabase.realtime.setAuth(newSession.access_token);
             } catch {
-              // Ignore
+              if (process.env.NODE_ENV !== "production") console.warn("[NODUS:REALTIME] token refresh auth update failed");
             }
+          } else if (event === "SIGNED_OUT") {
+            listenersRef.current.clear();
+            nearListenersRef.current.clear();
           }
         });
         authListener = authData?.subscription ?? null;
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        console.error("[NODUS:REALTIME] Setup error:", msg);
+        const code = err && typeof err === "object" && "code" in err ? String(err.code) : "unknown";
+        if (process.env.NODE_ENV !== "production") console.warn("[NODUS:REALTIME] setup failed:", code);
       }
     };
 
@@ -197,7 +224,6 @@ export function InvoiceRealtimeProvider({
 
     return () => {
       isCancelled = true;
-      console.log("[NODUS:REALTIME] Cleanup called for topic:", `business-invoices:${businessId}`);
       if (refreshDebounceTimeout) clearTimeout(refreshDebounceTimeout);
       if (authListener) {
         try {
@@ -215,13 +241,14 @@ export function InvoiceRealtimeProvider({
         }
       }
     };
-  }, [businessId]);
+  }, [businessId, userId]);
 
   return (
     <InvoiceRealtimeContext.Provider
       value={{
         businessId: businessId ?? null,
         subscribeToInvoices,
+        subscribeToNearReconciliation,
       }}
     >
       {children}

@@ -19,21 +19,8 @@ export function InvoiceDetailLiveSync({
 
   useEffect(() => {
     return subscribeToInvoices((updated) => {
-      // Diagnostic 8: Whether the invoice detail component receives the paid event and calls router.refresh()
-      const isTarget = updated.id === invoiceId;
-      const isStatusChange = updated.status !== currentStatus;
-      console.log("[NODUS:REALTIME] 8. InvoiceDetailLiveSync received update for invoice:", updated.id, {
-        targetInvoiceId: invoiceId,
-        isTarget,
-        currentStatus,
-        newStatus: updated.status,
-        isStatusChange,
-        willCallRouterRefresh: isTarget && isStatusChange,
-      });
-
       if (updated.id === invoiceId && updated.status !== currentStatus) {
         setTransitioningStatus(updated.status);
-        console.log("[NODUS:REALTIME] 8b. InvoiceDetailLiveSync calling router.refresh() for transition to:", updated.status);
         router.refresh();
       }
     });

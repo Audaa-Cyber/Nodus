@@ -85,7 +85,7 @@ export type PaidInvoiceProps = {
   } | null;
   primaryNearEntry?: {
     id: string;
-    status: "pending" | "processing" | "submitted" | "blocked";
+    status: "pending" | "processing" | "retrying" | "submitted" | "blocked";
     near_transaction_hash: string | null;
     last_error_code: string | null;
     submitted_at: string | null;
@@ -600,7 +600,11 @@ export function PaidInvoiceDetailView({
               <div className="near-status-header">
                 <span className="near-dot is-pulsing" />
                 <strong>
-                  NEAR reconciliation {primaryNearEntry.status === "processing" ? "in progress" : "pending"}
+                  NEAR reconciliation {primaryNearEntry.status === "processing"
+                    ? "in progress"
+                    : primaryNearEntry.status === "retrying"
+                      ? "retrying"
+                      : "pending"}
                 </strong>
               </div>
               <p className="near-processing-sub">

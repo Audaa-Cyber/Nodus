@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { effectiveStatus, formatMoney, formatUtcDate, type InvoiceStatus } from "@/lib/invoices";
 import { useInvoiceRealtime } from "@/components/invoice-realtime-provider";
+import { applyInvoiceUpdate, mergeInvoiceSnapshot, type InvoiceRealtimeUpdate } from "@/lib/realtime/invoice-state";
 
 export interface InvoiceListItem {
   id: string;
@@ -33,42 +34,34 @@ export function InvoicesTable({
   hasError,
 }: InvoicesTableProps) {
   const [invoices, setInvoices] = useState<InvoiceListItem[]>(initialInvoices);
+  const [updatedRowIds, setUpdatedRowIds] = useState<Set<string>>(new Set());
+  const liveUpdatesRef = useRef(new Map<string, InvoiceRealtimeUpdate>());
   const { subscribeToInvoices } = useInvoiceRealtime();
 
   // Keep state synchronized with server props when route parameters change or server revalidates
   useEffect(() => {
-    setInvoices(initialInvoices);
+    setInvoices(mergeInvoiceSnapshot(initialInvoices, liveUpdatesRef.current));
+    for (const invoice of initialInvoices) {
+      if (liveUpdatesRef.current.get(invoice.id)?.status === invoice.status) {
+        liveUpdatesRef.current.delete(invoice.id);
+      }
+    }
   }, [initialInvoices]);
 
   // Subscribe to live Realtime updates from the business channel
   useEffect(() => {
     return subscribeToInvoices((updated) => {
-      // Diagnostic 7: Whether the invoice table's React state update handler executes
-      console.log("[NODUS:REALTIME] 7. InvoicesTable received update:", {
-        id: updated.id,
-        newStatus: updated.status,
-      });
-
-      setInvoices((prev) => {
-        const found = prev.some((inv) => inv.id === updated.id);
-        console.log("[NODUS:REALTIME] 7b. InvoicesTable state update executing. Matching row found:", found, "Invoice:", updated.id);
-        return prev.map((inv) =>
-          inv.id === updated.id
-            ? {
-                ...inv,
-                status: (updated.status as InvoiceStatus) || inv.status,
-                amount_minor:
-                  typeof updated.amount_minor === "number" ? updated.amount_minor : inv.amount_minor,
-                currency:
-                  typeof updated.currency === "string" ? updated.currency : inv.currency,
-                due_date:
-                  updated.due_date !== undefined
-                    ? (updated.due_date as string | null)
-                    : inv.due_date,
-              }
-            : inv
-        );
-      });
+      liveUpdatesRef.current.set(updated.id, updated);
+      setInvoices((prev) => applyInvoiceUpdate(prev, updated) as InvoiceListItem[]);
+      setUpdatedRowIds((prev) => new Set(prev).add(updated.id));
+      const timer = window.setTimeout(() => {
+        setUpdatedRowIds((prev) => {
+          const next = new Set(prev);
+          next.delete(updated.id);
+          return next;
+        });
+      }, 1400);
+      return () => window.clearTimeout(timer);
     });
   }, [subscribeToInvoices]);
 
@@ -113,7 +106,10 @@ export function InvoicesTable({
             {invoices.map((invoice) => {
               const status = effectiveStatus(invoice);
               return (
-                <tr key={invoice.id} className="hover:bg-slate-500/5 transition-colors">
+                <tr
+                  key={invoice.id}
+                  className={`hover:bg-slate-500/5 transition-colors ${updatedRowIds.has(invoice.id) ? "row-status-updated" : ""}`}
+                >
                   <td className="min-w-0 py-3 px-2 font-medium sm:px-4">
                     <Link
                       href={`/dashboard/invoices/${invoice.id}`}

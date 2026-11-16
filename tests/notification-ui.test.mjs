@@ -225,10 +225,9 @@ test("Realtime Lifecycle: Handles token refreshes and sign-out gracefully", asyn
 test("Realtime Deduplication & Recovery: Deduplicates incoming INSERT events and heals on network errors", async () => {
   const source = await read("../src/components/notification-center.tsx");
 
-  // Deduplication check on INSERT
-  assert.ok(source.includes("prev.some((n) => n.id === newItem.id)"));
-  // Increments unread count only if notification is not read
-  assert.ok(source.includes("!newItem.read_at"));
+  // Realtime items merge by stable ID and unread badge is re-queried from the authoritative table.
+  assert.ok(source.includes("mergeNotificationSnapshot(items, snapshotUnreadCount, liveChanges)"));
+  assert.ok(source.includes("void refreshUnreadCount()"));
   // Error / timeout re-synchronization
   assert.ok(source.includes('subStatus === "CHANNEL_ERROR" || subStatus === "TIMED_OUT"'));
   assert.ok(source.includes("fetchNotifications();"));

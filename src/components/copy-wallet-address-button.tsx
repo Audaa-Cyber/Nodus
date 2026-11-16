@@ -26,7 +26,7 @@ export default function CopyWalletAddressButton({ address }: { address: string }
       <button
         type="button"
         onClick={() => void copyAddress()}
-        className="button button-outline min-h-10 px-3 text-xs"
+        className="button button-outline min-h-10 px-3 text-xs transition-all duration-150 active:scale-95"
         aria-label="Copy full wallet address"
       >
         {feedback === "copied" ? "Copied" : feedback === "error" ? "Copy failed" : "Copy"}

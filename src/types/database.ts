@@ -71,6 +71,12 @@ export interface Database {
           { foreignKeyName: "notifications_invoice_id_fkey"; columns: ["invoice_id"]; isOneToOne: false; referencedRelation: "invoices"; referencedColumns: ["id"] }
         ];
       };
+      near_reconciliation_status: {
+        Row: { reconciliation_id: string; invoice_id: string; business_id: string; status: "pending" | "processing" | "retrying" | "submitted" | "blocked"; near_transaction_hash: string | null; updated_at: string };
+        Insert: never;
+        Update: never;
+        Relationships: [{ foreignKeyName: "near_reconciliation_status_business_id_fkey"; columns: ["business_id"]; isOneToOne: false; referencedRelation: "business_profiles"; referencedColumns: ["id"] }, { foreignKeyName: "near_reconciliation_status_invoice_id_fkey"; columns: ["invoice_id"]; isOneToOne: false; referencedRelation: "invoices"; referencedColumns: ["id"] }];
+      };
     };
     Views: Record<string, never>;
     Functions: {

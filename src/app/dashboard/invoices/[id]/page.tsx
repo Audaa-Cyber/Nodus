@@ -7,6 +7,7 @@ import InvoiceSharePanel from "@/components/invoice-share-panel";
 import InvoicePrintButton from "@/components/invoice-print-button";
 import { PaidInvoiceDetailView } from "@/components/paid-invoice-detail-view";
 import { InvoiceDetailLiveSync } from "@/components/invoice-detail-live-sync";
+import { NearReconciliationLiveSync } from "@/components/near-reconciliation-live-sync";
 import { retryNearInvoiceRegistrationAction } from "@/app/actions/invoices";
 import { getBusinessContext } from "@/lib/auth/business-context";
 import { effectiveStatus, formatMoney, formatUtcDate } from "@/lib/invoices";
@@ -211,6 +212,14 @@ export default async function InvoiceDetailPage({
   const primaryNearEntry = primaryAttempt
     ? nearOutbox?.find((n) => n.payment_attempt_id === primaryAttempt.id) ?? null
     : null;
+  const primaryNearEntryForView = primaryNearEntry
+    ? {
+        ...primaryNearEntry,
+        status: (primaryNearEntry.status === "pending" && primaryNearEntry.last_error_code
+          ? "retrying"
+          : primaryNearEntry.status) as "pending" | "processing" | "retrying" | "submitted" | "blocked",
+      }
+    : null;
   const nearCctpNetworks = new Set(["sepolia", "base-sepolia", "arbitrum-sepolia", "optimism-sepolia", "arc-testnet"]);
   const primaryQuoteSnapshot = primaryAttempt?.quote_snapshot && typeof primaryAttempt.quote_snapshot === "object"
     ? primaryAttempt.quote_snapshot as Record<string, unknown>
@@ -253,6 +262,7 @@ export default async function InvoiceDetailPage({
   if (isPaid) {
     return (
       <div className="dashboard-content narrow-content">
+        <NearReconciliationLiveSync invoiceId={invoice.id} />
         <PaidInvoiceDetailView
           invoice={invoice}
           seller={{
@@ -269,7 +279,7 @@ export default async function InvoiceDetailPage({
           primaryReceipt={primaryReceipt}
           primarySettlement={primarySettlement}
           primaryAttempt={primaryAttempt}
-          primaryNearEntry={primaryNearEntry}
+          primaryNearEntry={primaryNearEntryForView}
           nearSettlementEligibility={nearSettlementEligibility}
           nearOutboxError={!!nearOutboxError}
           nearInvoiceRegistration={nearInvoiceRegistration}
@@ -287,6 +297,7 @@ export default async function InvoiceDetailPage({
       </Link>
 
       <InvoiceDetailLiveSync invoiceId={invoice.id} currentStatus={invoice.status} />
+      <NearReconciliationLiveSync invoiceId={invoice.id} />
 
       <header className="detail-heading">
         <div>

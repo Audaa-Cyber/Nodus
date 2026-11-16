@@ -7,7 +7,6 @@ import { useAccount, useConnect, useDisconnect, useSwitchChain } from "wagmi";
 import { formatMoney } from "@/lib/invoices";
 import { createIdempotencyKey } from "@/lib/idempotency-key";
 import { connectWalletConnectWithRequiredChain, isMobileWalletBrowser, prepareRabbyForWalletConnectRequest, setWalletConnectSessionDefaultChain, walletConnectSessionIncludesChain } from "@/lib/wallet/rabby-mobile-handoff";
-import { inspectAndRecoverWalletConnectStartupMessages, type WalletConnectStartupDiagnostic } from "@/lib/wallet/walletconnect-startup-diagnostics";
 import {
   DEFAULT_RECOMMENDED_CHAIN_ID,
   DEFAULT_RECOMMENDED_CHAIN_NAME,
@@ -48,26 +47,6 @@ type InvoiceWalletCheckoutProps = {
 };
 
 type AssetResponse = { assets: WalletAsset[] };
-
-type WalletConnectRequestTraceClient = {
-  on: (event: "session_request_sent", listener: (event: {
-    id: number;
-    chainId: string;
-    topic: string;
-    request: { method: string; params?: unknown };
-  }) => void) => void;
-  off: (event: "session_request_sent", listener: (event: {
-    id: number;
-    chainId: string;
-    topic: string;
-    request: { method: string; params?: unknown };
-  }) => void) => void;
-  session: { get: (topic: string) => { transportType?: string } };
-};
-
-type WalletConnectRequestTraceProvider = {
-  signer?: { client?: WalletConnectRequestTraceClient };
-};
 
 function shortAddress(address: string) {
   return address.length > 18 ? `${address.slice(0, 10)}…${address.slice(-6)}` : address;
@@ -137,21 +116,6 @@ function InvoiceWalletCheckoutContent({
   const [storedAttemptId, setStoredAttemptId] = useState<string | null>(null);
   const [storedAttemptSettled, setStoredAttemptSettled] = useState(false);
   const [storedReceipts, setStoredReceipts] = useState<ReceiptInfo[]>([]);
-  const [walletConnectDiagnostics, setWalletConnectDiagnostics] = useState<WalletConnectStartupDiagnostic | null>(null);
-  const [walletConnectDiagnosticsLoading, setWalletConnectDiagnosticsLoading] = useState(false);
-  const [walletSwitchDiagnostics, setWalletSwitchDiagnostics] = useState("No network switch request has been attempted in this page session.");
-
-  const refreshWalletConnectDiagnostics = useCallback(async () => {
-    setWalletConnectDiagnosticsLoading(true);
-    const diagnostic = await inspectAndRecoverWalletConnectStartupMessages(walletConnectConnector);
-    setWalletConnectDiagnostics(diagnostic);
-    setWalletConnectDiagnosticsLoading(false);
-  }, [walletConnectConnector]);
-
-  useEffect(() => {
-    void refreshWalletConnectDiagnostics();
-  }, [refreshWalletConnectDiagnostics]);
-
   const payable = status === "open" || status === "overdue";
 
   // Safe internal feature gate: only allow simulation in non-production when explicitly enabled
@@ -229,7 +193,6 @@ function InvoiceWalletCheckoutContent({
     await disconnectAsync({ connector: evmConnector });
     const onMessage = (event: { type: string; data?: unknown }) => {
       if (event.type === "display_uri" && typeof event.data === "string") {
-        setWalletSwitchDiagnostics("Opening Rabby to approve a WalletConnect session that requires the selected payment network.");
         window.location.assign(`rabby://wc?uri=${encodeURIComponent(event.data)}`);
       }
     };
@@ -255,15 +218,8 @@ function InvoiceWalletCheckoutContent({
 
   useEffect(() => {
     if (!isMobileWalletBrowser() || evmConnector?.id !== "walletConnect" || !isEvmConnected || !evmAddress) return;
-    let cancelled = false;
     void setWalletConnectSessionDefaultChain(evmConnector, selectedSourceNetwork.chainId, evmAddress)
-      .then((synced) => {
-        if (!cancelled && synced) {
-          setWalletSwitchDiagnostics(`WalletConnect request context set to eip155:${selectedSourceNetwork.chainId} using the connected account's approved session chain.`);
-        }
-      })
       .catch(() => {});
-    return () => { cancelled = true; };
   }, [evmAddress, evmConnector, isEvmConnected, selectedSourceNetwork.chainId]);
 
   useEffect(() => {
@@ -370,16 +326,13 @@ function InvoiceWalletCheckoutContent({
         const targetApproved = await walletConnectSessionIncludesChain(evmConnector, targetChainId, evmAddress);
         if (!targetApproved) {
           setSwitchRequestPending(true);
-          setWalletSwitchDiagnostics(`Current WalletConnect session lacks eip155:${targetChainId} for this account; replacing it with a session proposal that requires the target chain.`);
           await reconnectWalletConnectWithRequiredChain(targetChainId);
           setSwitchError("");
-          setWalletSwitchDiagnostics(`WalletConnect reconnected and aligned to eip155:${targetChainId}.`);
           return;
         }
         const synced = await setWalletConnectSessionDefaultChain(evmConnector, targetChainId, evmAddress);
         if (synced) {
           setSwitchError("");
-          setWalletSwitchDiagnostics(`WalletConnect request context set to eip155:${targetChainId} from the connected account's approved session; no wallet network switch was needed.`);
           return;
         }
       } catch {
@@ -397,37 +350,11 @@ function InvoiceWalletCheckoutContent({
         // If the session cannot be inspected, still try its normal switch request.
       }
     }
-    setWalletSwitchDiagnostics(
-      `Preparing eip155:${targetChainId}; current WalletConnect session ${walletConnectChainApproved ? "includes" : "does not include"} the target chain.`,
-    );
     let timeoutId: number | undefined;
     const timeoutError = new Error("The wallet did not confirm the network change in time.");
     setSwitchRequestPending(true);
-    let removeRequestTrace = () => {};
     try {
       prepareRabbyForWalletConnectRequest(evmConnector.id);
-      if (evmConnector.id === "walletConnect") {
-        try {
-          const walletProvider = await evmConnector.getProvider() as WalletConnectRequestTraceProvider;
-          const client = walletProvider.signer?.client;
-          if (client) {
-            const onRequestSent = (event: Parameters<WalletConnectRequestTraceClient["on"]>[1] extends (event: infer T) => void ? T : never) => {
-              const session = client.session.get(event.topic);
-              const methodParams = Array.isArray(event.request.params) ? event.request.params[0] : undefined;
-              const requestedChain = methodParams && typeof methodParams === "object" && "chainId" in methodParams
-                ? String((methodParams as { chainId: unknown }).chainId)
-                : "unknown";
-              setWalletSwitchDiagnostics(
-                `WalletConnect published ${event.request.method} (request ${event.id}) on ${event.chainId}; target ${requestedChain}; target approved in session: ${walletConnectChainApproved}; app chain before request: ${evmChainId ?? "unknown"}; transport ${session.transportType ?? "unknown"}; Rabby route base configured.`,
-              );
-            };
-            client.on("session_request_sent", onRequestSent);
-            removeRequestTrace = () => client.off("session_request_sent", onRequestSent);
-          }
-        } catch {
-          setWalletSwitchDiagnostics((current) => `${current} Request event tracing could not attach.`);
-        }
-      }
       const switchRequest = switchChainAsync({ chainId: targetChainId, connector: evmConnector });
       await Promise.race([
         switchRequest,
@@ -435,9 +362,7 @@ function InvoiceWalletCheckoutContent({
           timeoutId = window.setTimeout(() => reject(timeoutError), 15_000);
         }),
       ]);
-      setWalletSwitchDiagnostics((current) => `${current} WalletConnect switch promise resolved.`);
     } catch (err) {
-      setWalletSwitchDiagnostics((current) => `${current} Switch result: ${err === timeoutError ? "timed out waiting for wallet confirmation" : err instanceof Error ? err.message.slice(0, 120) : "request failed"}.`);
       if (err === timeoutError) {
         setSwitchError(evmConnector.id === "walletConnect" && !walletConnectChainApproved
           ? "Base Sepolia is not approved for this account in the current WalletConnect session. Reconnect Rabby from this browser and approve Base Sepolia for the session."
@@ -451,7 +376,6 @@ function InvoiceWalletCheckoutContent({
       }
     } finally {
       if (timeoutId !== undefined) window.clearTimeout(timeoutId);
-      removeRequestTrace();
       setSwitchRequestPending(false);
     }
   }
@@ -554,32 +478,6 @@ function InvoiceWalletCheckoutContent({
           {liveQuotesEnabled ? "Guarded live route" : "Checkout"}
         </span>
       </div>
-
-      {process.env.NODE_ENV !== "production" && (
-        <details className="wallet-debug-diagnostics" open>
-          <summary>WalletConnect startup diagnostics</summary>
-          {walletConnectDiagnosticsLoading ? (
-            <p role="status">Inspecting saved WalletConnect relay messages…</p>
-          ) : walletConnectDiagnostics ? (
-            <>
-              <p>{walletConnectDiagnostics.status}</p>
-              <p>Active sessions: {walletConnectDiagnostics.sessionCount}; unacknowledged relay messages: {walletConnectDiagnostics.pendingMessageCount}.</p>
-              <p>Latest switch trace: {walletSwitchDiagnostics}</p>
-              {walletConnectDiagnostics.messages.map((message) => (
-                <p key={message.index}>
-                  Message {message.index}: {message.decodedAs}; response history: {message.responseHistory}; listeners: {message.responseListeners}.
-                  {message.error && <> Decode error: {message.error}</>}
-                </p>
-              ))}
-            </>
-          ) : (
-            <p>Diagnostic data is not available yet.</p>
-          )}
-          <button type="button" className="wallet-text-button" onClick={() => void refreshWalletConnectDiagnostics()} disabled={walletConnectDiagnosticsLoading}>
-            Refresh diagnostics
-          </button>
-        </details>
-      )}
 
       {!payable ? (
         <p className="wallet-blocked" role="status">

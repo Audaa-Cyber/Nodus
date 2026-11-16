@@ -990,7 +990,7 @@ export function LivePaymentFlow({
 
           {statusMessage && (
             <p className="wallet-inline-status" style={{ margin: "0.75rem 0", color: "#1e293b" }}>
-              {stage === "verifying" ? "● " : ""}
+              {stage === "verifying" ? <span className="live-stage-dot" aria-hidden="true">● </span> : ""}
               {statusMessage}
             </p>
           )}

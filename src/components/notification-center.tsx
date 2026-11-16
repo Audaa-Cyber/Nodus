@@ -3,19 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { applyNotificationChange, mergeNotificationSnapshot, type NotificationChange, type NotificationItem } from "@/lib/realtime/notification-state";
 
-export type NotificationItem = {
-  id: string;
-  recipient_user_id: string;
-  business_id: string;
-  type: string;
-  title: string;
-  message: string;
-  invoice_id: string | null;
-  destination_url: string | null;
-  created_at: string;
-  read_at: string | null;
-};
+export type { NotificationItem } from "@/lib/realtime/notification-state";
 
 /**
  * Validate destination URL to ensure it is strictly a trusted internal dashboard route.
@@ -36,12 +26,34 @@ export function NotificationCenter({ recipientUserId }: NotificationCenterProps)
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isMarkingAll, setIsMarkingAll] = useState(false);
+  const [isBellRinging, setIsBellRinging] = useState(false);
+  const freshIdsRef = useRef<Set<string>>(new Set());
+  const unreadCountRef = useRef(0);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const bellButtonRef = useRef<HTMLButtonElement>(null);
+  const unreadQueryVersion = useRef(0);
+
+  useEffect(() => {
+    unreadCountRef.current = unreadCount;
+  }, [unreadCount]);
+
+  const refreshUnreadCount = useCallback(async () => {
+    const version = ++unreadQueryVersion.current;
+    const { count, error } = await getSupabaseBrowserClient()
+      .from("notifications")
+      .select("id", { count: "exact", head: true })
+      .eq("recipient_user_id", recipientUserId)
+      .is("read_at", null);
+    if (version !== unreadQueryVersion.current) return;
+    if (!error && typeof count === "number") {
+      unreadCountRef.current = count;
+      setUnreadCount(count);
+    }
+  }, [recipientUserId]);
 
   // Fetch initial notifications and unread count
-  const fetchNotifications = useCallback(async () => {
+  const fetchNotifications = useCallback(async (liveChanges: NotificationChange[] = []) => {
     if (!recipientUserId) return;
     setStatus("loading");
     setErrorMessage(null);
@@ -80,7 +92,6 @@ export function NotificationCenter({ recipientUserId }: NotificationCenterProps)
       }
 
       const items = (data ?? []) as NotificationItem[];
-      setNotifications(items);
 
       // 2. Fetch total unread count
       const { count, error: countError } = await supabase
@@ -89,10 +100,18 @@ export function NotificationCenter({ recipientUserId }: NotificationCenterProps)
         .eq("recipient_user_id", recipientUserId)
         .is("read_at", null);
 
+      const snapshotUnreadCount = !countError && typeof count === "number"
+        ? count
+        : items.filter((n) => !n.read_at).length;
+      const merged = mergeNotificationSnapshot(items, snapshotUnreadCount, liveChanges);
+      setNotifications(merged.items);
       if (!countError && typeof count === "number") {
-        setUnreadCount(count);
+        const exactUnreadCount = merged.unreadCount;
+        unreadCountRef.current = exactUnreadCount;
+        setUnreadCount(exactUnreadCount);
       } else {
-        const localUnread = items.filter((n) => !n.read_at).length;
+        const localUnread = merged.items.filter((n) => !n.read_at).length;
+        unreadCountRef.current = localUnread;
         setUnreadCount(localUnread);
       }
 
@@ -113,6 +132,8 @@ export function NotificationCenter({ recipientUserId }: NotificationCenterProps)
     let isCancelled = false;
     let channel: ReturnType<ReturnType<typeof getSupabaseBrowserClient>["channel"]> | null = null;
     let authListener: { unsubscribe: () => void } | null = null;
+    const bufferedChanges: NotificationChange[] = [];
+    let initialFetchInProgress = true;
 
     const setupRealtime = async () => {
       try {
@@ -124,21 +145,22 @@ export function NotificationCenter({ recipientUserId }: NotificationCenterProps)
         // causing Postgres RLS to silently drop all incoming notification events.
         try {
           const { data: { session } } = await supabase.auth.getSession();
-          if (session?.access_token) {
-            await supabase.realtime.setAuth(session.access_token);
+          if (!session?.access_token || session.user.id !== recipientUserId) {
+            setStatus("error");
+            setErrorMessage("The notification session is not available for this account.");
+            return;
           }
+          await supabase.realtime.setAuth(session.access_token);
         } catch {
-          // Continue if session lookup fails
+          setStatus("error");
+          setErrorMessage("Could not authenticate live notifications for this account.");
+          return;
         }
 
         if (isCancelled) return;
 
-        // 2. Fetch current notifications so UI is populated immediately
-        await fetchNotifications();
-
-        if (isCancelled) return;
-
-        // 3. Clean up any existing channel with this topic to avoid duplicate subscriptions
+        // Subscribe before the initial fetch. Events received while the fetch is in flight
+        // are merged by ID so an insert cannot be lost or counted twice.
         const topic = `user-notifications:${recipientUserId}`;
         const existing = supabase.getChannels().find((c) => c.topic === `realtime:${topic}`);
         if (existing) {
@@ -151,7 +173,6 @@ export function NotificationCenter({ recipientUserId }: NotificationCenterProps)
 
         if (isCancelled) return;
 
-        // 4. Create and subscribe authenticated channel
         channel = supabase
           .channel(`user-notifications:${recipientUserId}`)
           .on(
@@ -166,42 +187,49 @@ export function NotificationCenter({ recipientUserId }: NotificationCenterProps)
               if (payload.eventType === "INSERT") {
                 const newItem = payload.new as NotificationItem;
                 if (!newItem || !newItem.id) return;
-
+                const change = { eventType: "INSERT" as const, item: newItem };
+                if (initialFetchInProgress) bufferedChanges.push(change);
+                freshIdsRef.current.add(newItem.id);
                 setNotifications((prev) => {
-                  const alreadyExists = prev.some((n) => n.id === newItem.id);
-                  if (alreadyExists) return prev;
-                  return [newItem, ...prev];
+                  const next = applyNotificationChange({ items: prev, unreadCount: unreadCountRef.current }, change);
+                  return next.items;
                 });
-
-                if (!newItem.read_at) {
-                  setUnreadCount((prevCount) => prevCount + 1);
+                if (!initialFetchInProgress) {
+                  setIsBellRinging(true);
+                  window.setTimeout(() => setIsBellRinging(false), 500);
                 }
-
+                void refreshUnreadCount();
                 setStatus("ready");
               } else if (payload.eventType === "UPDATE") {
                 const updated = payload.new as NotificationItem;
                 if (!updated || !updated.id) return;
-
-                setNotifications((prev) =>
-                  prev.map((n) => (n.id === updated.id ? { ...n, ...updated } : n))
-                );
-
-                if (updated.read_at) {
-                  setUnreadCount((prevCount) => Math.max(0, prevCount - 1));
-                }
+                const change = { eventType: "UPDATE" as const, item: updated };
+                if (initialFetchInProgress) bufferedChanges.push(change);
+                setNotifications((prev) => {
+                  const next = applyNotificationChange({ items: prev, unreadCount: unreadCountRef.current }, change);
+                  return next.items;
+                });
+                void refreshUnreadCount();
               }
             }
           )
           .subscribe(async (subStatus) => {
             if (subStatus === "CHANNEL_ERROR" || subStatus === "TIMED_OUT") {
-              // On temporary disconnect or socket error, re-fetch to ensure no missed events
-              fetchNotifications();
+              if (process.env.NODE_ENV !== "production") console.warn("[NODUS:REALTIME] notification channel reconnecting:", subStatus);
+              setErrorMessage("Live updates disconnected. Reconnecting…");
+              void fetchNotifications();
+            } else if (subStatus === "SUBSCRIBED") {
+              if (process.env.NODE_ENV !== "production") console.debug("[NODUS:REALTIME] notification channel subscribed");
             }
           });
 
-        // 5. Keep Realtime authenticated across token refreshes, and handle sign-out
+        if (isCancelled) return;
+        await fetchNotifications(bufferedChanges);
+        initialFetchInProgress = false;
+
+        // Keep Realtime authenticated across token refreshes, and handle sign-out
         const { data: authData } = supabase.auth.onAuthStateChange(async (event, session) => {
-          if ((event === "TOKEN_REFRESHED" || event === "SIGNED_IN") && session?.access_token) {
+          if ((event === "TOKEN_REFRESHED" || event === "SIGNED_IN") && session?.access_token && session.user.id === recipientUserId) {
             try {
               await supabase.realtime.setAuth(session.access_token);
             } catch {
@@ -214,7 +242,11 @@ export function NotificationCenter({ recipientUserId }: NotificationCenterProps)
         });
         authListener = authData?.subscription ?? null;
       } catch {
-        // Fallback for unconfigured environments
+        if (!isCancelled) {
+          setStatus("error");
+          setErrorMessage("Live notifications could not connect. Try reopening the dashboard.");
+          if (process.env.NODE_ENV !== "production") console.warn("[NODUS:REALTIME] notification setup failed");
+        }
       }
     };
 
@@ -238,7 +270,7 @@ export function NotificationCenter({ recipientUserId }: NotificationCenterProps)
         }
       }
     };
-  }, [recipientUserId, fetchNotifications]);
+  }, [recipientUserId, fetchNotifications, refreshUnreadCount]);
 
   // Handle outside click to close panel
   useEffect(() => {
@@ -332,6 +364,7 @@ export function NotificationCenter({ recipientUserId }: NotificationCenterProps)
         ref={bellButtonRef}
         type="button"
         className="notification-bell-btn"
+        data-ringing={isBellRinging ? "true" : undefined}
         aria-label={unreadCount > 0 ? `Notifications (${unreadCount} unread)` : "Notifications"}
         aria-expanded={isOpen}
         aria-haspopup="dialog"
@@ -421,7 +454,7 @@ export function NotificationCenter({ recipientUserId }: NotificationCenterProps)
                 <button
                   type="button"
                   className="notification-retry-btn"
-                  onClick={fetchNotifications}
+                  onClick={() => void fetchNotifications()}
                 >
                   Check again
                 </button>
@@ -445,7 +478,7 @@ export function NotificationCenter({ recipientUserId }: NotificationCenterProps)
                 <button
                   type="button"
                   className="notification-retry-btn"
-                  onClick={fetchNotifications}
+                  onClick={() => void fetchNotifications()}
                 >
                   Retry
                 </button>
@@ -475,7 +508,7 @@ export function NotificationCenter({ recipientUserId }: NotificationCenterProps)
                   return (
                     <li
                       key={notif.id}
-                      className={`notification-item ${isUnread ? "is-unread" : "is-read"}`}
+                      className={`notification-item ${isUnread ? "is-unread" : "is-read"} ${freshIdsRef.current.has(notif.id) ? "is-fresh-arrival" : ""}`}
                     >
                       <button
                         type="button"

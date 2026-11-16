@@ -63,7 +63,7 @@ export default async function DashboardLayout({ children }: Readonly<{ children:
           </aside>
           </DashboardSidebar>
           <main className="dashboard-main min-w-0">
-            <InvoiceRealtimeProvider businessId={business?.id}>
+            <InvoiceRealtimeProvider businessId={business?.id} userId={user.id}>
               <div className="dashboard-content">
                 <DashboardHeader recipientUserId={user.id} userEmail={user.email} />
                 {children}

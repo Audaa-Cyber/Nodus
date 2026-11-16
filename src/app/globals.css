@@ -20,6 +20,13 @@
   --sans: var(--font-dm-sans);
   --mono: var(--font-dm-mono);
   --ease: cubic-bezier(.2,.75,.25,1);
+  /* NODUS Motion System Tokens */
+  --motion-duration-micro: 140ms;
+  --motion-duration-sm: 180ms;
+  --motion-duration-md: 240ms;
+  --motion-duration-lg: 320ms;
+  --motion-ease-standard: cubic-bezier(0.16, 1, 0.3, 1);
+  --motion-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 * { box-sizing: border-box; }
 html { background: var(--paper); color: var(--ink); scroll-behavior: smooth; scroll-padding-top: 24px; }
@@ -842,9 +849,6 @@ p { text-wrap: pretty; }
 .wallet-card-heading h3, .wallet-preparation h3 { margin: 0; color: #282923; font-size: 16px; font-weight: 500; letter-spacing: -.025em; }
 .wallet-card-heading .wallet-eyebrow { margin-bottom: 6px; }
 .wallet-description, .wallet-inline-status, .wallet-error, .wallet-blocked { margin: 10px 0 0; color: #6d7068; font-size: 11px; line-height: 1.6; overflow-wrap: anywhere; }
-.wallet-debug-diagnostics { margin: 0 0 16px; padding: 12px; border: 1px solid #c9d4df; background: #f4f8fb; color: #263544; font-size: 11px; line-height: 1.55; overflow-wrap: anywhere; }
-.wallet-debug-diagnostics summary { font-weight: 600; cursor: pointer; }
-.wallet-debug-diagnostics p { margin: 8px 0 0; }
 .wallet-inline-status { color: #315572; }
 .wallet-error { color: #9c3c31; }
 .wallet-address { margin: 8px 0 3px; color: #343630; font: 400 11px var(--mono); overflow-wrap: anywhere; }
@@ -1835,6 +1839,96 @@ p { text-wrap: pretty; }
   box-shadow: 0 0 0 3.5px rgba(15, 23, 42, 0.08);
   transform: translateY(-1px);
   background: #ffffff;
+}
+
+/* Select Input Reset & Custom Chevron */
+select.nodus-input {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-color: #ffffff;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%2364748b' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3E%3C/svg%3E");
+  background-position: right 0.75rem center;
+  background-repeat: no-repeat;
+  background-size: 1.15rem 1.15rem;
+  padding-right: 2.3rem;
+  padding-left: 0.85rem;
+  padding-top: 0;
+  padding-bottom: 0;
+  display: flex;
+  align-items: center;
+  line-height: 2.45rem;
+  height: 2.5rem;
+  cursor: pointer;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+select.nodus-input:hover {
+  border-color: #cbd5e1;
+  background-color: #fafbfc;
+}
+
+/* Nodus Tactile Refresh Button with Kinetic Motion */
+.nodus-refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.35rem 0.7rem;
+  font-size: 11px;
+  font-weight: 500;
+  color: #475569;
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+}
+
+.nodus-refresh-btn:hover:not(:disabled) {
+  color: #0f172a;
+  background-color: #f8fafc;
+  border-color: #cbd5e1;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(15, 23, 42, 0.06);
+}
+
+.nodus-refresh-btn:hover:not(:disabled) .nodus-refresh-icon {
+  transform: rotate(30deg);
+}
+
+.nodus-refresh-btn:active:not(:disabled) {
+  transform: translateY(0) scale(0.96) !important;
+  box-shadow: 0 1px 1px rgba(15, 23, 42, 0.04) !important;
+  transition-duration: 0.08s !important;
+}
+
+.nodus-refresh-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.nodus-refresh-icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.nodus-refresh-btn[aria-busy="true"] .nodus-refresh-icon,
+.nodus-refresh-icon.is-spinning {
+  animation: nodus-refresh-spin 0.75s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@keyframes nodus-refresh-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* Save Profile Pill Button with Specular Shimmer */
@@ -4151,3 +4245,212 @@ p { text-wrap: pretty; }
   color: #0f172a;
   border-color: #94a3b8;
 }
+
+/* ==========================================================================
+   NODUS FUNCTIONAL LIVE MOTION SYSTEM
+   ========================================================================== */
+
+/* Business Dashboard Balance Value Live Update */
+.nodus-balance-value {
+  display: inline-block;
+  transition: color var(--motion-duration-md) var(--motion-ease-standard),
+              transform var(--motion-duration-md) var(--motion-ease-standard);
+  transform-origin: left center;
+}
+
+.nodus-balance-value.is-updated {
+  animation: nodusBalancePulse 650ms var(--motion-ease-standard);
+}
+
+@keyframes nodusBalancePulse {
+  0% {
+    color: #0f172a;
+    transform: scale(1);
+  }
+  30% {
+    color: #0284c7;
+    transform: scale(1.025);
+  }
+  100% {
+    color: #0f172a;
+    transform: scale(1);
+  }
+}
+
+/* Invoice Rows and Status Badges */
+.status {
+  transition: background-color var(--motion-duration-sm) var(--motion-ease-standard),
+              color var(--motion-duration-sm) var(--motion-ease-standard),
+              border-color var(--motion-duration-sm) var(--motion-ease-standard);
+}
+
+.row-status-updated {
+  animation: invoiceRowFlash 1200ms var(--motion-ease-standard);
+}
+
+@keyframes invoiceRowFlash {
+  0% {
+    background-color: #ecfdf5;
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+/* Notification Center Live Micro-Interactions */
+.notification-bell-btn[data-ringing="true"] .notification-bell-icon {
+  animation: notificationBellRing 440ms cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+  transform-origin: top center;
+}
+
+@keyframes notificationBellRing {
+  0%, 100% { transform: rotate(0deg); }
+  15% { transform: rotate(14deg); }
+  30% { transform: rotate(-12deg); }
+  45% { transform: rotate(9deg); }
+  60% { transform: rotate(-5deg); }
+  75% { transform: rotate(2deg); }
+}
+
+.notification-item.is-fresh-arrival {
+  animation: notificationItemEnter 320ms var(--motion-ease-standard) both;
+}
+
+@keyframes notificationItemEnter {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+    background-color: #f0fdf4;
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* NEAR Reconciliation Transitions */
+.near-status-pill {
+  transition: background-color var(--motion-duration-md) var(--motion-ease-standard),
+              border-color var(--motion-duration-md) var(--motion-ease-standard);
+}
+
+.near-status-pill.is-success .near-status-details {
+  animation: nearLinkReveal 280ms var(--motion-ease-standard) both;
+}
+
+@keyframes nearLinkReveal {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.near-dot.is-pulsing {
+  animation: nearDotPulse 1.6s ease-in-out infinite;
+}
+
+@keyframes nearDotPulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(0.85);
+  }
+}
+
+/* Payment Checkout Micro-Interactions */
+.live-stage-dot {
+  display: inline-block;
+  margin-right: 4px;
+  color: #2563eb;
+  animation: liveStageDotPulse 1.4s ease-in-out infinite;
+}
+
+@keyframes liveStageDotPulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scale(0.85);
+  }
+}
+
+.wallet-inline-status {
+  transition: opacity var(--motion-duration-sm) var(--motion-ease-standard),
+              color var(--motion-duration-sm) ease;
+}
+
+.wallet-recovery-panel {
+  animation: errorShake 220ms var(--motion-ease-standard) both;
+}
+
+@keyframes errorShake {
+  0% { opacity: 0; transform: translateY(-4px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+/* Overview Page Entrance & Live Micro-Interactions */
+.overview-page-container {
+  animation: overviewFadeIn 260ms var(--motion-ease-standard) both;
+}
+
+@keyframes overviewFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.nodus-stat-value {
+  display: inline-block;
+  transition: transform var(--motion-duration-sm) var(--motion-ease-standard),
+              color var(--motion-duration-sm) var(--motion-ease-standard);
+  transform-origin: left center;
+}
+
+.nodus-stat-value.is-changed {
+  animation: nodusStatPulse 550ms var(--motion-ease-standard);
+}
+
+@keyframes nodusStatPulse {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.06); color: #0284c7; }
+  100% { transform: scale(1); }
+}
+
+.nodus-network-row {
+  transition: background-color var(--motion-duration-sm) ease,
+              opacity var(--motion-duration-sm) var(--motion-ease-standard);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .overview-page-container,
+  .nodus-balance-value,
+  .nodus-balance-value.is-updated,
+  .nodus-stat-value,
+  .nodus-stat-value.is-changed,
+  .nodus-network-row,
+  .notification-bell-btn[data-ringing="true"] .notification-bell-icon,
+  .notification-item.is-fresh-arrival,
+  .row-status-updated,
+  .near-status-pill.is-success .near-status-details,
+  .near-dot.is-pulsing,
+  .wallet-recovery-panel {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+  }
+}
+

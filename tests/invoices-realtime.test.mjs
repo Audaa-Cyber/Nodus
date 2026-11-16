@@ -55,7 +55,7 @@ test("Realtime Payload Independence: UI relies strictly on payload.new.status an
   assert.doesNotMatch(detailSync, /payload.old/);
 
   // Table updates local state using updated.status from payload.new
-  assert.ok(table.includes("(updated.status as InvoiceStatus) || inv.status"));
+  assert.ok(table.includes("applyInvoiceUpdate(prev, updated)"));
   assert.doesNotMatch(table, /payload.old/);
 });
 
@@ -109,8 +109,8 @@ test("Invoices Table: InvoicesTable updates invoice status immediately upon Real
   assert.ok(source.includes("subscribeToInvoices((updated) => {"));
 
   // Updates row in local state immediately
-  assert.ok(source.includes("inv.id === updated.id"));
-  assert.ok(source.includes("(updated.status as InvoiceStatus) || inv.status"));
+  assert.ok(source.includes("liveUpdatesRef.current.set(updated.id, updated)"));
+  assert.ok(source.includes("applyInvoiceUpdate(prev, updated)"));
 
   // Preserves full table layout, classes, and pagination
   assert.ok(source.includes("status status-${status}"));
@@ -138,7 +138,7 @@ test("Dashboard Layout: Integrates InvoiceRealtimeProvider across the executive 
 
   // Resolves business and wraps dashboard content
   assert.ok(layout.includes("const { business } = await getBusinessContext();"));
-  assert.ok(layout.includes("<InvoiceRealtimeProvider businessId={business?.id}>"));
+  assert.ok(layout.includes("<InvoiceRealtimeProvider businessId={business?.id} userId={user.id}>"));
 });
 
 test("Invoice Detail Page: Embeds InvoiceDetailLiveSync in unpaid invoice view", async () => {
