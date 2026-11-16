@@ -91,7 +91,7 @@ export default async function DashboardPage() {
       </div>
 
       <div className="overview-financial-grid">
-        <MerchantUsdcBalance initialSelectedNetwork={business.receiving_network} />
+        <MerchantUsdcBalance />
         <div className="overview-metrics" aria-label="Invoice statistics">
           {!summary ? (
             <p className="overview-card overview-error" role="alert">Invoice statistics could not be loaded. Refresh the page to try again.</p>

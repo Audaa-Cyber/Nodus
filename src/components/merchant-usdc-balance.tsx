@@ -1,13 +1,12 @@
 "use client";
 
 import { RefreshCw } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { formatUsdcBaseUnits } from "@/lib/payments/nodus-received-balance";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useInvoiceRealtime } from "@/components/invoice-realtime-provider";
 import { NetworkLogo } from "@/components/network-logo";
 import { circleTestnetUsdcNetworks } from "@/lib/wallet/networks";
 import { useAnimatedInteger } from "@/components/use-data-motion";
-import { MerchantReceiptsChart } from "@/components/merchant-receipts-chart";
+import { MerchantDonutChart } from "@/components/merchant-donut-chart";
 import type { DailyReceiptPoint } from "@/lib/dashboard/daily-receipts";
 
 type ChainBalance = {
@@ -30,13 +29,9 @@ type BalanceState =
     }
   | { phase: "error"; message: string };
 
-interface MerchantUsdcBalanceProps {
-  initialSelectedNetwork?: string | null;
-}
-
-export default function MerchantUsdcBalance({ initialSelectedNetwork }: MerchantUsdcBalanceProps) {
+export default function MerchantUsdcBalance() {
   const [state, setState] = useState<BalanceState>({ phase: "loading" });
-  const [networkFilter, setNetworkFilter] = useState<string | null>(null);
+  const [networkFilter, setNetworkFilter] = useState("all");
   const [isRefreshing, setIsRefreshing] = useState(false);
   const fetchingRef = useRef(false);
   const requestRef = useRef<AbortController | null>(null);
@@ -114,8 +109,7 @@ export default function MerchantUsdcBalance({ initialSelectedNetwork }: Merchant
     };
   }, [fetchBalance, subscribeToInvoices]);
 
-  // Follow the configured destination until the user chooses a balance filter.
-  const selectedChain = networkFilter ?? (state.phase === "ok" ? state.selectedNetwork : initialSelectedNetwork);
+  const selectedChain = networkFilter;
   const isAll = selectedChain === "all";
   const activeChainObj = state.phase === "ok"
     ? (state.chains.find((c) => c.networkKey === selectedChain) ?? null)
@@ -124,46 +118,17 @@ export default function MerchantUsdcBalance({ initialSelectedNetwork }: Merchant
     ? isAll ? state.totalBaseUnits : (activeChainObj?.totalBaseUnits ?? "0")
     : "0";
 
-  const { displayed: animatedBaseUnits, changed: isAmountUpdated } = useAnimatedInteger(
+  const { changed: isAmountUpdated } = useAnimatedInteger(
     BigInt(displayedBaseUnits),
     state.phase === "ok" && (activeChainObj || isAll) ? `${selectedChain}` : "unavailable",
     700,
   );
 
-  const displayedPaymentCount = state.phase === "ok"
-    ? isAll ? state.chains.reduce((sum, chain) => sum + chain.paymentCount, 0) : (activeChainObj?.paymentCount ?? 0)
-    : 0;
   const displayedNetworkLabel = isAll ? "All networks"
     : circleTestnetUsdcNetworks.find((network) => network.key === selectedChain)?.label
       ?? activeChainObj?.networkLabel
       ?? selectedChain?.replaceAll("-", " ")
       ?? "Network not configured";
-
-  const chartDailyReceipts = useMemo<DailyReceiptPoint[]>(() => {
-    if (state.phase !== "ok") return [];
-    if (isAll) {
-      const firstChain = state.chains[0];
-      if (!firstChain?.dailyReceipts) return [];
-      return firstChain.dailyReceipts.map((pt, idx) => {
-        let sumBaseUnits = 0n;
-        let sumCount = 0;
-        for (const chain of state.chains) {
-          const item = chain.dailyReceipts?.[idx];
-          if (item) {
-            sumBaseUnits += BigInt(item.totalBaseUnits);
-            sumCount += item.paymentCount;
-          }
-        }
-        return {
-          date: pt.date,
-          totalBaseUnits: sumBaseUnits.toString(),
-          paymentCount: sumCount,
-          usdcFormatted: formatUsdcBaseUnits(sumBaseUnits.toString()),
-        };
-      });
-    }
-    return activeChainObj?.dailyReceipts ?? [];
-  }, [state, isAll, activeChainObj]);
 
   return (
     <section className="overview-card overview-balance" aria-labelledby="nodus-received-title" aria-busy={isRefreshing}>
@@ -210,76 +175,13 @@ export default function MerchantUsdcBalance({ initialSelectedNetwork }: Merchant
           <div className="overview-balance-error" role="alert"><p>{state.message}</p><button type="button" onClick={() => void fetchBalance()}>Retry</button></div>
         )}
         {state.phase === "ok" && (
-          <div aria-live="polite">
-            {activeChainObj || isAll ? (
-              <>
-                <div className="overview-balance-amount">
-                  <p className={`nodus-balance-value ${isAmountUpdated ? "is-updated" : ""}`}>
-                    <span className="sr-only">{formatUsdcBaseUnits(displayedBaseUnits)}</span>
-                    <span aria-hidden="true" className="overview-balance-number">{formatUsdcBaseUnits(animatedBaseUnits.toString())}</span>
-                  </p>
-                  <span>USDC</span>
-                </div>
-                <p className="overview-balance-description">
-                  From {displayedPaymentCount} verified invoice {displayedPaymentCount === 1 ? "payment" : "payments"}
-                </p>
-
-                <MerchantReceiptsChart
-                  data={chartDailyReceipts}
-                  networkLabel={displayedNetworkLabel}
-                  isUpdated={isAmountUpdated}
-                />
-
-                {/* Balance Details — Horizontal row showing each network's balance */}
-                <div className="overview-balance-details">
-                  <div className="overview-balance-details-header">
-                    <span className="overview-balance-details-title">Balance Details</span>
-                    <span className="overview-balance-details-note">By network</span>
-                  </div>
-                  <div className="overview-network-chips-scroll" role="tablist" aria-label="Network balances">
-                    <button
-                      type="button"
-                      role="tab"
-                      aria-selected={isAll}
-                      className={`overview-network-chip ${isAll ? "is-active" : ""}`}
-                      onClick={() => setNetworkFilter("all")}
-                    >
-                      <div className="overview-chip-ring overview-chip-ring-all">
-                        <span className="overview-chip-ring-arc" />
-                      </div>
-                      <div className="overview-chip-info">
-                        <span className="overview-chip-label">All Networks</span>
-                        <span className="overview-chip-amount">{formatUsdcBaseUnits(state.totalBaseUnits)} USDC</span>
-                      </div>
-                    </button>
-
-                    {state.chains.map((chain) => {
-                      const isSelected = selectedChain === chain.networkKey;
-                      return (
-                        <button
-                          key={chain.networkKey}
-                          type="button"
-                          role="tab"
-                          aria-selected={isSelected}
-                          className={`overview-network-chip ${isSelected ? "is-active" : ""}`}
-                          onClick={() => setNetworkFilter(chain.networkKey)}
-                        >
-                          <div className="overview-chip-ring">
-                            <NetworkLogo networkKey={chain.networkKey} size="sm" />
-                          </div>
-                          <div className="overview-chip-info">
-                            <span className="overview-chip-label">{chain.networkLabel}</span>
-                            <span className="overview-chip-amount">{formatUsdcBaseUnits(chain.totalBaseUnits)} USDC</span>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </>
-            ) : (
-              <p className="overview-balance-description">{selectedChain ? "Balance unavailable for this network." : "Set your receiving network in business settings."}</p>
-            )}
+          <div>
+            <MerchantDonutChart
+              chains={state.chains}
+              totalBaseUnits={state.totalBaseUnits}
+              selectedNetwork={selectedChain}
+              onSelectNetwork={(key) => setNetworkFilter(key === networkFilter ? "all" : key)}
+            />
             {state.refreshError && <p className="overview-balance-error" role="status">{state.refreshError}</p>}
           </div>
         )}
