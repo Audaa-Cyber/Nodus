@@ -3,7 +3,7 @@
 import { useId, useMemo, useState } from "react";
 import { formatUsdcBaseUnits } from "@/lib/payments/nodus-received-balance";
 import { formatNetworkShare, getNetworkColor } from "@/lib/dashboard/network-distribution";
-import { NetworkLogo } from "@/components/network-logo";
+import { getNetworkLogoSrc, NetworkLogo } from "@/components/network-logo";
 import { useAnimatedInteger } from "@/components/use-data-motion";
 
 export type NetworkDonutChain = {
@@ -28,70 +28,28 @@ function polar(r: number, deg: number) {
   };
 }
 
-const Rc = 82;      // Center disk radius
-const Rb = 32;      // White circular badge radius
-const Rbc = 142;    // Distance of badge from center
-const badgeAngle = 18; // Badge sits at +18 deg from step center
-const Ro = 208;     // Circular outer radius
+const Rc = 96;
+const Rb = 46;
+const Rbc = 169;
 
-/**
- * 5-segment swirling teardrop petal geometry matching the reference infographic:
- * - A sharp beak tip extending counter-clockwise to overlap the previous petal
- * - An inner concave curve wrapping cleanly around the previous step's white circular badge
- * - An inner circular boundary resting flush against the central white hub
- * - A smooth trailing curve returning to the outer radius
- * - An exact circular arc contour on the outer perimeter
- */
-function makeSwirlPetalD() {
-  const pTip = polar(210, -38);
-  
-  // Concave curve wrapping around previous badge (badge center at -54 deg, dist 142):
-  const cBeakInner1 = polar(186, -45);
-  const cBeakInner2 = polar(168, -60);
-  const pBadgeMid = polar(140, -68);
+// One curved petal, repeated clockwise around the hub. Equal petals are
+// network selectors; exact balances and percentages carry the financial data.
+const SWIRL_PETAL_D = `
+  M 48 122
+  Q 128 0 272 10
+  C 319 39 321 95 292 128
+  C 279 147 264 151 246 154
+  A 96 96 0 0 0 162 206
+  C 158 151 108 119 48 122
+  Z
+`;
 
-  const cInner1 = polar(114, -66);
-  const cInner2 = polar(98, -54);
-  const pCenterStart = polar(Rc, -46);
-
-  // Center circle arc from -46 deg to +26 deg:
-  const pCenterEnd = polar(Rc, 26);
-
-  // Trailing curve to outer radius:
-  const cTrail1 = polar(Rc + 30, 36);
-  const cTrail2 = polar(130, 48);
-  const pOuterEdge = polar(Ro, 52);
-
-  // Outer circular arc to beak tip:
-  const pOuterPreTip = polar(Ro, -34);
-
-  return `
-    M ${pTip.x.toFixed(2)} ${pTip.y.toFixed(2)}
-    C ${cBeakInner1.x.toFixed(2)} ${cBeakInner1.y.toFixed(2)},
-      ${cBeakInner2.x.toFixed(2)} ${cBeakInner2.y.toFixed(2)},
-      ${pBadgeMid.x.toFixed(2)} ${pBadgeMid.y.toFixed(2)}
-    C ${cInner1.x.toFixed(2)} ${cInner1.y.toFixed(2)},
-      ${cInner2.x.toFixed(2)} ${cInner2.y.toFixed(2)},
-      ${pCenterStart.x.toFixed(2)} ${pCenterStart.y.toFixed(2)}
-    A ${Rc} ${Rc} 0 0 1 ${pCenterEnd.x.toFixed(2)} ${pCenterEnd.y.toFixed(2)}
-    C ${cTrail1.x.toFixed(2)} ${cTrail1.y.toFixed(2)},
-      ${cTrail2.x.toFixed(2)} ${cTrail2.y.toFixed(2)},
-      ${pOuterEdge.x.toFixed(2)} ${pOuterEdge.y.toFixed(2)}
-    A ${Ro} ${Ro} 0 0 0 ${pOuterPreTip.x.toFixed(2)} ${pOuterPreTip.y.toFixed(2)}
-    L ${pTip.x.toFixed(2)} ${pTip.y.toFixed(2)}
-    Z
-  `;
-}
-
-const SWIRL_PETAL_D = makeSwirlPetalD();
-
-// Fixed 5-network cycle order (clockwise: 01 Base -> 02 Arbitrum -> 03 Optimism -> 04 Arc -> 05 Ethereum)
-const DEFAULT_5_NETWORKS = [
-  { networkKey: "base-sepolia", networkLabel: "Base Sepolia", step: "01", shortName: "Base", glyph: "base" },
-  { networkKey: "arbitrum-sepolia", networkLabel: "Arbitrum Sepolia", step: "02", shortName: "Arbitrum", glyph: "arb" },
-  { networkKey: "optimism-sepolia", networkLabel: "Optimism Sepolia", step: "03", shortName: "Optimism", glyph: "op" },
-  { networkKey: "arc-testnet", networkLabel: "Arc Testnet", step: "04", shortName: "Arc", glyph: "arc" },
-  { networkKey: "sepolia", networkLabel: "Ethereum Sepolia", step: "05", shortName: "Ethereum", glyph: "eth" },
+const NETWORKS = [
+  { networkKey: "base-sepolia", networkLabel: "Base Sepolia", shortName: "Base" },
+  { networkKey: "arbitrum-sepolia", networkLabel: "Arbitrum Sepolia", shortName: "Arbitrum" },
+  { networkKey: "optimism-sepolia", networkLabel: "Optimism Sepolia", shortName: "Optimism" },
+  { networkKey: "arc-testnet", networkLabel: "Arc Testnet", shortName: "Arc" },
+  { networkKey: "sepolia", networkLabel: "Ethereum Sepolia", shortName: "Ethereum" },
 ];
 
 export function MerchantDonutChart({
@@ -115,9 +73,9 @@ export function MerchantDonutChart({
     }
   }, [totalBaseUnits]);
 
-  // Merge full 5-network schema with available chains
-  const full5Chains = useMemo(() => {
-    return DEFAULT_5_NETWORKS.map((meta, idx) => {
+  // Keep every network available, including networks with no receipts.
+  const networkChains = useMemo(() => {
+    return NETWORKS.map((meta, idx) => {
       const match = chains.find((c) => c.networkKey === meta.networkKey);
       const angle = idx * 72;
       const color = getNetworkColor(meta.networkKey);
@@ -136,7 +94,7 @@ export function MerchantDonutChart({
   }, [chains, total]);
 
   const activeKey = hoveredKey ?? focusedKey ?? (selectedNetwork && selectedNetwork !== "all" ? selectedNetwork : null);
-  const activeChain = activeKey ? full5Chains.find((c) => c.networkKey === activeKey) ?? null : null;
+  const activeChain = activeKey ? networkChains.find((c) => c.networkKey === activeKey) ?? null : null;
 
   const targetAmount = activeChain ? activeChain.totalBaseUnits : totalBaseUnits;
   const targetIdentity = activeKey ?? "all";
@@ -157,9 +115,13 @@ export function MerchantDonutChart({
               aria-label={total > 0n ? "Select a network segment" : "No receipts: 0 USDC"}
             >
               <defs>
+                <radialGradient id={`${badgeShadowId}-surface`} cx="60%" cy="70%" r="75%">
+                  <stop offset="55%" stopColor="#ffffff" />
+                  <stop offset="100%" stopColor="#dce0e4" />
+                </radialGradient>
                 {/* Petal overlapping shadow */}
                 <filter id={shadowId} x="-30%" y="-30%" width="160%" height="160%">
-                  <feDropShadow dx="-3" dy="5" stdDeviation="5" floodColor="#051b34" floodOpacity="0.28" />
+                  <feDropShadow dx="-5" dy="8" stdDeviation="7" floodColor="#171717" floodOpacity="0.24" />
                 </filter>
                 {/* Inset white badge shadow */}
                 <filter id={badgeShadowId} x="-40%" y="-40%" width="180%" height="180%">
@@ -177,18 +139,18 @@ export function MerchantDonutChart({
               <circle
                 cx="250"
                 cy="250"
-                r={Ro}
+                r="224"
                 fill="none"
-                strokeWidth="12"
+                strokeWidth="1"
                 className={total > 0n ? "overview-donut-bg-ring" : "overview-donut-empty-ring"}
               />
 
               {/* 5 Swirling Petals rendered in reverse counter-clockwise order for natural overlapping shadows */}
-              <g id="petals">
-                {[...full5Chains].reverse().map((item) => {
+              <g className="overview-donut-petals">
+                {[...networkChains].reverse().map((item) => {
                   const isSelected = activeKey === item.networkKey;
                   const isDimmed = activeKey !== null && !isSelected;
-                  const fillColor = total === 0n ? "#e2e8f0" : item.color;
+                  const fillColor = item.color;
 
                   return (
                     <g
@@ -201,7 +163,12 @@ export function MerchantDonutChart({
                       onPointerLeave={() => setHoveredKey(null)}
                       onFocus={() => setFocusedKey(item.networkKey)}
                       onBlur={() => setFocusedKey(null)}
-                      style={{ cursor: "pointer", transition: "opacity 160ms ease, transform 160ms ease" }}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          onSelectNetwork(item.networkKey);
+                        }
+                      }}
                       tabIndex={0}
                       role="button"
                       aria-pressed={selectedNetwork === item.networkKey}
@@ -213,93 +180,41 @@ export function MerchantDonutChart({
                 })}
               </g>
 
-              {/* Circular Inset Badges and Text on each Petal */}
-              <g id="badges-and-labels">
-                {full5Chains.map((item) => {
-                  const bPos = polar(Rbc, item.angle + badgeAngle);
-                  const tPos = polar(146, item.angle - 16);
+              {/* Decorations share the petal's hit target underneath. */}
+              <g pointerEvents="none" aria-hidden="true">
+                {networkChains.map((item) => {
+                  const bPos = polar(Rbc, item.angle);
+                  const tPos = polar(194, item.angle - 29);
                   const isSelected = activeKey === item.networkKey;
-                  const badgeStroke = total === 0n ? "#cbd5e1" : item.color;
-
+                  const isDimmed = activeKey !== null && !isSelected;
                   return (
-                    <g
-                      key={`badge-${item.networkKey}`}
-                      onClick={() => onSelectNetwork(item.networkKey)}
-                      onPointerEnter={() => setHoveredKey(item.networkKey)}
-                      onPointerLeave={() => setHoveredKey(null)}
-                      style={{ cursor: "pointer" }}
-                    >
-                      {/* White Inset Circular Badge */}
-                      <g transform={`translate(${bPos.x.toFixed(1)}, ${bPos.y.toFixed(1)}) ${isSelected ? "scale(1.08)" : ""}`} filter={`url(#${badgeShadowId})`}>
-                        <circle cx="0" cy="0" r={Rb} fill="#ffffff" />
-                        <circle cx="0" cy="0" r={Rb - 1} fill="#ffffff" stroke="#f1f5f9" strokeWidth="1.5" />
-                        <circle cx="0" cy="0" r={Rb - 5} fill="#f8fafc" />
-                        {/* Native Vector Chain Logo inside badge */}
-                        {item.glyph === "base" && (
-                          <g>
-                            <circle cx="0" cy="0" r="14" fill={badgeStroke} />
-                            <circle cx="0" cy="0" r="6" fill="#ffffff" />
-                          </g>
-                        )}
-                        {item.glyph === "arb" && (
-                          <g>
-                            <circle cx="0" cy="0" r="14" fill={badgeStroke} />
-                            <path d="M-6 6 L0 -7 L6 6 Z" fill="#ffffff" />
-                          </g>
-                        )}
-                        {item.glyph === "op" && (
-                          <g>
-                            <circle cx="0" cy="0" r="14" fill={badgeStroke} />
-                            <text x="0" y="4" textAnchor="middle" fontSize="10" fontWeight="900" fill="#ffffff">OP</text>
-                          </g>
-                        )}
-                        {item.glyph === "arc" && (
-                          <g>
-                            <circle cx="0" cy="0" r="14" fill={badgeStroke} />
-                            <text x="0" y="4.5" textAnchor="middle" fontSize="11" fontWeight="900" fill="#ffffff">A</text>
-                          </g>
-                        )}
-                        {item.glyph === "eth" && (
-                          <g>
-                            <circle cx="0" cy="0" r="14" fill={badgeStroke} />
-                            <path d="M0 -7 L5 0 L0 7 L-5 0 Z" fill="#ffffff" />
-                          </g>
-                        )}
+                    <g key={`badge-${item.networkKey}`} opacity={isDimmed ? 0.45 : 1}>
+                      <g transform={`translate(${bPos.x}, ${bPos.y})`}>
+                        <circle r={Rb} fill="#fff" filter={`url(#${badgeShadowId})`} />
+                        <circle r={Rb - 2} fill={`url(#${badgeShadowId}-surface)`} stroke={isSelected ? item.color : "#e5e7eb"} strokeWidth={isSelected ? 3 : 1} />
+                        <image
+                          href={getNetworkLogoSrc(item.networkKey)}
+                          x="-25"
+                          y="-25"
+                          width="50"
+                          height="50"
+                          preserveAspectRatio="xMidYMid meet"
+                        />
                       </g>
-
-                      {/* Text on Petal surface matching the infographic */}
-                      <g transform={`translate(${tPos.x.toFixed(1)}, ${tPos.y.toFixed(1)})`}>
+                      <g
+                        transform={`translate(${tPos.x}, ${tPos.y})`}
+                        fill={["arbitrum-sepolia", "optimism-sepolia", "sepolia"].includes(item.networkKey) ? "#171717" : "#fff"}
+                        textAnchor="middle"
+                      >
+                        <text y="-12" fontSize="15" fontWeight="700">{item.shortName}</text>
                         <text
-                          x="0"
-                          y="-7"
-                          textAnchor="middle"
-                          fontWeight="900"
+                          y="9"
                           fontSize="15"
-                          fill={total === 0n ? "#64748b" : "#ffffff"}
-                          letterSpacing="0.02em"
-                        >
-                          {item.step} <tspan fontSize="9" fontWeight="800">STEP</tspan>
-                        </text>
-                        <text
-                          x="0"
-                          y="7"
-                          textAnchor="middle"
-                          fontSize="9.5"
-                          fontWeight="700"
-                          fill={total === 0n ? "#94a3b8" : "rgba(255,255,255,0.95)"}
-                        >
-                          {item.shortName}
-                        </text>
-                        <text
-                          x="0"
-                          y="18"
-                          textAnchor="middle"
-                          fontSize="8"
                           fontWeight="600"
-                          fill={total === 0n ? "#94a3b8" : "rgba(255,255,255,0.82)"}
-                        >
-                          {item.formattedAmount} USDC
-                        </text>
+                          textLength={item.formattedAmount.length > 9 ? 92 : undefined}
+                          lengthAdjust="spacingAndGlyphs"
+                        >{item.formattedAmount}</text>
+                        <text y="25" fontSize="11" fontWeight="500">USDC</text>
                       </g>
                     </g>
                   );
@@ -307,30 +222,32 @@ export function MerchantDonutChart({
               </g>
 
               {/* Elevated Center Hub Disk */}
-              <g id="center-hub" filter={`url(#${centerShadowId})`}>
+              <g pointerEvents="none" aria-hidden="true" filter={`url(#${centerShadowId})`}>
                 <circle cx="250" cy="250" r={Rc} fill="#ffffff" />
-                <circle cx="250" cy="250" r={Rc - 1} fill="#ffffff" stroke="#f1f5f9" strokeWidth="1.5" />
+                <circle cx="250" cy="250" r={Rc - 1} fill="#ffffff" stroke="#e5e7eb" strokeWidth="1.5" />
 
                 {/* Subtitle / Title */}
                 <text
                   x="250"
                   y="220"
                   textAnchor="middle"
-                  fontWeight="900"
-                  fontSize="13"
+                  fontWeight="600"
+                  fontSize="14"
                   fill="#0f172a"
                   letterSpacing="0.02em"
                 >
-                  {activeChain ? activeChain.networkLabel.toUpperCase() : "TOTAL RECEIVED"}
+                  {activeChain ? activeChain.shortName : "Total received"}
                 </text>
 
                 {/* Animated Amount */}
                 <text
                   x="250"
-                  y="244"
+                  y="251"
                   textAnchor="middle"
-                  fontWeight="900"
-                  fontSize={formattedAmount.length > 10 ? "17" : "21"}
+                  fontWeight="600"
+                  fontSize="28"
+                  textLength={formattedAmount.length > 9 ? 150 : undefined}
+                  lengthAdjust="spacingAndGlyphs"
                   fill={changed ? "#187644" : "#0f172a"}
                   letterSpacing="-0.03em"
                 >
@@ -338,8 +255,8 @@ export function MerchantDonutChart({
                 </text>
 
                 {/* 5 Network Color Droplets from reference image */}
-                <g transform="translate(250, 254)">
-                  {full5Chains.map((c, i) => (
+                <g transform="translate(250, 270)">
+                  {networkChains.map((c, i) => (
                     <ellipse
                       key={`drop-${c.networkKey}`}
                       cx={(i - 2) * 8}
@@ -354,10 +271,10 @@ export function MerchantDonutChart({
                 {/* Template / Share Subtext */}
                 <text
                   x="250"
-                  y="268"
+                  y="289"
                   textAnchor="middle"
                   fontWeight="700"
-                  fontSize="9.5"
+                  fontSize="12"
                   fill="#64748b"
                   letterSpacing="0.06em"
                 >
@@ -366,9 +283,9 @@ export function MerchantDonutChart({
 
                 <text
                   x="250"
-                  y="279"
+                  y="305"
                   textAnchor="middle"
-                  fontSize="7.5"
+                  fontSize="11"
                   fill="#94a3b8"
                 >
                   {activeChain ? `${activeChain.paymentCount} settlements` : "Verified receipts"}
@@ -404,7 +321,7 @@ export function MerchantDonutChart({
 
         {/* Legend list matching contracts */}
         <ul className="overview-donut-legend" aria-label="Network balances">
-          {full5Chains.map((chain) => {
+          {networkChains.map((chain) => {
             const isSelected = activeKey === chain.networkKey;
             return (
               <li key={chain.networkKey} className="overview-donut-legend-row">
@@ -439,7 +356,7 @@ export function MerchantDonutChart({
         </ul>
       </div>
       <p className="overview-donut-caption">
-        Verified invoice receipts across networks. Select a network to explore.
+        Each petal represents a network. Select one to view its verified USDC receipts and share of the total.
       </p>
     </div>
   );

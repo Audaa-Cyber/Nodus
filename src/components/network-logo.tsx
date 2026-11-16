@@ -14,9 +14,13 @@ const networkLogos = new Map([
   ["arc-testnet", "/networks/arc.svg"],
 ]);
 
+export function getNetworkLogoSrc(networkKey?: string | null) {
+  return networkLogos.get(networkKey?.trim().toLowerCase() ?? "");
+}
+
 /** Decorative next to the network label; asset provenance is in public/networks/README.md. */
 export function NetworkLogo({ networkKey, size = "sm" }: NetworkLogoProps) {
-  const src = networkLogos.get(networkKey?.trim().toLowerCase() ?? "");
+  const src = getNetworkLogoSrc(networkKey);
   const pixels = size === "md" ? 24 : 18;
 
   return (
