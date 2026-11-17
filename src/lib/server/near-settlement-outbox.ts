@@ -1,6 +1,5 @@
 import "server-only";
 
-import { randomUUID } from "node:crypto";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getCircleChain } from "@/lib/server/circle";
 import { buildNearSettlementPayload, type NearSettlementPayload } from "@/lib/payments/near-settlement-payload";
@@ -35,7 +34,7 @@ export async function processNearSettlementOutbox(
   options: { entryPoint?: NearSettlementEntryPoint; correlationId?: string } = {},
 ): Promise<{ claimed: number; submitted: number; retry: number; blocked: number }> {
   const entryPoint = options.entryPoint ?? "scheduled_worker";
-  const runCorrelationId = options.correlationId ?? randomUUID();
+  const runCorrelationId = options.correlationId ?? crypto.randomUUID();
   const runContext: NearSettlementLogContext = { entryPoint, correlationId: runCorrelationId };
   const workerStartedAt = performance.now();
   const admin = getSupabaseAdminClient();

@@ -28,6 +28,7 @@ const nextConfig: NextConfig = {
     if (!isServer) {
       config.resolve.fallback = {
         ...config.resolve.fallback,
+        crypto: false,
         bufferutil: false,
         "utf-8-validate": false,
       };

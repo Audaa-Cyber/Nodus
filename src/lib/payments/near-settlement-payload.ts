@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash } from "crypto";
 import { getCircleChain } from "../server/circle.ts";
 
 import { circleTestnetUsdcNetworks } from "../wallet/networks.ts";
