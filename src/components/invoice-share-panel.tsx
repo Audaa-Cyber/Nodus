@@ -35,14 +35,32 @@ export default function InvoiceSharePanel({
   const qrFrame = useRef<HTMLDivElement>(null);
   const noticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  function sanitizeUrl(targetUrl: string): string {
+    if (typeof window === "undefined" || !targetUrl) return targetUrl;
+    try {
+      const parsed = new URL(targetUrl);
+      if (
+        (parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1") &&
+        window.location.hostname !== "localhost" &&
+        window.location.hostname !== "127.0.0.1"
+      ) {
+        return `${window.location.origin}${parsed.pathname}${parsed.search}`;
+      }
+    } catch {
+      // fallback to original
+    }
+    return targetUrl;
+  }
   // State & Local Storage Persistence (Refresh Safety)
   useEffect(() => {
     const storageKey = `nodus:invoice-qr:${invoiceId}`;
     if (initialUrl) {
+      const cleanUrl = sanitizeUrl(initialUrl);
+      setUrl(cleanUrl);
       try {
         localStorage.setItem(
           storageKey,
-          JSON.stringify({ url: initialUrl, expiresAt })
+          JSON.stringify({ url: cleanUrl, expiresAt })
         );
       } catch {
         // Safe fallback if localStorage is unavailable
@@ -56,7 +74,8 @@ export default function InvoiceSharePanel({
             const isExpired =
               cached.expiresAt && new Date(cached.expiresAt).getTime() <= Date.now();
             if (!isExpired) {
-              setUrl(cached.url);
+              const cleanUrl = sanitizeUrl(cached.url);
+              setUrl(cleanUrl);
               setCurrentShareState("active");
               if (cached.expiresAt) setCurrentExpiry(cached.expiresAt);
             }

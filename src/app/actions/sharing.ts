@@ -32,25 +32,27 @@ async function getAppBaseUrl() {
       // Invalid URL
     }
   }
-
-  // In development, dynamically detect the host from the current request if not explicitly configured
-  if (process.env.NODE_ENV === "development") {
-    try {
-      const headerList = await headers();
-      const host = headerList.get("x-forwarded-host") || headerList.get("host");
-      const proto = headerList.get("x-forwarded-proto") || "http";
-      if (host) {
-        const requestUrl = new URL(`${proto}://${host}`);
-        if (["http:", "https:"].includes(requestUrl.protocol) && isDevelopmentHost(requestUrl.hostname)) {
-          return requestUrl.origin;
-        }
-      }
-    } catch {
-      // Fallback if headers() is unavailable
+  // Automatic platform fallbacks on Vercel
+  if (process.env.VERCEL_PROJECT_PRODUCTION_URL) {
+    return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
+  }
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`;
+  }
+  // Fallback to request headers
+  try {
+    const headerList = await headers();
+    const host = headerList.get("x-forwarded-host") || headerList.get("host");
+    const proto = headerList.get("x-forwarded-proto") || (process.env.NODE_ENV === "development" ? "http" : "https");
+    if (host) {
+      return `${proto}://${host}`;
     }
+  } catch {
+    // Fallback if headers() is unavailable
+  }
+  if (process.env.NODE_ENV === "development") {
     return configuredDevelopmentOrigin ?? "http://localhost:3000";
   }
-
   return null;
 }
 

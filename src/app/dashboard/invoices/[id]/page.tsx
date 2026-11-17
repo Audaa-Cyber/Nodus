@@ -181,7 +181,13 @@ export default async function InvoiceDetailPage({
   if (query.token && invoice.share_token_hash) {
     const calculatedHash = createHash("sha256").update(query.token, "utf8").digest("hex");
     if (calculatedHash === invoice.share_token_hash) {
-      const origin = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+      const origin =
+        process.env.NEXT_PUBLIC_APP_URL ||
+        (process.env.VERCEL_PROJECT_PRODUCTION_URL
+          ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+          : process.env.VERCEL_URL
+            ? `https://${process.env.VERCEL_URL}`
+            : "http://localhost:3000");
       initialPayUrl = `${origin}/pay/${query.token}`;
     }
   }
