@@ -8,12 +8,12 @@ import { formatMoney } from "@/lib/invoices";
 import { createIdempotencyKey } from "@/lib/idempotency-key";
 import { connectWalletConnectWithRequiredChain, isMobileWalletBrowser, prepareRabbyForWalletConnectRequest, setWalletConnectSessionDefaultChain, walletConnectSessionIncludesChain } from "@/lib/wallet/rabby-mobile-handoff";
 import {
-  DEFAULT_RECOMMENDED_CHAIN_ID,
   DEFAULT_RECOMMENDED_CHAIN_NAME,
   circleTestnetUsdcNetworks,
   getCircleTestnetUsdcNetworkForChainId,
   getEvmWalletNetwork,
   getWalletNetwork,
+  resolveCheckoutSource,
 } from "@/lib/wallet/networks";
 import type { WalletAsset } from "@/lib/wallet/types";
 import { EvmWalletCard } from "./evm-wallet-card";
@@ -103,7 +103,7 @@ function InvoiceWalletCheckoutContent({
   const [flowError, setFlowError] = useState("");
   const [assets, setAssets] = useState<WalletAsset[]>([]);
   const [selectedSymbol, setSelectedSymbol] = useState("USDC");
-  const [selectedSourceNetworkKey, setSelectedSourceNetworkKey] = useState<string>("base-sepolia");
+  const [selectedSourceNetworkKey, setSelectedSourceNetworkKey] = useState<string>(() => resolveCheckoutSource(isEvmConnected ? evmChainId : undefined, destinationNetwork).key);
   const [sourceNetworkManuallySelected, setSourceNetworkManuallySelected] = useState(false);
   const [showAdvancedNetworks, setShowAdvancedNetworks] = useState(false);
   const [switchError, setSwitchError] = useState("");
@@ -172,8 +172,10 @@ function InvoiceWalletCheckoutContent({
   }, [evmChainId, isEvmConnected, sourceNetworkManuallySelected]);
 
   const selectedSourceNetwork = useMemo(
-    () => circleTestnetUsdcNetworks.find((network) => network.key === selectedSourceNetworkKey) ?? circleTestnetUsdcNetworks[1],
-    [selectedSourceNetworkKey],
+    () => sourceNetworkManuallySelected
+      ? circleTestnetUsdcNetworks.find((network) => network.key === selectedSourceNetworkKey) ?? resolveCheckoutSource(evmChainId, destinationNetwork)
+      : resolveCheckoutSource(isEvmConnected ? evmChainId : undefined, destinationNetwork),
+    [selectedSourceNetworkKey, sourceNetworkManuallySelected, isEvmConnected, evmChainId, destinationNetwork],
   );
   const selectedSourceWalletNetwork = getWalletNetwork(selectedSourceNetwork.key) ?? null;
   const isWrongChainForRoute = Boolean(isEvmConnected && evmChainId !== selectedSourceNetwork.chainId);
@@ -365,7 +367,7 @@ function InvoiceWalletCheckoutContent({
     } catch (err) {
       if (err === timeoutError) {
         setSwitchError(evmConnector.id === "walletConnect" && !walletConnectChainApproved
-          ? "Base Sepolia is not approved for this account in the current WalletConnect session. Reconnect Rabby from this browser and approve Base Sepolia for the session."
+          ? "The selected network is not approved for this account in the current WalletConnect session. Reconnect Rabby and approve the selected network."
           : evmConnector.id === "walletConnect"
           ? "The WalletConnect session did not confirm the network change. Reconnect Rabby from this browser and approve the requested network."
           : "The wallet did not confirm a network change in time. Switch in your wallet, then refresh the wallet network.");
@@ -600,7 +602,7 @@ function InvoiceWalletCheckoutContent({
 
           {/* 3. CONNECT AN EXISTING EVM WALLET */}
           <div className="wallet-card-grid" style={{ gridTemplateColumns: "1fr" }}>
-            <EvmWalletCard selectedChainId={selectedAsset?.network.chainId ?? DEFAULT_RECOMMENDED_CHAIN_ID} />
+            <EvmWalletCard selectedChainId={selectedSourceNetwork.chainId} />
           </div>
 
           {/* 4. PROGRESSIVE DISCLOSURE: MANUAL NETWORK SWITCHING / ADVANCED */}

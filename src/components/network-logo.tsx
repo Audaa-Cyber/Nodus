@@ -7,7 +7,7 @@ type NetworkLogoProps = {
 };
 
 const networkLogos = new Map([
-  ["sepolia", "/networks/ethereum.svg"],
+  ["sepolia", "/networks/ethereum.png"],
   ["base-sepolia", "/networks/base.svg"],
   ["arbitrum-sepolia", "/networks/arbitrum.svg"],
   ["optimism-sepolia", "/networks/optimism.svg"],

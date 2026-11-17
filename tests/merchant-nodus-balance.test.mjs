@@ -1,13 +1,29 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { formatUsdcBaseUnits, sumUsdcBaseUnits } from "../src/lib/payments/nodus-received-balance.ts";
+import { formatAnimatedUsdcBaseUnits, formatUsdcBaseUnits, sumUsdcBaseUnits } from "../src/lib/payments/nodus-received-balance.ts";
 
 test("USDC totals format six decimal base units without floating-point conversion", () => {
   assert.equal(formatUsdcBaseUnits("100000000"), "100");
   assert.equal(formatUsdcBaseUnits("123456789"), "123.456789");
   assert.equal(formatUsdcBaseUnits("9007199254740993123456"), "9,007,199,254,740,993.123456");
   assert.equal(formatUsdcBaseUnits("not-a-number"), "Unavailable");
+});
+
+test("balance counting displays whole numbers until it reaches the exact financial amount", () => {
+  const target = 123456789n;
+  assert.deepEqual(
+    [0n, 1999999n, 2999999n, 120123456n].map((amount) => formatAnimatedUsdcBaseUnits(amount, target)),
+    ["0", "1", "2", "120"],
+  );
+  assert.equal(formatAnimatedUsdcBaseUnits(target, target), "123.456789");
+  assert.equal(formatAnimatedUsdcBaseUnits(999999n, 1000000n), "0");
+  assert.equal(formatAnimatedUsdcBaseUnits(1000000n, 1000000n), "1");
+  assert.equal(formatAnimatedUsdcBaseUnits(0n, 1n), "0");
+  assert.equal(formatAnimatedUsdcBaseUnits(1n, 1n), "0.000001");
+  const large = 9007199254740993123456n;
+  assert.equal(formatAnimatedUsdcBaseUnits(large - 1n, large), "9,007,199,254,740,993");
+  assert.equal(formatAnimatedUsdcBaseUnits(large, large), "9,007,199,254,740,993.123456");
 });
 
 test("chain aggregation sums exact base units", () => {

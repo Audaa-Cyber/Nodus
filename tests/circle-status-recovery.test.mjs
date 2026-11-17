@@ -25,6 +25,10 @@ let invoiceStatus = "open";
 let afterTasks = [];
 let nearWorkerCalls = 0;
 let nearWorkerError = null;
+let directProof = null;
+let directError = null;
+let reconciliationError = null;
+let cctpCalls = 0;
 
 mock.module(new URL("../src/lib/supabase/admin.ts", import.meta.url).href, {
   namedExports: {
@@ -37,6 +41,7 @@ mock.module(new URL("../src/lib/supabase/admin.ts", import.meta.url).href, {
         if (fn === "record_circle_recovery_progress") return { data: null, error: null };
         if (fn === "update_live_attempt_status") return { data: null, error: null };
         if (fn === "record_payment_reconciliation") {
+          if (reconciliationError) return { data: null, error: reconciliationError };
           invoiceStatus = "paid";
           return { data: { id: "reconciliation-id" }, error: null };
         }
@@ -57,8 +62,19 @@ mock.module(new URL("../src/lib/server/circle.ts", import.meta.url).href, {
       chainId: net.includes("arbitrum") ? 421614 : 84532,
       usdcAddress: "0x036cbd53842c5426634e7929541ec2318f3dcf7e",
     }),
-    fetchCircleCctpStatus: async () => mockCctpStatus,
+    fetchCircleCctpStatus: async () => { cctpCalls++; return mockCctpStatus; },
   },
+});
+
+mock.module(new URL("../src/lib/server/settlement-chain.ts", import.meta.url).href, {
+  namedExports: { verifyEvmDestinationTransfers: async (input) => {
+    assert.equal(input.payer, payer);
+    assert.equal(input.recipient, recipient);
+    assert.equal(input.network, "arc-testnet");
+    assert.deepEqual(input.transactionHashes, [sourceTxHash]);
+    if (directError) throw directError;
+    return directProof;
+  } },
 });
 
 mock.module(new URL("../src/lib/server/cctp-v2-chain.ts", import.meta.url).href, {
@@ -174,13 +190,83 @@ function resetFixtures() {
   afterTasks = [];
   nearWorkerCalls = 0;
   nearWorkerError = null;
+  directError = null;
+  reconciliationError = null;
+  cctpCalls = 0;
 }
+
+function directFixture() {
+  resetFixtures();
+  mockAttempt.source_network = mockAttempt.destination_network = "arc-testnet";
+  mockAttempt.source_asset_id = mockAttempt.destination_asset_id = "arc-testnet:usdc";
+  Object.assign(mockAttempt.quote_snapshot, {
+    type: "circle_direct", sourceNetwork: "arc-testnet", destinationNetwork: "arc-testnet",
+    sourceAssetId: "arc-testnet:usdc", destinationAssetId: "arc-testnet:usdc",
+  });
+  directProof = { verified: true, finalityConfirmed: true, amount: "10000000", transactionHashes: [sourceTxHash] };
+}
+
+test("A/H: Arc direct settlement uses independent evidence and dispatches NEAR after settlement", async () => {
+  directFixture();
+  const data = await (await invoke()).json();
+  assert.equal(data.settled, true);
+  assert.equal(invoiceStatus, "paid");
+  assert.equal(cctpCalls, 0);
+  const call = rpcCalls.find((c) => c.fn === "record_payment_reconciliation");
+  assert.equal(call.args.p_evidence.routeType, "same_chain");
+  assert.equal(call.args.p_evidence.sourceProof, undefined);
+  assert.equal(nearWorkerCalls, 0);
+  assert.equal(afterTasks.length, 1);
+  nearWorkerError = new Error("NEAR unavailable");
+  await afterTasks[0]();
+  assert.equal(nearWorkerCalls, 1);
+  assert.equal(invoiceStatus, "paid");
+});
+
+test("E: invalid, underfunded, pending and unfinalized direct evidence cannot pay invoice", async () => {
+  for (const mutate of [
+    () => { directError = new Error("destination_transfer_event_count_mismatch"); },
+    () => { directError = new Error("TransactionReceiptNotFoundError"); },
+    () => { directProof.verified = false; },
+    () => { directProof.finalityConfirmed = false; },
+  ]) {
+    directFixture(); mutate();
+    const data = await (await invoke()).json();
+    assert.notEqual(data.settled, true);
+    assert.equal(invoiceStatus, "open");
+    assert.equal(afterTasks.length, 0);
+    assert.equal(rpcCalls.some((c) => c.fn === "record_payment_reconciliation"), false);
+  }
+});
+
+test("F: database duplicate-transaction rejection cannot produce direct success or NEAR dispatch", async () => {
+  directFixture();
+  reconciliationError = { code: "23505", message: "duplicate transaction" };
+  const data = await (await invoke()).json();
+  assert.notEqual(data.settled, true);
+  assert.equal(invoiceStatus, "open");
+  assert.equal(afterTasks.length, 0);
+});
+
+test("verified direct attempt remains settled when the invoice is already paid", async () => {
+  directFixture();
+  mockAttempt.status = "SUCCESS";
+  mockContext.invoice_status = "paid";
+  mockReceipts = [{ receipt_number: "NOD-2026-00000001" }];
+  const data = await (await invoke()).json();
+  assert.equal(data.settled, true);
+  assert.deepEqual(data.receipts, mockReceipts);
+  assert.equal(data.recoveryRequired, undefined);
+  assert.equal(cctpCalls, 0);
+  assert.equal(rpcCalls.some((call) => call.fn === "record_circle_recovery_progress"), false);
+  assert.equal(rpcCalls.some((call) => call.fn === "record_payment_reconciliation"), false);
+});
 
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
-test("status route recognizes partial execution with approval only as APPROVAL_CONFIRMED without failing", async () => {
+test("approval-only execution requires review without claiming chain confirmation or enabling authorization", async () => {
   resetFixtures();
   mockAttempt.transaction_hash = null; // No burn hash yet!
   mockAttempt.circle_approval_tx_hash = approvalTxHash;
@@ -190,11 +276,31 @@ test("status route recognizes partial execution with approval only as APPROVAL_C
   const data = await res.json();
 
   assert.equal(data.pending, true);
-  assert.equal(data.recoveryRequired, false);
-  assert.equal(data.recoveryState, "APPROVAL_CONFIRMED");
-  assert.equal(data.executionStep, "AWAITING_SOURCE_BURN");
+  assert.equal(data.recoveryRequired, true);
+  assert.equal(data.recoveryState, "APPROVAL_REFERENCE_SAVED");
+  assert.equal(data.executionStep, "RECOVERY_REQUIRED");
   assert.equal(data.sourceTransactionReferenceMissing, true);
-  assert.match(data.providerProgress.message, /approval confirmed/i);
+  assert.match(data.providerProgress.message, /approval reference is saved/i);
+  assert.doesNotMatch(data.providerProgress.message, /confirmed|ready to authorize/i);
+  assert.equal(rpcCalls.some((call) => call.fn === "update_live_attempt_status"), false);
+});
+
+test("reserved attempt with no references remains blocked without expiring or resetting execution", async () => {
+  resetFixtures();
+  mockAttempt.transaction_hash = null;
+  mockAttempt.circle_approval_tx_hash = null;
+  mockAttempt.circle_execution_reserved_at = "2026-11-16T21:09:44.449116Z";
+  mockAttempt.quote_expires_at = "2026-01-01T00:00:00Z";
+  const res = await invoke();
+  const data = await res.json();
+  assert.equal(res.status, 200);
+  assert.equal(data.attempt.status, "PROCESSING");
+  assert.equal(data.recoveryRequired, true);
+  assert.equal(data.sourceTransactionReferenceMissing, true);
+  assert.equal(data.executionStep, "RECOVERY_REQUIRED");
+  assert.equal(data.recoveryState, "TRANSACTION_REFERENCE_MISSING");
+  assert.match(data.providerProgress.message, /do not authorize another payment/i);
+  assert.deepEqual(rpcCalls.map((call) => call.fn), ["get_shared_live_attempt", "lookup_shared_payment_context"]);
 });
 
 test("status route handles missing operator RPC as retryable configuration delay, never manual review", async () => {

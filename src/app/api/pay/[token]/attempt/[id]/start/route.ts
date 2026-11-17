@@ -37,7 +37,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
 
   const tokenHash = createHash("sha256").update(token, "utf8").digest("hex");
   try {
-    const { data, error } = await getSupabaseAdminClient().rpc("mark_circle_execution_started", {
+    const direct = (body as Record<string, unknown>).routeType === "same_chain";
+    const { data, error } = await getSupabaseAdminClient().rpc(direct ? "reserve_direct_payment_execution" : "mark_circle_execution_started", {
       p_token_hash: tokenHash,
       p_attempt_id: id,
       p_expected_payer: expectedPayer.toLowerCase(),

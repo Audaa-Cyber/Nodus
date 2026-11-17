@@ -20,7 +20,7 @@ export function useReducedDataMotion() {
   return reduced;
 }
 
-export function useAnimatedInteger(value: bigint, identity: string, duration: number) {
+export function useAnimatedInteger(value: bigint, identity: string, duration: number, countFromZero = false) {
   const reduced = useReducedDataMotion();
   const [displayed, setDisplayed] = useState(value);
   const [changed, setChanged] = useState(false);
@@ -42,9 +42,12 @@ export function useAnimatedInteger(value: bigint, identity: string, duration: nu
   const identityChanged = previousIdentity.current !== identity;
   useEffect(() => {
     previousIdentity.current = identity;
-    controller.current?.update(value, identity, reduced);
-  }, [value, identity, reduced]);
-  return { displayed: reduced || identityChanged ? value : displayed, changed: !reduced && !identityChanged && changed };
+    controller.current?.update(value, identity, reduced, countFromZero);
+  }, [value, identity, reduced, countFromZero]);
+  return {
+    displayed: reduced ? value : identityChanged ? countFromZero ? 0n : value : displayed,
+    changed: !reduced && !identityChanged && changed,
+  };
 }
 
 export function useSnapshotHighlights(rows: readonly { id: string; status?: string }[] | null, mode: "paid" | "arrival") {

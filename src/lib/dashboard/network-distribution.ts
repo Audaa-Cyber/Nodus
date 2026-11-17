@@ -1,10 +1,10 @@
-// Match the local logo assets. Ethereum's gray stays lighter than Arc's charcoal.
+// Distinct chart accents; logo assets retain their original brand artwork.
 const networkColors = new Map([
   ["sepolia", "#8C8C8C"],
   ["base-sepolia", "#0000FF"],
   ["arbitrum-sepolia", "#12AAFF"],
   ["optimism-sepolia", "#FF0421"],
-  ["arc-testnet", "#171717"],
+  ["arc-testnet", "#3E2B63"],
 ]);
 
 export function getNetworkColor(key: string) {

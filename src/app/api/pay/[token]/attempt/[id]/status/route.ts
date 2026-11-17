@@ -8,6 +8,7 @@ import {
   verifyCctpV2DestinationTransaction,
   verifyCctpV2SourceTransaction,
 } from "../../../../../../../lib/server/cctp-v2-chain.ts";
+import { isSamePaymentChain } from "../../../../../../../lib/wallet/networks.ts";
 import { assetUnitsToInvoiceMinor } from "../../../../../../../lib/payments/settlement-policy.ts";
 import { verifyImmutableAttemptInvoiceBinding } from "../../../../../../../lib/payments/cctp-v2-integrity.ts";
 import { processNearSettlementOutbox } from "../../../../../../../lib/server/near-settlement-outbox.ts";
@@ -135,15 +136,17 @@ export async function GET(
     } catch {
       return NextResponse.json({ error: "attempt_invoice_snapshot_mismatch" }, { status: 409 });
     }
-    if (!["open", "overdue"].includes(invoice.invoice_status)) {
-      await saveRecovery(supabaseAdmin, id, "MANUAL_REVIEW");
-      return NextResponse.json({ attempt: publicAttempt(attempt), pending: true, recoveryRequired: true });
-    }
-
     const status = attempt.status;
     if (status === "SUCCESS" || status === "REFUNDED" || status === "FAILED" || status === "INCOMPLETE_DEPOSIT") {
       const { data: receipts } = await supabaseAdmin.rpc("lookup_shared_payment_receipts", { p_token_hash: tokenHash });
       return NextResponse.json({ attempt: publicAttempt(attempt), receipts: receipts ?? [], settled: status === "SUCCESS" });
+    }
+
+    // Successful reconciliation closes the invoice. Return its durable terminal
+    // result before considering whether an unsettled attempt needs review.
+    if (!["open", "overdue"].includes(invoice.invoice_status)) {
+      await saveRecovery(supabaseAdmin, id, "MANUAL_REVIEW");
+      return NextResponse.json({ attempt: publicAttempt(attempt), pending: true, recoveryRequired: true });
     }
 
     if (status === "PENDING_DEPOSIT" && !attempt.transaction_hash && !attempt.circle_execution_reserved_at) {
@@ -160,19 +163,19 @@ export async function GET(
     const sourceTxHash = attempt.transaction_hash as string | null;
     if (!sourceTxHash && status === "PROCESSING") {
       const hasApproval = Boolean(attempt.circle_approval_tx_hash);
-      const recoveryState = hasApproval ? "APPROVAL_CONFIRMED" : "AWAITING_SOURCE_BURN";
+      const recoveryState = hasApproval ? "APPROVAL_REFERENCE_SAVED" : "TRANSACTION_REFERENCE_MISSING";
       return NextResponse.json({
         attempt: publicAttempt({ ...attempt, circle_recovery_state: attempt.circle_recovery_state }),
         pending: true,
-        recoveryRequired: false,
+        recoveryRequired: true,
         recoveryState,
         sourceTransactionReferenceMissing: true,
-        executionStep: hasApproval ? "AWAITING_SOURCE_BURN" : "AWAITING_AUTHORIZATION",
+        executionStep: "RECOVERY_REQUIRED",
         providerProgress: {
           provider: snapshot.type === "circle_cctp" ? "circle_cctp" : "circle_direct",
           message: hasApproval
-            ? "USDC approval confirmed on Base Sepolia. Ready to authorize transfer."
-            : "Payment reserved. Ready for wallet authorization.",
+            ? "The approval reference is saved, but the source transfer reference is missing. This reserved attempt requires review; do not authorize another payment."
+            : "This reserved attempt has no saved transaction references. Its execution status requires review; do not authorize another payment.",
         },
       });
     }
@@ -181,7 +184,7 @@ export async function GET(
     }
 
     if (snapshot.type === "circle_direct") {
-      const isSameChain = attempt.source_network === attempt.destination_network;
+      const isSameChain = isSamePaymentChain(attempt.source_network, attempt.destination_network);
       const circleInfo = getCircleChain(attempt.destination_network, true)
         ?? getCircleChain(attempt.destination_network, false);
       if (!circleInfo || !isSameChain) {
@@ -190,6 +193,7 @@ export async function GET(
       try {
         const proof = await verifyEvmDestinationTransfers({
           network: attempt.destination_network,
+          payer,
           contractAddress: circleInfo.usdcAddress,
           recipient: attempt.recipient_address,
           amount: attempt.expected_received_amount,
@@ -217,9 +221,13 @@ export async function GET(
           p_received_asset_decimals: 6,
           p_received_value_invoice_minor: receivedMinor,
           p_destination_tx_hashes: [sourceTxHash],
-          p_evidence: { proof, verifiedAt: new Date().toISOString() },
+          p_evidence: { routeType: "same_chain", destinationProof: proof, verifiedAt: new Date().toISOString() },
         });
         if (recError || !recResult) return NextResponse.json({ attempt: publicAttempt(attempt), pending: true });
+        after(async () => {
+          try { await processNearSettlementOutbox(1, { entryPoint: "payment_status", correlationId: id }); }
+          catch { /* The durable outbox worker retries independently of payer settlement. */ }
+        });
         const { data: receipts } = await supabaseAdmin.rpc("lookup_shared_payment_receipts", { p_token_hash: tokenHash });
         return NextResponse.json({
           attempt: publicAttempt({ ...attempt, status: "SUCCESS" }),

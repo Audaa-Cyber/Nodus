@@ -8,12 +8,14 @@ import { evmWalletChains, getWalletNetwork } from "@/lib/wallet/networks";
 import { getCircleChain } from "@/lib/server/circle";
 import { isMobileWalletBrowser, setWalletConnectSessionDefaultChain } from "@/lib/wallet/rabby-mobile-handoff";
 import { createPublicClient, custom, formatEther, http, parseAbi } from "viem";
-import { executeCircleBridgeAfterFreshReservation } from "@/lib/payments/circle-execution-reservation";
+import { executeDirectUsdc } from "@/lib/payments/direct-execution";
+import { assertFreshCircleExecutionReservation, executeCircleBridgeAfterFreshReservation } from "@/lib/payments/circle-execution-reservation";
 import { estimateCircleSourceGas, CIRCLE_TESTNET_TOKEN_MESSENGER_WITH_FEES } from "@/lib/payments/circle-gas-estimation";
 import type { WalletAsset } from "@/lib/wallet/types";
 import type { StandardizedRouteQuote } from "@/lib/payments/route-orchestrator";
 import { buildPaymentRoutesRequest } from "@/lib/payments/route-request";
 import { canRetryCircleBridgeResult, sanitizeCircleBridgeStep } from "@/lib/payments/circle-bridge-recovery";
+import { createPaymentReferenceWriter } from "@/lib/payments/payment-reference-persistence";
 import type { BridgeResult } from "@circle-fin/app-kit";
 
 interface LivePaymentFlowProps {
@@ -25,18 +27,6 @@ interface LivePaymentFlowProps {
   activeAddress: string | null;
   onPaymentSuccess?: (receipts?: Array<{ receipt_number: string; issued_at: string; [key: string]: unknown }>) => void;
 }
-
-const CHAIN_ID_TO_BLOCKCHAIN: Record<number, string> = {
-  1: "Ethereum",
-  11155111: "Ethereum_Sepolia",
-  8453: "Base",
-  84532: "Base_Sepolia",
-  42161: "Arbitrum",
-  421614: "Arbitrum_Sepolia",
-  10: "Optimism",
-  11155420: "Optimism_Sepolia",
-  5042002: "Arc_Testnet",
-};
 
 const CHAIN_ID_TO_BRIDGE_CHAIN: Record<number, string> = {
   1: "Ethereum",
@@ -141,7 +131,10 @@ export function LivePaymentFlow({
     quoteExpiresAtBlock?: number;
     gasWei: string;
   } | null>(null);
+  const executionLock = useRef(false);
+  const routeRequest = useRef(0);
   const lastExpiredRouteRefresh = useRef<string | null>(null);
+  const referenceWriter = useMemo(() => createPaymentReferenceWriter(shareToken), [shareToken]);
 
   const selectedRoute = useMemo(
     () => routes[selectedRouteIndex] ?? null,
@@ -149,7 +142,10 @@ export function LivePaymentFlow({
   );
   // 1. Fetch available routes from backend orchestrator
   const fetchRoutes = useCallback(async () => {
-    if (!selectedAsset || !activeAddress) return;
+    if (!selectedAsset || !activeAddress || attemptId) return;
+    if (executionLock.current) return;
+    const requestId = ++routeRequest.current;
+    setCircleQuote(null);
     setLoadingRoutes(true);
     setRoutesError("");
     try {
@@ -160,6 +156,7 @@ export function LivePaymentFlow({
       });
 
       const data = await response.json();
+      if (requestId !== routeRequest.current || executionLock.current) return;
       if (!response.ok || !data.success || !Array.isArray(data.routes)) {
         const message = getRouteDiscoveryErrorMessage(data.error);
         const providerReason = typeof data.providerReason === "string" ? data.providerReason : "";
@@ -169,29 +166,36 @@ export function LivePaymentFlow({
       setRoutes(data.routes);
       setSelectedRouteIndex(0);
     } catch (err) {
+      if (requestId !== routeRequest.current || executionLock.current) return;
       setRoutesError(err instanceof Error ? err.message : "Failed to load payment routes.");
       setRoutes([]);
     } finally {
-      setLoadingRoutes(false);
+      if (requestId === routeRequest.current) setLoadingRoutes(false);
     }
-  }, [selectedAsset, activeAddress, shareToken]);
+  }, [selectedAsset, activeAddress, shareToken, attemptId]);
 
   useEffect(() => {
     void fetchRoutes();
   }, [fetchRoutes]);
 
   useEffect(() => {
-    const savedAttemptId = window.localStorage.getItem(`nodus:live-attempt:${shareToken}`);
-    const savedTxHash = window.localStorage.getItem(`nodus:live-tx:${shareToken}`);
-    if (!attemptId && savedAttemptId && /^[0-9a-f-]{36}$/i.test(savedAttemptId)) {
-      setAttemptId(savedAttemptId);
-      setStage("verifying");
-      setStatusMessage("Resuming verification for the payment attempt saved in this browser.");
-    }
-    if (savedTxHash && /^0x[0-9a-f]{64}$/i.test(savedTxHash)) {
-      setDepositTxHash(savedTxHash);
-    }
-  }, [attemptId, shareToken]);
+    try {
+      const savedAttemptId = window.localStorage.getItem(`nodus:live-attempt:${shareToken}`);
+      if (!attemptId && savedAttemptId && /^[0-9a-f-]{36}$/i.test(savedAttemptId)) {
+        // Migrate the previous browser backup into an attempt-scoped journal.
+        const savedTxHash = window.localStorage.getItem(`nodus:live-tx:${shareToken}`);
+        if (savedTxHash && /^0x[0-9a-f]{64}$/i.test(savedTxHash)) {
+          referenceWriter.record(savedAttemptId, { transactionHash: savedTxHash });
+        }
+        const references = referenceWriter.read(savedAttemptId);
+        if (references.transactionHash) setDepositTxHash(references.transactionHash);
+        if (references.approvalTransactionHash) setApprovalTxHash(references.approvalTransactionHash);
+        setAttemptId(savedAttemptId);
+        setStage("verifying");
+        setStatusMessage("Resuming verification for the payment attempt saved in this browser.");
+      }
+    } catch { /* New execution requires a browser backup before requesting wallet signatures. */ }
+  }, [attemptId, shareToken, referenceWriter]);
 
   // 2. Countdown timer for quote expiration
   useEffect(() => {
@@ -215,7 +219,7 @@ export function LivePaymentFlow({
 
   // 3. Execution handler
   async function handleAuthorizePayment() {
-    if (!selectedRoute || !selectedAsset || !activeAddress) return;
+    if (!selectedRoute || !selectedAsset || !activeAddress || executionLock.current || attemptId) return;
 
     if (selectedRoute.provider === "circle_cctp" && !circleQuote) {
       setStage("authorizing");
@@ -374,6 +378,9 @@ export function LivePaymentFlow({
     setWalletRejected(false);
     setStage("authorizing");
     setStatusMessage("Validating route and network parameters…");
+    executionLock.current = true;
+    ++routeRequest.current;
+    let directExecutionStarted = false;
     let circleExecutionStarted = false;
     let circleStartResponse: { ok: boolean; data: unknown } | null = null;
     let broadcastTxHash: string | null = null;
@@ -384,7 +391,13 @@ export function LivePaymentFlow({
       const sourceNetworkObj = getWalletNetwork(selectedRoute.sourceNetwork);
       const targetChainId = sourceNetworkObj?.chainId;
 
-      if (targetChainId && evmChainId !== targetChainId) {
+      if (selectedRoute.provider === "circle_direct") {
+        // Direct authorization is bound to the reviewed wallet and network.
+        if (!connector || await connector.getChainId() !== targetChainId
+          || (await connector.getAccounts())[0]?.toLowerCase() !== activeAddress.toLowerCase()) {
+          throw new Error("Wallet account or network changed. Refresh the payment route before authorizing.");
+        }
+      } else if (targetChainId && evmChainId !== targetChainId) {
         const walletConnectChainAligned = connector?.id === "walletConnect" && isMobileWalletBrowser()
           ? await setWalletConnectSessionDefaultChain(connector, targetChainId, activeAddress)
           : false;
@@ -408,12 +421,12 @@ export function LivePaymentFlow({
           recipientAddress: selectedRoute.recipientAddress,
           depositAddress: selectedRoute.depositAddress,
           depositMemo: selectedRoute.depositMemo,
-          requestedAmount: circleQuote
+          requestedAmount: circleQuote && selectedRoute.provider === "circle_cctp"
             ? usdcToBaseUnits(circleQuote.totalDebit)
             : selectedRoute.requestedAmount,
           expectedReceivedAmount: selectedRoute.expectedReceivedAmount,
           quoteExpiresAt: circleQuote?.expiresAt ?? selectedRoute.quoteExpiresAt,
-          quoteSnapshot: circleQuote ? {
+          quoteSnapshot: circleQuote && selectedRoute.provider === "circle_cctp" ? {
             type: "circle_cctp", quote: circleQuote.quote,
             amountReceived: circleQuote.amountReceived, feeTotal: circleQuote.feeTotal,
             feeItems: circleQuote.feeItems, totalDebit: circleQuote.totalDebit,
@@ -434,22 +447,27 @@ export function LivePaymentFlow({
 
       const currentAttemptId = attemptData.attempt.id as string;
       currentAttemptIdForRecovery = currentAttemptId;
+      window.localStorage.removeItem(`nodus:live-tx:${shareToken}`);
       window.localStorage.setItem(`nodus:live-attempt:${shareToken}`, currentAttemptId);
       setAttemptId(currentAttemptId);
 
-      if (selectedRoute.provider === "circle_cctp") {
-        circleExecutionStarted = true;
+      if (selectedRoute.provider === "circle_cctp" || selectedRoute.provider === "circle_direct") {
+        directExecutionStarted = selectedRoute.provider === "circle_direct";
+        circleExecutionStarted = selectedRoute.provider === "circle_cctp";
         const startRes = await fetch(
           `/api/pay/${encodeURIComponent(shareToken)}/attempt/${currentAttemptId}/start`,
           {
             method: "POST",
             cache: "no-store",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ expectedPayer: activeAddress }),
+            body: JSON.stringify({ expectedPayer: activeAddress, ...(selectedRoute.provider === "circle_direct" ? { routeType: "same_chain" } : {}) }),
           }
         );
         const startData = await startRes.json();
         circleStartResponse = { ok: startRes.ok, data: startData };
+        if (selectedRoute.provider === "circle_direct") {
+          assertFreshCircleExecutionReservation(startRes.ok, startData);
+        }
         if (!startRes.ok) {
           throw new Error(startData.error || "Could not reserve this payment attempt for execution.");
         }
@@ -461,46 +479,37 @@ export function LivePaymentFlow({
       let approvalTxHash: string | null = null;
 
       if (selectedRoute.provider === "circle_direct") {
-        // Direct USDC transfer
-        try {
-          if (!connector) throw new Error("Wallet connector unavailable.");
-          const provider = (await connector.getProvider()) as { request: (args: unknown) => Promise<unknown> };
-          const { createViemAdapterFromProvider } = await import("@circle-fin/adapter-viem-v2");
-          const { AppKit } = await import("@circle-fin/app-kit");
-          const adapter = await createViemAdapterFromProvider({ provider: provider as never });
-          const kit = new AppKit();
-          const chainKey = CHAIN_ID_TO_BLOCKCHAIN[targetChainId ?? 8453] ?? "Base";
-          const amountFormatted = (
-            Number(selectedRoute.requestedAmount) / 10 ** selectedRoute.sourceDecimals
-          ).toFixed(selectedRoute.sourceDecimals);
-
-          const step = await kit.send({
-            from: { adapter, chain: chainKey as never },
-            to: selectedRoute.recipientAddress,
-            amount: amountFormatted,
-            token: "USDC",
-          });
-          txHash = step.txHash ?? null;
-        } catch (circleErr: unknown) {
-          const err = circleErr as Error;
-          if (/reject|denied|cancel|user refused/i.test(err?.message ?? "")) {
-            throw new Error("Transaction was declined in your wallet.");
-          }
-          // Direct fallback: standard ERC-20 transfer for same-chain
-          const { encodeFunctionData, parseAbi } = await import("viem");
-          const erc20Abi = parseAbi(["function transfer(address to, uint256 amount) returns (bool)"]);
-          const tokenAddr = (selectedAsset.contractAddress ?? selectedRoute.depositAddress) as `0x${string}`;
-          const transferData = encodeFunctionData({
-            abi: erc20Abi,
-            functionName: "transfer",
-            args: [selectedRoute.recipientAddress as `0x${string}`, BigInt(selectedRoute.requestedAmount)],
-          });
-          txHash = await sendTransactionAsync({
-            to: tokenAddr,
-            data: transferData,
-            value: 0n,
-          });
+        if (!connector || !targetChainId) throw new Error("Wallet disconnected or network unavailable.");
+        const chain = evmWalletChains.find((candidate) => candidate.id === targetChainId);
+        const token = getCircleChain(selectedRoute.sourceNetwork, true)?.usdcAddress;
+        if (!chain || !token || targetChainId !== getWalletNetwork(selectedRoute.destinationNetwork)?.chainId) {
+          throw new Error("Invalid direct payment route.");
         }
+        const provider = await connector.getProvider();
+        const client = createPublicClient({ chain, transport: custom(provider as never) });
+        const amount = BigInt(selectedRoute.requestedAmount);
+        const payer = activeAddress as `0x${string}`;
+        const recipient = selectedRoute.recipientAddress as `0x${string}`;
+        txHash = await executeDirectUsdc({
+          chainId: chain.id, payer, token, recipient, amount,
+          assertWallet: async () => {
+            const [chainId, accounts] = await Promise.all([connector.getChainId(), connector.getAccounts()]);
+            if (chainId !== chain.id || accounts[0]?.toLowerCase() !== payer.toLowerCase()) {
+              throw new Error("Wallet account or network changed. Payment blocked; reconnect to the reviewed network.");
+            }
+          },
+          balance: async () => {
+            const abi = parseAbi(["function balanceOf(address) view returns (uint256)", "function transfer(address,uint256) returns (bool)"]);
+            const [usdc, native, gasUnits, gasPrice] = await Promise.all([
+              client.readContract({ address: token, abi, functionName: "balanceOf", args: [payer] }),
+              client.getBalance({ address: payer }),
+              client.estimateContractGas({ address: token, abi, functionName: "transfer", args: [recipient, amount], account: payer }),
+              client.getGasPrice(),
+            ]);
+            return { usdc, native, gas: gasUnits * gasPrice * 120n / 100n, gasUsesUsdc: chain.nativeCurrency.symbol === "USDC" };
+          },
+          send: (request) => sendTransactionAsync({ ...request, connector }),
+        });
       } else if (selectedRoute.provider === "circle_cctp") {
         // CCTP Cross-chain bridge with Circle Orbit Forwarder
         if (!circleStartResponse) {
@@ -522,12 +531,22 @@ export function LivePaymentFlow({
         const persistCircleProgress = (resultState: "pending" | "success" | "error", rawStep?: unknown) => {
           const step = rawStep === undefined ? undefined : sanitizeCircleBridgeStep(rawStep);
           if (rawStep !== undefined && !step) return progressQueue;
+          // Journal result-only hashes before awaiting telemetry requests as well.
+          if (step?.txHash && /approv/i.test(step.name)) {
+            void referenceWriter.persist(currentAttemptId, { approvalTransactionHash: step.txHash });
+          }
+          if (step?.txHash && /burn|depositforburn/i.test(step.name)) {
+            sourceBurnHashObserved = true;
+            broadcastTxHash = step.txHash;
+            void referenceWriter.persist(currentAttemptId, { transactionHash: step.txHash });
+          }
           progressQueue = progressQueue.then(async () => {
             try {
               const response = await fetch(`/api/pay/${encodeURIComponent(shareToken)}/attempt/${currentAttemptId}/progress`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 keepalive: true,
+                signal: AbortSignal.timeout(8000),
                 body: JSON.stringify({ resultState, ...(step ? { step } : {}) }),
               });
               if (response.ok) {
@@ -555,27 +574,12 @@ export function LivePaymentFlow({
                 if (/approv/i.test(step.name) && step.txHash) {
                   eventApprovalHash = step.txHash;
                   setApprovalTxHash(step.txHash);
-                  void fetch(`/api/pay/${encodeURIComponent(shareToken)}/attempt/${currentAttemptId}/submit`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ approvalTransactionHash: step.txHash }),
-                  }).catch(() => {});
                 }
                 if (/burn|depositforburn/i.test(step.name) && step.txHash) {
                   sourceBurnHashObserved = true;
                   eventBurnHash = step.txHash;
                   broadcastTxHash = step.txHash;
-                  window.localStorage.setItem(`nodus:live-tx:${shareToken}`, step.txHash);
                   setDepositTxHash(step.txHash);
-                  void fetch(`/api/pay/${encodeURIComponent(shareToken)}/attempt/${currentAttemptId}/submit`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      transactionHash: step.txHash,
-                      approvalTransactionHash: eventApprovalHash,
-                      chainUid: selectedRoute.sourceNetwork,
-                    }),
-                  }).catch(() => {});
                 }
                 void persistCircleProgress("pending", step);
               }
@@ -609,15 +613,15 @@ export function LivePaymentFlow({
               },
             }),
           );
+          for (const step of bridgeRes.steps ?? []) void persistCircleProgress(bridgeRes.state, step);
           await persistCircleProgress(bridgeRes.state);
-          for (const step of bridgeRes.steps ?? []) await persistCircleProgress(bridgeRes.state, step);
           const hasRecordedBurn = sourceBurnHashObserved || (bridgeRes.steps?.some((step) =>
             /burn|depositforburn/i.test(step.name) && Boolean(step.txHash)) ?? false);
           if (canRetryCircleBridgeResult(bridgeRes, hasRecordedBurn, isRetryableError)) {
             const retried = await kit.retryBridge(bridgeRes, { from: adapter });
             bridgeRes = retried;
+            for (const step of retried.steps ?? []) void persistCircleProgress(retried.state, step);
             await persistCircleProgress(retried.state);
-            for (const step of retried.steps ?? []) await persistCircleProgress(retried.state, step);
           }
         } catch (err) {
           executionError = err;
@@ -636,32 +640,34 @@ export function LivePaymentFlow({
         approvalTxHash = eventApprovalHash ?? approvalStep?.txHash ?? null;
         txHash = eventBurnHash ?? burnStep?.txHash ?? null;
 
+        if (approvalTxHash || txHash) {
+          // Some SDK versions expose hashes only in the final result, without events.
+          referenceWriter.record(currentAttemptId, { transactionHash: txHash, approvalTransactionHash: approvalTxHash });
+        }
+
         if (txHash) {
+          broadcastTxHash = txHash;
           setDepositTxHash(txHash);
           setStage("verifying");
           setStatusMessage("Transaction submitted! Registering broadcast with NODUS…");
-          await fetch(
-            `/api/pay/${encodeURIComponent(shareToken)}/attempt/${currentAttemptId}/submit`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                transactionHash: txHash,
-                approvalTransactionHash: approvalTxHash,
-                chainUid: selectedRoute.sourceNetwork,
-              }),
-            }
-          ).catch(() => {});
+          if (!await referenceWriter.persist(currentAttemptId)) {
+            setRecoveryRequired(true);
+            setStatusMessage("NODUS is retrying the transaction-reference save. Keep this page open and do not authorize another payment.");
+            return;
+          }
           setStatusMessage("Awaiting independent destination settlement verification…");
           return;
         }
 
         if (approvalTxHash) {
           setApprovalTxHash(approvalTxHash);
+          await referenceWriter.persist(currentAttemptId);
           if (isWalletUserRejection(executionError)) {
-            setStage("idle");
+            setStage("verifying");
+            setRecoveryRequired(true);
+            setSourceTransactionReferenceMissing(true);
             setWalletRejected(true);
-            setFlowError("Transfer authorization was declined in your wallet. Your USDC approval is confirmed; click Authorize payment when you are ready to continue.");
+            setStatusMessage("Transfer authorization was declined in your wallet. An approval reference was received, but this reserved attempt still requires review before another payment can be authorized.");
             return;
           }
         }
@@ -679,28 +685,14 @@ export function LivePaymentFlow({
       }
 
       broadcastTxHash = txHash;
-      window.localStorage.setItem(`nodus:live-tx:${shareToken}`, txHash);
+      referenceWriter.record(currentAttemptId, { transactionHash: txHash, approvalTransactionHash: approvalTxHash });
       setDepositTxHash(txHash);
       setStage("broadcasting");
       setStatusMessage("Transaction submitted! Registering broadcast with NODUS…");
 
       // Step D: Submit broadcasted hash to backend
-      const submitRes = await fetch(
-        `/api/pay/${encodeURIComponent(shareToken)}/attempt/${currentAttemptId}/submit`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            transactionHash: txHash,
-            approvalTransactionHash: approvalTxHash,
-            chainUid: selectedRoute.sourceNetwork,
-          }),
-        }
-      );
-
-      if (!submitRes.ok) {
-        const submitData = await submitRes.json();
-        throw new Error(submitData.error || "Failed to submit transaction reference.");
+      if (!await referenceWriter.persist(currentAttemptId)) {
+        throw new Error("Failed to save transaction reference. The browser backup will be retried.");
       }
 
       setStage("verifying");
@@ -714,6 +706,13 @@ export function LivePaymentFlow({
         setStatusMessage(wasRejected
           ? "Your wallet rejected a request. The server execution reservation remains active while NODUS checks for a source burn. Do not retry or start another payment."
           : "Circle execution status is uncertain after reservation. A source burn may have broadcast; do not retry or start another payment while NODUS checks the source chain.");
+      } else if (directExecutionStarted && !broadcastTxHash) {
+        setStage("verifying");
+        setRecoveryRequired(true);
+        setWalletRejected(isWalletUserRejection(err));
+        setStatusMessage(isWalletUserRejection(err)
+          ? "Transaction declined. Invoice remains unpaid. The reserved attempt prevents duplicate submissions."
+          : `Direct payment requires review: ${err instanceof Error ? err.message : "wallet status uncertain"}. Do not submit again.`);
       } else if (broadcastTxHash) {
         if (currentAttemptIdForRecovery) setAttemptId(currentAttemptIdForRecovery);
         setStage("verifying");
@@ -723,9 +722,11 @@ export function LivePaymentFlow({
         setWalletRejected(false);
       } else {
         setStage("error");
-        setWalletRejected(false);
+        setWalletRejected(isWalletUserRejection(err));
         setFlowError(err instanceof Error ? err.message : "An unexpected execution error occurred.");
       }
+    } finally {
+      executionLock.current = false;
     }
   }
 
@@ -734,37 +735,51 @@ export function LivePaymentFlow({
     if (stage !== "verifying" || !attemptId) return;
 
     let cancelled = false;
+    let checking = false;
+    const clearBrowserAttempt = () => {
+      referenceWriter.clear(attemptId);
+      try {
+        window.localStorage.removeItem(`nodus:live-attempt:${shareToken}`);
+        window.localStorage.removeItem(`nodus:live-tx:${shareToken}`);
+      } catch { /* Server terminal state remains authoritative. */ }
+    };
     const interval = setInterval(async () => {
+      if (checking) return;
+      checking = true;
       try {
         const res = await fetch(
           `/api/pay/${encodeURIComponent(shareToken)}/attempt/${attemptId}/status`,
-          { cache: "no-store" }
+          { cache: "no-store", signal: AbortSignal.timeout(10000) }
         );
         if (!res.ok) return;
 
         const data = await res.json();
         if (cancelled) return;
 
-        if (!data.attempt?.transaction_hash) {
-          const savedTxHash = window.localStorage.getItem(`nodus:live-tx:${shareToken}`);
-          if (savedTxHash && /^0x[0-9a-f]{64}$/i.test(savedTxHash)) {
-            setDepositTxHash(savedTxHash);
-            await fetch(`/api/pay/${encodeURIComponent(shareToken)}/attempt/${attemptId}/submit`, {
-              method: "POST",
-              cache: "no-store",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ transactionHash: savedTxHash }),
-            });
-            return;
-          }
+        const references = referenceWriter.read(attemptId);
+        const sourceUnsaved = references.transactionHash
+          && references.transactionHash.toLowerCase() !== data.attempt?.transaction_hash?.toLowerCase();
+        const approvalUnsaved = references.approvalTransactionHash
+          && references.approvalTransactionHash.toLowerCase() !== data.attempt?.circle_approval_tx_hash?.toLowerCase();
+        if (!data.settled && !data.expired && !["SUCCESS", "FAILED", "REFUNDED", "INCOMPLETE_DEPOSIT"].includes(data.attempt?.status)
+          && (sourceUnsaved || approvalUnsaved)) {
+          if (references.transactionHash) setDepositTxHash(references.transactionHash);
+          if (references.approvalTransactionHash) setApprovalTxHash(references.approvalTransactionHash);
+          const saved = await referenceWriter.persist(attemptId);
+          if (cancelled) return;
+          setRecoveryRequired(!saved);
+          setSourceTransactionReferenceMissing(!saved);
+          setStatusMessage(saved
+            ? "Transaction references saved. NODUS is checking settlement; do not authorize another payment."
+            : "NODUS could not save the transaction references yet. The browser backup will be retried; keep this page open and do not authorize another payment.");
+          return;
         }
 
         if (data.settled || data.attempt?.status === "SUCCESS") {
           clearInterval(interval);
           setSourceTransactionReferenceMissing(false);
           setRecoveryRequired(false);
-          window.localStorage.removeItem(`nodus:live-attempt:${shareToken}`);
-          window.localStorage.removeItem(`nodus:live-tx:${shareToken}`);
+          clearBrowserAttempt();
           setStage("settled");
           setWalletRejected(false);
           setStatusMessage("Payment settled and verified on destination chain!");
@@ -776,7 +791,7 @@ export function LivePaymentFlow({
           clearInterval(interval);
           setSourceTransactionReferenceMissing(false);
           setRecoveryRequired(false);
-          window.localStorage.removeItem(`nodus:live-attempt:${shareToken}`);
+          clearBrowserAttempt();
           setStage("error");
           setWalletRejected(false);
           setFlowError("Payment failed on-chain. Funds were not settled.");
@@ -784,7 +799,7 @@ export function LivePaymentFlow({
           clearInterval(interval);
           setSourceTransactionReferenceMissing(false);
           setRecoveryRequired(false);
-          window.localStorage.removeItem(`nodus:live-attempt:${shareToken}`);
+          clearBrowserAttempt();
           setStage("error");
           setWalletRejected(false);
           setFlowError("The payment quote expired before a source transaction was recorded. Request a fresh quote to continue.");
@@ -795,18 +810,17 @@ export function LivePaymentFlow({
             setApprovalTxHash(data.attempt.circle_approval_tx_hash);
           }
           setRecoveryRequired(Boolean(data.recoveryRequired));
-          setStatusMessage("NODUS saved the source transaction and is verifying the Circle settlement. No action is needed.");
-        } else if (data.recoveryState === "APPROVAL_CONFIRMED" || data.attempt?.circle_approval_tx_hash) {
-          setSourceTransactionReferenceMissing(Boolean(data.sourceTransactionReferenceMissing));
-          if (typeof data.recoveryRequired === "boolean") setRecoveryRequired(data.recoveryRequired);
+          setStatusMessage("NODUS saved the transaction and is independently verifying destination settlement. No action is needed.");
+        } else if (data.attempt?.circle_approval_tx_hash) {
+          setSourceTransactionReferenceMissing(true);
+          setRecoveryRequired(true);
           setApprovalTxHash(data.attempt.circle_approval_tx_hash);
-          setStage("idle");
-          setStatusMessage("USDC approval confirmed on Base Sepolia. Ready to authorize transfer.");
+          setStatusMessage("The approval reference is saved, but the source transfer reference is missing. This reserved attempt requires review; do not authorize another payment.");
         } else if (data.sourceTransactionReferenceMissing) {
           setSourceTransactionReferenceMissing(true);
           if (typeof data.recoveryRequired === "boolean") setRecoveryRequired(data.recoveryRequired);
           setStatusMessage(
-            "No approval or source burn hash is saved to this reserved attempt. NODUS cannot safely restart it until its status is reviewed. Do not start another payment; reference the Attempt ID below.",
+            "No payment transaction hash is saved to this reserved attempt. NODUS cannot safely restart it until its status is reviewed. Do not start another payment; reference the Attempt ID below.",
           );
         } else if (data.recoveryRequired) {
           setSourceTransactionReferenceMissing(false);
@@ -817,6 +831,8 @@ export function LivePaymentFlow({
         }
       } catch {
         // Transient network error in polling - retry next interval
+      } finally {
+        checking = false;
       }
     }, 3000);
 
@@ -824,7 +840,7 @@ export function LivePaymentFlow({
       cancelled = true;
       clearInterval(interval);
     };
-  }, [stage, attemptId, shareToken, onPaymentSuccess]);
+  }, [stage, attemptId, shareToken, onPaymentSuccess, referenceWriter]);
 
   const busy =
     loadingRoutes ||
@@ -867,7 +883,7 @@ export function LivePaymentFlow({
       </h3>
 
       {loadingRoutes ? (
-        <p className="wallet-description">Checking Circle USDC payment routes…</p>
+        <p className="wallet-description">Checking USDC payment routes…</p>
       ) : routesError ? (
         <div className="wallet-asset-error" role="alert">
           <p>{routesError}</p>
@@ -972,7 +988,7 @@ export function LivePaymentFlow({
             )}
             {depositTxHash && (
               <div>
-                <dt>Source burn</dt>
+                <dt>{selectedRoute.provider === "circle_direct" ? "Payment transaction" : "Source burn"}</dt>
                 <dd>
                   <code style={{ fontSize: "0.8125rem" }}>{shortHash(depositTxHash)}</code>
                 </dd>
@@ -980,6 +996,9 @@ export function LivePaymentFlow({
             )}
           </dl>
 
+          {selectedRoute.provider === "circle_direct" && (
+            <p className="wallet-description">Direct payment. Same network — no bridge required. Bridge: Not required. Network gas is paid separately and shown by your wallet before signing.</p>
+          )}
           {selectedRoute.provider === "circle_cctp" && (
             <div className="wallet-execution-steps" aria-label="Circle payment authorization steps">
               <p><strong>Step 1: USDC approval.</strong> Your wallet may ask you to approve USDC for Circle to use.</p>
@@ -1003,15 +1022,17 @@ export function LivePaymentFlow({
               <p className="wallet-recovery-copy" style={{ color: "#7f1d1d", margin: "0 0 0.75rem 0", fontSize: "0.8125rem" }}>
                 {sourceTransactionReferenceMissing
                   ? statusMessage
+                  : selectedRoute.provider === "circle_direct"
+                  ? "NODUS is checking the direct payment transaction. Do not authorize another payment while verification is pending."
                   : walletRejected
                   ? "Your wallet rejected a request. NODUS is checking whether Circle submitted a source burn. No action is needed; do not start another payment."
                   : "Execution status is uncertain. NODUS is checking the saved Circle attempt and will resume verification automatically. No action is needed; do not start another payment."}
               </p>
-              {!sourceTransactionReferenceMissing && <p className="wallet-recovery-copy">If Circle submitted a source burn, NODUS will verify it and continue destination settlement automatically.</p>}
+              {!sourceTransactionReferenceMissing && selectedRoute.provider === "circle_cctp" && <p className="wallet-recovery-copy">If Circle submitted a source burn, NODUS will verify it and continue destination settlement automatically.</p>}
               <div style={{ padding: "0.625rem", background: "#ffffff", borderRadius: "6px", border: "1px solid #e2e8f0", fontSize: "0.8125rem", fontFamily: "monospace", color: "#334155", margin: "0.5rem 0" }}>
                 <div><strong>Support Reference (Attempt ID):</strong> {attemptId}</div>
                 <div><strong>Invoice Reference:</strong> {invoiceNumber}</div>
-                {depositTxHash && <div><strong>Source Burn:</strong> {depositTxHash}</div>}
+                {depositTxHash && <div><strong>{selectedRoute.provider === "circle_direct" ? "Payment transaction:" : "Source burn:"}</strong> {depositTxHash}</div>}
               </div>
               {activeAddress && (
                 <a className="wallet-explorer-link" href={`${evmWalletChains.find((chain) => chain.id === getWalletNetwork(selectedRoute?.sourceNetwork ?? "")?.chainId)?.blockExplorers?.default.url ?? "#"}/address/${encodeURIComponent(activeAddress)}`} target="_blank" rel="noreferrer">
@@ -1019,7 +1040,7 @@ export function LivePaymentFlow({
                 </a>
               )}
               {depositTxHash && (
-                <a className="wallet-explorer-link" href={`https://sepolia.basescan.org/tx/${encodeURIComponent(depositTxHash)}`} target="_blank" rel="noreferrer">
+                <a className="wallet-explorer-link" href={`${evmWalletChains.find((chain) => chain.id === getWalletNetwork(selectedRoute.sourceNetwork)?.chainId)?.blockExplorers?.default.url}/tx/${encodeURIComponent(depositTxHash)}`} target="_blank" rel="noreferrer">
                   View submitted source transaction
                 </a>
               )}
@@ -1045,7 +1066,8 @@ export function LivePaymentFlow({
                 disabled={busy}
                 onClick={() => void handleAuthorizePayment()}
               >
-                {busy ? "Preparing…" : circleQuote
+                {busy ? "Preparing…" : selectedRoute.provider === "circle_direct"
+                  ? "Authorize direct USDC payment" : circleQuote
                   ? `Authorize payment (${circleQuote.totalDebit} USDC)`
                   : "Get Circle quote"}
               </button>

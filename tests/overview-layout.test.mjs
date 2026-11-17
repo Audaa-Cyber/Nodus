@@ -20,12 +20,12 @@ test("Dashboard Overview adheres to layout, component, and animation contracts",
   // 3. Multi-chain Donut chart rendered in balance card
   assert.match(balanceCard, /<MerchantDonutChart/);
 
-  // 4. Official network brand colors and distinguishable gray tones
+  // 4. Network chart accents keep Ethereum and Arc visually distinct
   assert.match(distribution, /\["base-sepolia", "#0000FF"\]/);
   assert.match(distribution, /\["arbitrum-sepolia", "#12AAFF"\]/);
   assert.match(distribution, /\["optimism-sepolia", "#FF0421"\]/);
   assert.match(distribution, /\["sepolia", "#8C8C8C"\]/);
-  assert.match(distribution, /\["arc-testnet", "#171717"\]/);
+  assert.match(distribution, /\["arc-testnet", "#3E2B63"\]/);
 
   // 5. Empty state and center display
   assert.match(donutComponent, /overview-donut-empty-ring/);

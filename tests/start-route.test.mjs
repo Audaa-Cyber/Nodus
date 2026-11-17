@@ -71,6 +71,15 @@ function reset() {
   rpcCalls = [];
 }
 
+test("direct authorization reserves the same-chain strategy without starting CCTP", async () => {
+  reset();
+  const response = await invoke({ body: { expectedPayer: payer, routeType: "same_chain" } });
+  assert.equal(response.status, 200);
+  assert.equal(rpcCalls.length, 1);
+  assert.equal(rpcCalls[0][0], "reserve_direct_payment_execution");
+  assert.equal(rpcCalls[0][1].p_expected_payer, payer.toLowerCase());
+});
+
 test("POST returns a confirmed reservation, normalized RPC arguments, and a safe no-store body", async () => {
   reset();
   rpcResult.data[0] = {

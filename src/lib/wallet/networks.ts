@@ -114,6 +114,17 @@ export function getCircleTestnetUsdcNetworkForChainId(chainId: number | undefine
   return circleTestnetUsdcNetworks.find((network) => network.chainId === chainId);
 }
 
+export function resolveCheckoutSource(chainId: number | undefined, destination?: string | null) {
+  return getCircleTestnetUsdcNetworkForChainId(chainId)
+    ?? circleTestnetUsdcNetworks.find((network) => network.chainId === getWalletNetwork(destination ?? "")?.chainId)
+    ?? circleTestnetUsdcNetworks[1];
+}
+
+export function isSamePaymentChain(source: string, destination: string): boolean {
+  const sourceId = getWalletNetwork(source)?.chainId;
+  return sourceId !== undefined && sourceId === getWalletNetwork(destination)?.chainId;
+}
+
 export type WalletNetwork = {
   key: string;
   label: string;

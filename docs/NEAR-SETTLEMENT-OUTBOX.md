@@ -8,7 +8,7 @@ An `AFTER INSERT` trigger on `payment_settlements` creates one private outbox ro
 
 The worker synchronizes the already registered invoice and attempt (using the deployed ABI's `get_invoice`, `register_invoice`, `get_attempt` and `register_attempt` methods), then calls `attest_settlement({input: ...})`. It queries `get_settlement` before every send and after a timeout or uncertain response. An exact existing record is marked delivered; a mismatch is blocked. Queue rows are leased with `FOR UPDATE SKIP LOCKED`, retried with capped exponential backoff, and ordered by invoice so partial receipts are attested before later receipts.
 
-Only the deployed contract's supported CCTP route is eligible. Direct same-chain payments and multi-destination-transaction settlements are not attested by the current registry ABI.
+Verified direct same-chain USDC settlements are also eligible after applying `20261117120000_same_chain_settlement.sql`. They use the same outbox and readback checks. The payload uses verifier policy version 2 and transaction-derived identifiers in the `NODUS_DIRECT_USDC_V1` namespace for the existing ABI's nonce/message fields; these identifiers are not CCTP evidence. Independent ERC-20 destination verification is the authority for direct payments. Multi-destination-transaction settlements remain unsupported. See [same-chain payments](SAME-CHAIN-PAYMENTS.md).
 
 ## Migration and runtime setup
 

@@ -1,4 +1,5 @@
 import { isIrisMessageBoundToSource } from "../payments/cctp-v2-integrity.ts";
+import { isSamePaymentChain } from "../wallet/networks.ts";
 
 export interface CircleChainInfo {
   networkKey: string;
@@ -325,6 +326,6 @@ export function isDirectUsdcTransferSupported(
   if (symbol.toUpperCase() !== "USDC") return false;
   const fromNorm = fromNetwork.trim().toLowerCase();
   const toNorm = toNetwork.trim().toLowerCase();
-  if (fromNorm !== toNorm) return false;
+  if (!isSamePaymentChain(fromNorm, toNorm)) return false;
   return Boolean(getCircleChain(fromNorm, isTestnet));
 }

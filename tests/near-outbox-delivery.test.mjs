@@ -52,6 +52,29 @@ function dependencies(overrides = {}) {
   };
 }
 
+test("same-chain settlement waits for matching readback before NEAR success", async () => {
+  const direct = { ...input, destination_transaction_hash: input.source_transaction_hash };
+  const payload = { invoiceArgs: {}, attemptArgs: {}, attestationArgs: { input: direct }, settlementRecord: direct };
+  let confirmed = 0;
+  let readback = null;
+  let sends = 0;
+  const deps = dependencies({
+    loadPayload: async () => payload,
+    getSettlement: async () => readback,
+    attestSettlement: async () => { sends++; return "direct-near-tx"; },
+    markSubmitted: async () => { confirmed++; },
+  });
+  assert.equal(await deliverClaimedNearSettlement(job, deps), "retry");
+  assert.equal(confirmed, 0);
+  const saved = { ...job, near_transaction_hash: "direct-near-tx" };
+  assert.equal(await deliverClaimedNearSettlement(saved, deps), "retry");
+  assert.equal(sends, 1);
+  readback = direct;
+  assert.equal(await deliverClaimedNearSettlement(saved, deps), "submitted");
+  assert.equal(confirmed, 1);
+  assert.equal(sends, 1);
+});
+
 test("reconciles an existing matching settlement without submitting a duplicate", async () => {
   let sends = 0;
   let completed = 0;

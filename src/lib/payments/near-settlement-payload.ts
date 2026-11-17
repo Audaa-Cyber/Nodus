@@ -1,12 +1,13 @@
 import { createHash } from "node:crypto";
+import { getCircleChain } from "../server/circle.ts";
 
-const TESTNET_USDC_CHAINS: Record<string, { chainId: number; cctpDomainId: number; token: string }> = {
-  sepolia: { chainId: 11155111, cctpDomainId: 0, token: "0x1c7d4b196cb0c7b01d743fbc6116a902379c7238" },
-  "base-sepolia": { chainId: 84532, cctpDomainId: 6, token: "0x036cbd53842c5426634e7929541ec2318f3dcf7e" },
-  "arbitrum-sepolia": { chainId: 421614, cctpDomainId: 3, token: "0x75faf114eafb1bdbe2f0316df893fd58ce46aa4d" },
-  "optimism-sepolia": { chainId: 11155420, cctpDomainId: 2, token: "0x5fd84259d66cd46123540766be93dfe6d43130d7" },
-  "arc-testnet": { chainId: 5042002, cctpDomainId: 26, token: "0x3600000000000000000000000000000000000000" },
-};
+import { circleTestnetUsdcNetworks } from "../wallet/networks.ts";
+
+function settlementChain(network: string) {
+  if (!circleTestnetUsdcNetworks.some((candidate) => candidate.key === network)) return null;
+  const chain = getCircleChain(network, true);
+  return chain ? { ...chain, token: chain.usdcAddress.toLowerCase() } : null;
+}
 const VERIFIER_POLICY_VERSION = 1;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const HASH = /^0x[0-9a-f]{64}$/;
@@ -186,12 +187,13 @@ export function buildNearSettlementPayload(input: {
     invalid("near_settlement_record_ineligible");
   }
   const snapshot = map(attempt.quote_snapshot);
+  const isDirect = text(snapshot.type) === "circle_direct";
   const sourceNetwork = text(attempt.source_network);
   const destinationNetwork = text(attempt.destination_network);
-  const sourceChain = TESTNET_USDC_CHAINS[sourceNetwork];
-  const destinationChain = TESTNET_USDC_CHAINS[destinationNetwork];
-  if (text(snapshot.type) !== "circle_cctp" || text(attempt.mode) !== "live"
-    || !sourceChain || !destinationChain || sourceNetwork === destinationNetwork
+  const sourceChain = settlementChain(sourceNetwork);
+  const destinationChain = settlementChain(destinationNetwork);
+  if ((!isDirect && text(snapshot.type) !== "circle_cctp") || text(attempt.mode) !== "live"
+    || !sourceChain || !destinationChain || (isDirect ? sourceChain.chainId !== destinationChain.chainId : sourceChain.chainId === destinationChain.chainId)
     || text(attempt.source_asset_id) !== `${sourceNetwork}:usdc`
     || text(attempt.destination_asset_id) !== `${destinationNetwork}:usdc`
     || text(settlement.destination_network) !== destinationNetwork
@@ -202,7 +204,23 @@ export function buildNearSettlementPayload(input: {
   if (!Number.isSafeInteger(invoice.amount_minor) || Number(invoice.amount_minor) < 1) invalid("near_invoice_amount_invalid");
 
   const evidence = map(settlement.evidence);
-  const sourceProof = map(evidence.sourceProof);
+  const directProof = map(evidence.destinationProof);
+  const directTransaction = map(Array.isArray(directProof.transactions) ? directProof.transactions[0] : null);
+  if (isDirect && (evidence.routeType !== "same_chain"
+    || canonicalAddress(directProof.payer) !== canonicalAddress(snapshot.payer)
+    || canonicalAddress(directProof.contractAddress) !== canonicalAddress(input.canonicalTokenAddress)
+    || canonicalAddress(directProof.recipient) !== canonicalAddress(attempt.recipient_address)
+    || canonicalHash(directTransaction.transactionHash) !== canonicalHash(attempt.transaction_hash))) {
+    invalid("near_direct_evidence_mismatch");
+  }
+  // ABI compatibility only: direct identifiers are derived from the verified
+  // transaction in a separate namespace. They are never CCTP settlement proof.
+  const directIdentifier = `0x${createHash("sha256").update(`NODUS_DIRECT_USDC_V1:${sourceNetwork}:${text(attempt.transaction_hash).toLowerCase()}`).digest("hex")}`;
+  const sourceProof = isDirect ? {
+    sourceTransactionHash: attempt.transaction_hash,
+    sourceBlockNumber: directTransaction.blockNumber, sourceBlockHash: directTransaction.blockHash,
+    nonce: directIdentifier, messageHash: directIdentifier, sourceDomain: sourceChain.cctpDomainId,
+  } : map(evidence.sourceProof);
   const destinationProof = map(evidence.destinationProof);
   if (destinationProof.verified !== true || destinationProof.finalityConfirmed !== true) {
     invalid("near_destination_evidence_unverified");
@@ -264,7 +282,7 @@ export function buildNearSettlementPayload(input: {
     merchant_recipient: merchantRecipient,
     amount_base_units: amount,
     token_decimals: 6,
-    verifier_policy_version: VERIFIER_POLICY_VERSION,
+    verifier_policy_version: isDirect ? 2 : VERIFIER_POLICY_VERSION,
   };
   return {
     invoiceArgs: { invoice_id: invoiceId, terms },

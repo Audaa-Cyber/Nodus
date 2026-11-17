@@ -1,5 +1,5 @@
 import { getCircleChain, isCctpRouteSupported } from "../server/circle.ts";
-import { getWalletNetwork } from "../wallet/networks.ts";
+import { getWalletNetwork, isSamePaymentChain } from "../wallet/networks.ts";
 
 export interface RouteDiscoveryInput {
   invoiceId: string;
@@ -96,7 +96,7 @@ export async function discoverPaymentRoutes(
   // =========================================================================
   // 1. PATH 1: Same-Chain Direct USDC Transfer
   // =========================================================================
-  const isSameChain = sourceNetwork.trim().toLowerCase() === destinationNetwork.trim().toLowerCase();
+  const isSameChain = isSamePaymentChain(sourceNetwork, destinationNetwork);
   const isSourceUsdc = sourceSymbol.toUpperCase() === "USDC";
 
   if (isSameChain && isSourceUsdc) {

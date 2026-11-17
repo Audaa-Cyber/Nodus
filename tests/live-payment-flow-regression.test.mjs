@@ -47,7 +47,7 @@ test("recovery automatically verifies the saved source hash without asking the p
   const recovery = flow.slice(flow.indexOf("{(recoveryRequired || sourceTransactionReferenceMissing) && attemptId"), flow.indexOf("{destinationReceipts.length"));
   assert.match(flow, /typeof data\.attempt\?\.transaction_hash === "string"/);
   assert.match(flow, /setDepositTxHash\(data\.attempt\.transaction_hash\)/);
-  assert.match(flow, /else if \(data\.sourceTransactionReferenceMissing\) \{[\s\S]*?No approval or source burn hash is saved to this reserved attempt/);
+  assert.match(flow, /else if \(data\.sourceTransactionReferenceMissing\) \{[\s\S]*?No payment transaction hash is saved to this reserved attempt/);
   assert.match(recovery, /sourceTransactionReferenceMissing \? "Transaction Reference Not Saved"/);
   assert.match(recovery, /sourceTransactionReferenceMissing\s*\? statusMessage/);
   assert.match(flow, /\/progress`/);
@@ -56,6 +56,17 @@ test("recovery automatically verifies the saved source hash without asking the p
   assert.doesNotMatch(flow, /recoveryTxHash|attachRecoveredSourceTransaction/);
   assert.doesNotMatch(flow, /Optional USDC approval transaction hash/);
   assert.match(styles, /\.wallet-recovery-panel/);
+});
+
+test("reference recovery uses attempt-scoped backups and never re-enables approval-only execution", () => {
+  assert.match(flow, /referenceWriter\.persist\(currentAttemptId/);
+  assert.match(flow, /const references = referenceWriter\.read\(attemptId\)/);
+  assert.match(flow, /const saved = await referenceWriter\.persist\(attemptId\)/);
+  const approvalRecovery = flow.slice(flow.indexOf("} else if (data.attempt?.circle_approval_tx_hash)"), flow.indexOf("} else if (data.sourceTransactionReferenceMissing)"));
+  assert.match(approvalRecovery, /setRecoveryRequired\(true\)/);
+  assert.doesNotMatch(approvalRecovery, /setStage\("idle"\)|Ready to authorize/);
+  assert.doesNotMatch(flow, /\.catch\(\(\) => \{\}\)/);
+  assert.match(flow, /if \(checking\) return/);
 });
 
 test("Circle checkout uses the server quote and estimates source gas for the selected network", () => {

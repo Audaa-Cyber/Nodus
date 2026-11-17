@@ -73,6 +73,8 @@ export type InvoiceForSettlement = {
 };
 
 export type DestinationTransferProof = {
+  payer?: string;
+  transactions?: Array<{ transactionHash: string; blockNumber: string; blockHash: string }>;
   verified: boolean;
   assetId?: string;
   network: string;

@@ -197,6 +197,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
     depositAddress = context.receiving_address;
     quoteSnapshot = {
       type: "circle_direct",
+      routeType: "same_chain",
+      sourceChainId: destinationCircle.chainId,
+      destinationChainId: destinationCircle.chainId,
+      sourceUsdc: destinationCircle.usdcAddress,
+      destinationUsdc: destinationCircle.usdcAddress,
       invoiceId: context.invoice_id,
       invoiceAmountMinor: String(context.amount_minor),
       invoiceCurrency: String(context.currency),

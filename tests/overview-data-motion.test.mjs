@@ -210,6 +210,56 @@ test("network changes snap directly without animation and rapid updates continue
   assert.equal(time.pending(), 0);
 });
 
+test("network exploration counts from zero, restarts for another network, and restores the exact total", () => {
+  const { controller, time, values } = animator("2400000000", 1100);
+  controller.update(1200000000n, "base-network", false, true);
+  assert.equal(values.at(-1), 0n);
+  time.advance(300);
+  assert.ok(values.at(-1) > 0n && values.at(-1) < 1200000000n);
+
+  // Moving to another network midway must not show the old network's balance.
+  controller.update(180123456n, "arc-network", false, true);
+  assert.equal(values.at(-1), 0n);
+  time.advance(1100);
+  assert.equal(values.at(-1), 180123456n, "preserves all six USDC decimal places");
+  controller.update(180123456n, "arc-network", false, true);
+  assert.equal(values.at(-1), 180123456n, "unchanged hover does not replay");
+
+  controller.update(2400000000n, "all", false, false);
+  assert.equal(values.at(-1), 2400000000n);
+  assert.equal(time.pending(), 0, "leaving exploration cancels pending work");
+});
+
+test("network exploration respects reduced motion and preserves very large balances", () => {
+  const { controller, time, values } = animator("0", 1100);
+  const amount = 9007199254740993123456n;
+  controller.update(amount, "ethereum-network", true, true);
+  assert.equal(values.at(-1), amount);
+  assert.equal(time.pending(), 0);
+
+  controller.update(amount, "arc-network", false, true);
+  time.advance(550);
+  assert.ok(values.at(-1) > 0n && values.at(-1) < amount);
+  time.advance(550);
+  assert.equal(values.at(-1), amount);
+});
+
+test("hover counting stays readable for three seconds with steady 100ms steps", () => {
+  const { controller, time, values, feedback } = animator("0", 3000);
+  controller.update(3000000000n, "network", false, true);
+  time.advance(600);
+  assert.equal(values.at(-1), 600000000n, "20% through the time means 20% of the balance");
+  time.advance(50);
+  assert.equal(values.at(-1), 600000000n, "the number holds between readable ticks");
+  time.advance(1750);
+  assert.ok(values.at(-1) < 3000000000n, "counting continues past the old duration");
+  assert.equal(feedback.at(-1), true);
+  time.advance(600);
+  assert.equal(values.at(-1), 3000000000n);
+  assert.equal(feedback.at(-1), false);
+  assert.equal(time.pending(), 0);
+});
+
 test("verified settlement arrivals animate newly added entries without replaying old ones", () => {
   const tracker = motion.createSnapshotTracker("arrival");
   assert.deepEqual(tracker.update(null), [], "null response preserves state without error");

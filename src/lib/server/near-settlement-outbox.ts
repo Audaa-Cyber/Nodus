@@ -82,7 +82,6 @@ export async function processNearSettlementOutbox(
           canonicalTokenAddress: destination.usdcAddress,
         });
         const evidence = settlementResult.data.evidence as Record<string, unknown>;
-        const sourceProof = evidence.sourceProof as Record<string, unknown>;
         const destinationProof = evidence.destinationProof as Record<string, unknown>;
         const transaction = (destinationProof.transactions as Record<string, unknown>[])[0];
         const input = payload.attestationArgs.input;
@@ -90,7 +89,7 @@ export async function processNearSettlementOutbox(
           reconciliation_id: input.reconciliation_id,
           invoice_id: settlementResult.data.invoice_id,
           attempt_id: settlementResult.data.payment_attempt_id,
-          source_transaction_hash: String(sourceProof.sourceTransactionHash),
+          source_transaction_hash: input.source_transaction_hash,
           destination_transaction_hash: String(transaction.transactionHash),
           amount_base_units: String(destinationProof.amount),
           evidence_digest: input.evidence_digest,

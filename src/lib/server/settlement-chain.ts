@@ -40,9 +40,11 @@ export async function verifyEvmDestinationTransfers(input: {
   amount: string;
   transactionHashes: string[];
   assetId: string;
+  payer?: string;
 }): Promise<DestinationTransferProof> {
   const network = getWalletNetwork(input.network);
   if (!network || network.family !== "evm" || !input.contractAddress || !isAddress(input.contractAddress)
+    || (input.payer !== undefined && !isAddress(input.payer))
     || !isAddress(input.recipient) || !/^[1-9][0-9]*$/.test(input.amount)
     || input.transactionHashes.length < 1 || input.transactionHashes.length > 16
     || input.transactionHashes.some((hash) => !HASH.test(hash))
@@ -50,14 +52,16 @@ export async function verifyEvmDestinationTransfers(input: {
     throw new Error("unsupported_or_invalid_destination_proof");
   }
   const key = network.key;
-  const rpcUrl = readJsonMap<string>("SETTLEMENT_RPC_URLS_JSON")[key] ?? DEFAULT_SETTLEMENT_RPC_URLS[key];
-  const confirmations = readJsonMap<number>("SETTLEMENT_CONFIRMATIONS_JSON")[key] ?? DEFAULT_SETTLEMENT_CONFIRMATIONS[key];
+  const rpcUrl = readJsonMap<string>("SETTLEMENT_RPC_URLS_JSON")[key] ?? DEFAULT_SETTLEMENT_RPC_URLS[key] ?? evmWalletChains.find((chain) => chain.id === network.chainId)?.rpcUrls.default.http[0];
+  const confirmations = readJsonMap<number>("SETTLEMENT_CONFIRMATIONS_JSON")[key] ?? DEFAULT_SETTLEMENT_CONFIRMATIONS[key] ?? 2;
   if (!rpcUrl || !/^https:\/\//i.test(rpcUrl) || !Number.isInteger(confirmations) || confirmations < 1 || confirmations > 10_000) {
     throw new Error("settlement_chain_not_configured");
   }
   const chain = evmWalletChains.find((candidate) => candidate.id === network.chainId);
   if (!chain) throw new Error("settlement_chain_unsupported");
   const client = createPublicClient({ chain, transport: http(rpcUrl, { timeout: 12_000, retryCount: 1 }) });
+  if (await deadline(client.getChainId()) !== chain.id) throw new Error("destination_rpc_wrong_chain");
+  const transactions: Array<{ transactionHash: string; blockNumber: string; blockHash: string }> = [];
   const minimum = BigInt(input.amount);
   let received = 0n;
   let matchingTransfers = 0;
@@ -69,12 +73,22 @@ export async function verifyEvmDestinationTransfers(input: {
   for (const hash of hashes) {
     const receipt = await deadline(client.getTransactionReceipt({ hash }));
     if (receipt.status !== "success") throw new Error("destination_transaction_failed");
+    const transaction = await deadline(client.getTransaction({ hash }));
+    if (transaction.chainId !== chain.id || transaction.blockHash !== receipt.blockHash
+      || (input.payer && (!isAddressEqual(transaction.from, input.payer as Address)
+        || !transaction.to || !isAddressEqual(transaction.to, input.contractAddress as Address)))) {
+      throw new Error("destination_transaction_identity_mismatch");
+    }
+    const block = await deadline(client.getBlock({ blockNumber: receipt.blockNumber }));
+    if (block.hash !== receipt.blockHash) throw new Error("destination_receipt_not_canonical");
+    transactions.push({ transactionHash: hash.toLowerCase(), blockNumber: receipt.blockNumber.toString(), blockHash: receipt.blockHash });
     const currentBlock = await deadline(client.getBlockNumber());
     if (currentBlock + 1n < receipt.blockNumber + BigInt(confirmations)) finalityConfirmed = false;
     const logs = parseEventLogs({ abi: transferAbi, logs: receipt.logs, strict: false, eventName: "Transfer" });
     for (const log of logs) {
       if (!log.address || !isAddressEqual(log.address, input.contractAddress as Address)) continue;
       if (!log.args.to || !isAddressEqual(log.args.to, input.recipient as Address)) continue;
+      if (input.payer && (!log.args.from || !isAddressEqual(log.args.from, input.payer as Address))) continue;
       if (typeof log.args.value === "bigint") {
         matchingTransfers += 1;
         received = log.args.value;
@@ -91,5 +105,7 @@ export async function verifyEvmDestinationTransfers(input: {
     amount: received.toString(),
     transactionHashes: [...hashes],
     finalityConfirmed,
+    ...(input.payer ? { payer: input.payer.toLowerCase() } : {}),
+    transactions,
   };
 }

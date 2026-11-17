@@ -213,3 +213,20 @@ test("does not construct a NEAR attestation from a client-only or non-CCTP attem
   value.attempt = { ...value.attempt, quote_snapshot: { type: "circle_direct" } };
   assert.throws(() => buildNearSettlementPayload(value), /near_settlement_route_unsupported/);
 });
+
+test("H: verified same-chain evidence builds the existing worker payload without CCTP proof", () => {
+  const input = fixture();
+  input.attempt.source_network = input.attempt.destination_network;
+  input.attempt.source_asset_id = input.attempt.destination_asset_id;
+  input.attempt.quote_snapshot = { type: "circle_direct", sourceUsdc: token, payer: recipient };
+  input.attempt.transaction_hash = destinationHash;
+  delete input.settlement.evidence.sourceProof;
+  input.settlement.evidence.routeType = "same_chain";
+  Object.assign(input.settlement.evidence.destinationProof, { payer: recipient, recipient, contractAddress: token });
+  const payload = buildNearSettlementPayload(input);
+  assert.equal(payload.attestationArgs.input.verifier_policy_version, 2);
+  assert.equal(payload.attestationArgs.input.source_transaction_hash, destinationHash);
+  assert.equal(payload.attestationArgs.input.destination_transaction_hash, destinationHash);
+  input.settlement.evidence.destinationProof.finalityConfirmed = false;
+  assert.throws(() => buildNearSettlementPayload(input), /near_destination_evidence_unverified/);
+});

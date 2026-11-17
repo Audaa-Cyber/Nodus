@@ -83,7 +83,7 @@ export async function POST(
       return NextResponse.json({
         success: true,
         attempt: publicAttempt,
-        recoveryState: "SOURCE_BURN_CONFIRMED",
+        recoveryState: "SOURCE_REFERENCE_SAVED",
       });
     }
 
@@ -121,7 +121,7 @@ export async function POST(
     return NextResponse.json({
       success: true,
       attempt: publicAttempt,
-      recoveryState: "APPROVAL_CONFIRMED",
+      recoveryState: "APPROVAL_REFERENCE_SAVED",
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "unknown_error";
