@@ -25,17 +25,15 @@ const methods = ["USDC · Ethereum", "USDC · Solana", "USDT · Ethereum"];
 export default function Home() {
   const [method, setMethod] = useState(methods[0]);
   const [paymentState, setPaymentState] = useState<"idle" | "processing" | "paid">("idle");
-  const [printing, setPrinting] = useState(false);
   const [items, setItems] = useState([
     { id: 1, name: "House espresso", price: 4.5, quantity: 1 },
     { id: 2, name: "Almond croissant", price: 6, quantity: 1 },
     { id: 3, name: "Still water", price: 2.5, quantity: 1 },
   ]);
   const paymentTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const printTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const service = subtotal * 0.1;
-  const total = subtotal + service;
+  const tax = subtotal * 0.15;
+  const total = subtotal + tax;
   const formatUsd = (amount: number) => "$" + amount.toFixed(2);
   const [showBreakdown, setShowBreakdown] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -45,7 +43,6 @@ export default function Home() {
   useEffect(() => () => {
     if (copyTimer.current) clearTimeout(copyTimer.current);
     if (paymentTimer.current) clearTimeout(paymentTimer.current);
-    if (printTimer.current) clearTimeout(printTimer.current);
   }, []);
 
   useEffect(() => {
@@ -148,9 +145,9 @@ export default function Home() {
     context.fillText(formatUsd(subtotal), 336, y);
     y += 30;
     context.textAlign = "left";
-    context.fillText("Service · 10%", 24, y);
+    context.fillText("Tax · 15%", 24, y);
     context.textAlign = "right";
-    context.fillText(formatUsd(service), 336, y);
+    context.fillText(formatUsd(tax), 336, y);
     y += 22;
     context.strokeStyle = "#171816";
     context.beginPath(); context.moveTo(24, y); context.lineTo(336, y); context.stroke();
@@ -189,29 +186,6 @@ export default function Home() {
       anchor.click();
       window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     }, "image/png");
-  };
-
-  const printReceipt = () => {
-    if (paymentState !== "paid" || printing) return;
-    setPrinting(true);
-    if ("vibrate" in navigator) navigator.vibrate([45, 35, 45, 35, 70]);
-    try {
-      const AudioContextClass = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-      if (AudioContextClass) {
-        const context = new AudioContextClass();
-        [0, 150, 310, 490, 700].forEach((delay, index) => {
-          const oscillator = context.createOscillator(); const gain = context.createGain();
-          oscillator.type = "sawtooth"; oscillator.frequency.value = index % 2 ? 115 : 145;
-          gain.gain.setValueAtTime(0.0001, context.currentTime + delay / 1000);
-          gain.gain.exponentialRampToValueAtTime(0.03, context.currentTime + delay / 1000 + 0.015);
-          gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + delay / 1000 + 0.11);
-          oscillator.connect(gain); gain.connect(context.destination);
-          oscillator.start(context.currentTime + delay / 1000); oscillator.stop(context.currentTime + delay / 1000 + 0.12);
-        });
-        window.setTimeout(() => void context.close(), 1200);
-      }
-    } catch { /* Printer audio is optional. */ }
-    printTimer.current = setTimeout(() => { setPrinting(false); window.print(); }, 1450);
   };
 
   return (
@@ -360,7 +334,7 @@ export default function Home() {
               {paymentState === "paid" && (
                 <div className="demo-receipt-area">
                   <div className="receipt-printer-heading"><span>PAYMENT RECEIPT</span><span className="receipt-paid-chip"><Check size={11} /> PAID</span></div>
-                  <div className={"receipt-printer " + (printing ? "is-printing" : "is-printed")}>
+                  <div className="receipt-printer is-printing">
                     <div className="receipt-printer-mouth"><span /></div>
                     <div className="receipt-paper">
                       <div className="receipt-stamp">PAID</div>
@@ -377,9 +351,7 @@ export default function Home() {
                     <div className="receipt-printer-lower"><span /></div>
                   </div>
                   <div className="receipt-actions">
-                    <button type="button" onClick={printReceipt} disabled={printing}>{printing ? "Printing…" : "Print receipt"}</button>
                     <button type="button" onClick={downloadReceipt}>Download receipt</button>
-                    <button type="button" className="receipt-reset" onClick={() => { setPaymentState("idle"); setPrinting(false); }}>Start again</button>
                   </div>
                   <p className="receipt-demo-note">Simulated transaction · No real funds transferred</p>
                 </div>
