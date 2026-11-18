@@ -24,7 +24,19 @@ const methods = ["USDC · Ethereum", "USDC · Solana", "USDT · Ethereum"];
 
 export default function Home() {
   const [method, setMethod] = useState(methods[0]);
-  const [demoPaid, setDemoPaid] = useState(false);
+  const [paymentState, setPaymentState] = useState<"idle" | "processing" | "paid">("idle");
+  const [printing, setPrinting] = useState(false);
+  const [items, setItems] = useState([
+    { id: 1, name: "House espresso", price: 4.5, quantity: 1 },
+    { id: 2, name: "Almond croissant", price: 6, quantity: 1 },
+    { id: 3, name: "Still water", price: 2.5, quantity: 1 },
+  ]);
+  const paymentTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const printTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const service = subtotal * 0.1;
+  const total = subtotal + service;
+  const formatUsd = (amount: number) => "$" + amount.toFixed(2);
   const [showBreakdown, setShowBreakdown] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -32,6 +44,8 @@ export default function Home() {
 
   useEffect(() => () => {
     if (copyTimer.current) clearTimeout(copyTimer.current);
+    if (paymentTimer.current) clearTimeout(paymentTimer.current);
+    if (printTimer.current) clearTimeout(printTimer.current);
   }, []);
 
   useEffect(() => {
@@ -56,6 +70,48 @@ export default function Home() {
 
   const closeMenu = () => setMenuOpen(false);
 
+  const updateQuantity = (id: number, delta: number) => {
+    setItems((current) => current.map((item) => item.id === id ? { ...item, quantity: Math.max(1, Math.min(9, item.quantity + delta)) } : item));
+    setPaymentState("idle");
+  };
+
+  const runDemoPayment = () => {
+    if (paymentState !== "idle") return;
+    setPaymentState("processing");
+    paymentTimer.current = setTimeout(() => setPaymentState("paid"), 1900);
+  };
+
+  const downloadReceipt = () => {
+    const rows = items.map((item) => "<tr><td>" + item.name + " × " + item.quantity + "</td><td>$" + (item.price * item.quantity).toFixed(2) + "</td></tr>").join("");
+    const html = "<!doctype html><html><head><meta charset='utf-8'><title>Nodus payment receipt</title><style>*{box-sizing:border-box}body{margin:0;padding:32px;background:#f4f4f4;color:#171816;font:14px/1.5 Arial}.receipt{position:relative;width:360px;max-width:100%;margin:auto;padding:28px 24px;background:white}.stamp{position:absolute;right:18px;top:18px;transform:rotate(13deg);border:3px solid #27804a;border-radius:50%;padding:7px 10px;color:#27804a;font-weight:800;letter-spacing:2px;opacity:.78}h1{font-size:20px;letter-spacing:2px}table{width:100%;border-collapse:collapse;margin:20px 0}td{padding:7px 0}td:last-child{text-align:right}.meta{margin:20px 0;border-block:1px dashed #bbb;padding:12px 0}.total{display:flex;justify-content:space-between;border-top:1px solid #222;padding-top:14px;font-weight:bold;font-size:17px}.foot{text-align:center;margin-top:28px;color:#666;font-size:12px}@media print{body{background:white;padding:0}}</style></head><body><main class='receipt'><div class='stamp'>PAID</div><h1>PAYMENT RECEIPT</h1><div>Maison Café · Addis Ababa</div><div class='meta'>Receipt no. <b>NODUS-0248</b><br>Date: " + new Date().toLocaleString() + "<br>Payment method: " + method + "<br>Payment status: PAID</div><table>" + rows + "<tr><td>Subtotal</td><td>$" + subtotal.toFixed(2) + "</td></tr><tr><td>Service · 10%</td><td>$" + service.toFixed(2) + "</td></tr></table><div class='total'><span>TOTAL PAID</span><span>$" + total.toFixed(2) + " USD</span></div><div class='meta'>Transaction reference<br><b>NODUS-DEMO-0248-7F3A</b></div><div class='foot'>Thank you for visiting Maison Café.<br>Simulated payment. No funds were transferred.</div></main></body></html>";
+    const url = URL.createObjectURL(new Blob([html], { type: "text/html;charset=utf-8" }));
+    const anchor = document.createElement("a"); anchor.href = url; anchor.download = "nodus-payment-receipt.html"; anchor.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
+  const printReceipt = () => {
+    if (paymentState !== "paid" || printing) return;
+    setPrinting(true);
+    if ("vibrate" in navigator) navigator.vibrate([45, 35, 45, 35, 70]);
+    try {
+      const AudioContextClass = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (AudioContextClass) {
+        const context = new AudioContextClass();
+        [0, 150, 310, 490, 700].forEach((delay, index) => {
+          const oscillator = context.createOscillator(); const gain = context.createGain();
+          oscillator.type = "sawtooth"; oscillator.frequency.value = index % 2 ? 115 : 145;
+          gain.gain.setValueAtTime(0.0001, context.currentTime + delay / 1000);
+          gain.gain.exponentialRampToValueAtTime(0.03, context.currentTime + delay / 1000 + 0.015);
+          gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + delay / 1000 + 0.11);
+          oscillator.connect(gain); gain.connect(context.destination);
+          oscillator.start(context.currentTime + delay / 1000); oscillator.stop(context.currentTime + delay / 1000 + 0.12);
+        });
+        window.setTimeout(() => void context.close(), 1200);
+      }
+    } catch { /* Printer audio is optional. */ }
+    printTimer.current = setTimeout(() => { setPrinting(false); window.print(); }, 1450);
+  };
+
   return (
     <main>
       <section className="hero" id="top">
@@ -74,7 +130,6 @@ export default function Home() {
           </div>
 
           <div className="nav-right">
-            <Link href="#checkout" className="nav-cta">Preview checkout demo <ArrowUpRight size={14} strokeWidth={1.7} aria-hidden="true" /></Link>
             <Link href="/login?next=%2Fdashboard" prefetch={true} className="nav-login">Log in</Link>
             <Link href="/register?mode=signup" prefetch={true} className="nav-cta nav-register">Create account <ArrowUpRight size={14} strokeWidth={1.7} aria-hidden="true" /></Link>
             <button
@@ -138,10 +193,18 @@ export default function Home() {
                   {copied ? "Copied" : "Copy ID"}
                 </button>
               </div>
-              <div className="invoice-lines">
-                <div><span>House espresso</span><b>$4.50</b></div>
-                <div><span>Almond croissant</span><b>$6.00</b></div>
-                <div><span>Still water</span><b>$2.50</b></div>
+              <div className="invoice-lines invoice-editable-lines">
+                {items.map((item) => (
+                  <div className="invoice-editable-row" key={item.id}>
+                    <span className="invoice-item-name">{item.name}<small>{formatUsd(item.price)} each</small></span>
+                    <div className="quantity-control" aria-label={item.name + " quantity"}>
+                      <button type="button" onClick={() => updateQuantity(item.id, -1)} disabled={item.quantity <= 1} aria-label={"Decrease " + item.name + " quantity"}>−</button>
+                      <span>{item.quantity}</span>
+                      <button type="button" onClick={() => updateQuantity(item.id, 1)} disabled={item.quantity >= 9} aria-label={"Increase " + item.name + " quantity"}>+</button>
+                    </div>
+                    <b>{formatUsd(item.price * item.quantity)}</b>
+                  </div>
+                ))}
               </div>
               <button
                 className="breakdown-toggle"
@@ -159,13 +222,13 @@ export default function Home() {
                 aria-hidden={!showBreakdown}
               >
                 <div className="breakdown-detail">
-                  <span>Subtotal <b>$13.00</b></span>
-                  <span>Service · 10% <b>$1.30</b></span>
+                  <span>Subtotal <b>{formatUsd(subtotal)}</b></span>
+                  <span>Service · 10% <b>{formatUsd(service)}</b></span>
                 </div>
               </div>
               <div className="invoice-total">
                 <span>Total due</span>
-                <strong>$14.30 <small>USD</small></strong>
+                <strong>{formatUsd(total)} <small>USD</small></strong>
               </div>
               <div className="pay-label">
                 <span>PAY WITH</span>
@@ -177,24 +240,47 @@ export default function Home() {
                   value={method}
                   onChange={(event) => {
                     setMethod(event.target.value);
-                    setDemoPaid(false);
+                    setPaymentState("idle");
                   }}
                 >
                   {methods.map((item) => <option key={item} value={item}>{item}</option>)}
                 </select>
                 <ChevronDown size={14} aria-hidden="true" />
               </div>
-              <button
-                className={demoPaid ? "pay-button is-paid" : "pay-button"}
-                type="button"
-                onClick={() => setDemoPaid((paid) => !paid)}
-              >
-                {demoPaid ? <><Check size={16} /> Demo state complete</> : "Run demo payment"}
+              <button className={paymentState === "paid" ? "pay-button is-paid" : "pay-button"} type="button" onClick={runDemoPayment} disabled={paymentState !== "idle"}>
+                {paymentState === "processing" ? <><span className="demo-spinner" /> Processing payment…</> : paymentState === "paid" ? <><Check size={16} /> Payment successful</> : "Pay " + formatUsd(total)}
               </button>
-              <div className={demoPaid ? "payment-feedback is-visible" : "payment-feedback"} aria-live="polite">
+              <div className={"payment-feedback " + (paymentState !== "idle" ? "is-visible" : "")} aria-live="polite">
                 <span className="success-pulse" />
-                Demo only. No wallet was connected and no funds moved.
+                {paymentState === "processing" ? "Checking the simulated transaction…" : paymentState === "paid" ? "Payment confirmed. Your receipt is ready." : "Demo only. No wallet is connected and no funds will move."}
               </div>
+              {paymentState === "paid" && (
+                <div className="demo-receipt-area">
+                  <div className="receipt-printer-heading"><span>PAYMENT RECEIPT</span><span className="receipt-paid-chip"><Check size={11} /> PAID</span></div>
+                  <div className={"receipt-printer " + (printing ? "is-printing" : "is-printed")}>
+                    <div className="receipt-printer-mouth"><span /></div>
+                    <div className="receipt-paper">
+                      <div className="receipt-stamp">PAID</div>
+                      <h4>Maison Café</h4><p>PAYMENT RECEIPT · N° 0248</p>
+                      <div className="receipt-paper-rule" />
+                      {items.map((item) => <div className="receipt-line" key={item.id}><span>{item.name} × {item.quantity}</span><b>{formatUsd(item.price * item.quantity)}</b></div>)}
+                      <div className="receipt-line"><span>Subtotal</span><b>{formatUsd(subtotal)}</b></div>
+                      <div className="receipt-line"><span>Service · 10%</span><b>{formatUsd(service)}</b></div>
+                      <div className="receipt-paper-rule" />
+                      <div className="receipt-line receipt-grand-total"><strong>TOTAL PAID</strong><strong>{formatUsd(total)}</strong></div>
+                      <div className="receipt-payment-meta"><span>{method}</span><span>REF NODUS-DEMO-0248-7F3A</span><span>{new Date().toLocaleString()}</span></div>
+                      <p className="receipt-thanks">Thank you for visiting.</p>
+                    </div>
+                    <div className="receipt-printer-lower"><span /></div>
+                  </div>
+                  <div className="receipt-actions">
+                    <button type="button" onClick={printReceipt} disabled={printing}>{printing ? "Printing…" : "Print receipt"}</button>
+                    <button type="button" onClick={downloadReceipt}>Download receipt</button>
+                    <button type="button" className="receipt-reset" onClick={() => { setPaymentState("idle"); setPrinting(false); }}>Start again</button>
+                  </div>
+                  <p className="receipt-demo-note">Simulated transaction · No real funds transferred</p>
+                </div>
+              )}
               <div className="invoice-foot">
                 <ShieldCheck size={13} />
                 A real invoice should close only after settlement is verified.
