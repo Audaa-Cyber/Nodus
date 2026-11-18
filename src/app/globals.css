@@ -5022,3 +5022,96 @@ select.nodus-input:hover {
 
 /* Keep the checkout section closer to the hero, matching the tighter page rhythm. */
 .checkout-section { padding-top: clamp(56px, 6vw, 88px); }
+
+
+/* Landing page polish: tighter mobile hero, compact process artwork and calmer typography. */
+main > section p,
+main > footer p {
+  letter-spacing: .012em;
+}
+main > section a,
+main > footer a,
+main > section button {
+  letter-spacing: .012em;
+}
+.footer-main {
+  grid-template-columns: 1.5fr .7fr .9fr .8fr;
+}
+.footer-legal-link {
+  color: #c1c4bb;
+  font-size: 11px;
+}
+.footer-legal-link:hover {
+  color: #fff;
+}
+@media (max-width: 1000px) {
+  .footer-main {
+    grid-template-columns: 1.3fr .8fr .9fr .9fr;
+  }
+}
+@media (max-width: 700px) {
+  .hero {
+    min-height: 760px;
+    min-height: max(760px, 100svh);
+  }
+  .nav {
+    flex-basis: 62px;
+    height: 62px;
+  }
+  .hero-copy {
+    padding-top: 14px;
+    transform: translateY(-54px);
+  }
+  .hero-bottom {
+    margin-top: 24px;
+  }
+  .process-item {
+    grid-template-columns: 96px minmax(0, 1fr);
+    gap: 0 16px;
+  }
+  .process-visual {
+    height: 108px;
+    overflow: hidden;
+    align-self: center;
+  }
+  .paper-sheet {
+    transform: scale(.62);
+  }
+  .qr-frame {
+    width: 82px;
+    height: 82px;
+  }
+  .qr-frame svg {
+    width: 66px;
+    height: 66px;
+  }
+  .verify-mark {
+    width: 64px;
+    height: 64px;
+  }
+  .verify-mark svg {
+    width: 42px;
+    height: 42px;
+  }
+  .footer-main {
+    grid-template-columns: 1fr 1fr;
+  }
+  .footer-legal-group {
+    grid-column: auto;
+  }
+}
+@media (max-width: 390px) {
+  .hero-copy {
+    transform: translateY(-62px);
+  }
+  .process-item {
+    grid-template-columns: 86px minmax(0, 1fr);
+    gap: 0 12px;
+  }
+  .process-visual {
+    height: 100px;
+  }
+  .paper-sheet {
+    transform: scale(.56);
+  }
+}
