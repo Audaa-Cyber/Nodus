@@ -230,7 +230,6 @@ export default function Home() {
             </p>
             <div className="hero-actions">
               <Link href="#checkout" className="button button-dark">View demo <ArrowUpRight size={15} strokeWidth={1.7} aria-hidden="true" /></Link>
-              <Link href="/login?next=%2Fdashboard" className="button-link">Log in <ArrowRight size={15} strokeWidth={1.6} aria-hidden="true" /></Link>
             </div>
           </div>
         </div>
