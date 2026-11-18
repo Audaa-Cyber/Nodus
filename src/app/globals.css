@@ -5018,3 +5018,7 @@ select.nodus-input:hover {
 @media (prefers-reduced-motion: reduce) {
   .demo-spinner, .receipt-printer.is-printing .receipt-paper { animation: none !important; }
 }
+
+
+/* Keep the checkout section closer to the hero, matching the tighter page rhythm. */
+.checkout-section { padding-top: clamp(56px, 6vw, 88px); }
