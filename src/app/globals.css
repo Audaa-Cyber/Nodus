@@ -4958,3 +4958,63 @@ select.nodus-input:hover {
   .overview-page-container .overview-balance-refresh-btn:active,
   .overview-page-container .overview-balance-footer button:active { transform: none !important; }
 }
+
+
+/* Landing checkout demo: editable quantities, payment simulation and receipt output. */
+.invoice-editable-lines { display: flex; flex-direction: column; gap: 0; }
+.invoice-editable-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 12px; min-height: 54px; }
+.invoice-item-name { display: flex; flex-direction: column; gap: 3px; }
+.invoice-item-name small { color: #929292; font-size: 10px; }
+.quantity-control { display: inline-flex; align-items: center; gap: 8px; border: 1px solid #e7e7e7; border-radius: 5px; padding: 3px; }
+.quantity-control button { display: grid; place-items: center; width: 23px; height: 23px; padding: 0; border: 0; border-radius: 3px; background: #f5f5f5; color: #171816; font-size: 16px; line-height: 1; }
+.quantity-control button:disabled { opacity: .35; cursor: not-allowed; }
+.quantity-control span { min-width: 12px; text-align: center; font-size: 11px; font-variant-numeric: tabular-nums; }
+.pay-button:disabled { cursor: default; }
+.pay-button.is-paid { background: #247b4b; color: #fff; }
+.demo-spinner { width: 13px; height: 13px; border: 1.5px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: nodus-demo-spin .7s linear infinite; }
+@keyframes nodus-demo-spin { to { transform: rotate(360deg); } }
+.demo-receipt-area { margin-top: 24px; padding-top: 20px; border-top: 1px solid #e8e8e8; }
+.receipt-printer-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; color: #777; font-family: var(--mono); font-size: 9px; letter-spacing: .12em; }
+.receipt-paid-chip { display: inline-flex; align-items: center; gap: 4px; color: #27804a; font-weight: 600; }
+.receipt-printer { position: relative; padding: 0 12px 12px; overflow: hidden; background: #191a18; border-radius: 8px; box-shadow: 0 12px 26px rgba(0,0,0,.09); }
+.receipt-printer-mouth { height: 11px; margin: 0 -12px 0; background: #080908; border-bottom: 2px solid #30312f; box-shadow: inset 0 -3px 5px rgba(0,0,0,.65); }
+.receipt-printer-mouth span, .receipt-printer-lower span { display: block; width: 72%; height: 2px; margin: auto; background: #444642; }
+.receipt-paper { position: relative; width: min(100%, 330px); min-height: 300px; margin: 0 auto; padding: 25px 20px 20px; background: #fff; color: #171816; box-shadow: 0 4px 12px rgba(0,0,0,.16); font-family: var(--mono); font-size: 10px; }
+.receipt-paper h4 { margin: 0 0 4px; font-family: var(--sans); font-size: 19px; letter-spacing: -.5px; }
+.receipt-paper > p { margin: 0 0 16px; color: #777; font-size: 8px; letter-spacing: .08em; }
+.receipt-stamp { position: absolute; top: 22px; right: 15px; transform: rotate(13deg); border: 2px solid rgba(39,128,74,.8); border-radius: 50%; padding: 5px 7px; color: rgba(39,128,74,.85); font-family: var(--sans); font-size: 13px; font-weight: 800; letter-spacing: 1.5px; opacity: .78; }
+.receipt-paper-rule { height: 1px; margin: 12px 0; background: #dedede; }
+.receipt-line { display: flex; justify-content: space-between; gap: 10px; margin: 9px 0; }
+.receipt-line span { min-width: 0; }
+.receipt-line b, .receipt-line strong { flex-shrink: 0; font-weight: 600; }
+.receipt-grand-total { font-size: 12px; }
+.receipt-payment-meta { display: flex; flex-direction: column; gap: 5px; margin-top: 17px; color: #777; font-size: 8px; overflow-wrap: anywhere; }
+.receipt-paper .receipt-thanks { margin: 20px 0 0; text-align: center; color: #777; font-size: 9px; letter-spacing: 0; }
+.receipt-printer-lower { display: flex; align-items: center; justify-content: center; height: 12px; margin: 0 -12px; background: #10110f; }
+.receipt-printer.is-printing .receipt-paper { animation: nodus-receipt-feed 1.4s steps(12, end) both; }
+@keyframes nodus-receipt-feed { from { transform: translateY(-72%); clip-path: inset(0 0 100% 0); } to { transform: translateY(0); clip-path: inset(0 0 0 0); } }
+.receipt-actions { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 13px; }
+.receipt-actions button { min-height: 36px; padding: 0 11px; border: 1px solid #dedede; border-radius: 4px; background: #fff; color: #171816; font-size: 10px; }
+.receipt-actions button:first-child { background: #171816; border-color: #171816; color: #fff; }
+.receipt-actions button:disabled { opacity: .55; cursor: wait; }
+.receipt-actions .receipt-reset { margin-left: auto; color: #777; }
+.receipt-demo-note { margin: 10px 0 0; color: #8a8a8a; font-size: 9px; text-align: center; }
+@media (max-width: 520px) {
+  .invoice-editable-row { grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+  .invoice-editable-row > b { grid-column: 2; justify-self: end; }
+  .quantity-control { grid-column: 1; grid-row: 2; width: max-content; }
+  .invoice-item-name { grid-column: 1; grid-row: 1; }
+  .receipt-actions button { flex: 1 1 auto; }
+}
+@media print {
+  @page { size: 80mm auto; margin: 4mm; }
+  html, body { width: 80mm !important; min-width: 0 !important; margin: 0 !important; padding: 0 !important; background: #fff !important; }
+  body * { visibility: hidden !important; }
+  .receipt-paper, .receipt-paper * { visibility: visible !important; }
+  .receipt-paper { position: absolute !important; inset: 0 auto auto 0 !important; width: 72mm !important; max-width: none !important; min-height: 0 !important; margin: 0 !important; padding: 5mm !important; box-shadow: none !important; }
+  .receipt-printer, .demo-receipt-area { overflow: visible !important; background: #fff !important; box-shadow: none !important; }
+  .receipt-printer-mouth, .receipt-printer-lower, .receipt-actions, .receipt-printer-heading, .receipt-demo-note { display: none !important; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .demo-spinner, .receipt-printer.is-printing .receipt-paper { animation: none !important; }
+}
