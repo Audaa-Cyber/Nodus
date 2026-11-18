@@ -4,7 +4,6 @@ import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import {
-  ArrowRight,
   ArrowUpRight,
   Check,
   ChevronDown,
@@ -498,10 +497,9 @@ export default function Home() {
             <span>Payment verification</span>
           </div>
           <div className="footer-nav-group footer-legal-group">
-            <span className="footer-label">LEGAL & SUPPORT</span>
+            <span className="footer-label">LEGAL</span>
             <Link href="/privacy" className="footer-legal-link">Privacy</Link>
             <Link href="/terms" className="footer-legal-link">Terms</Link>
-            <Link href="/contact" className="footer-legal-link">Contact</Link>
           </div>
         </div>
         <div className="shell footer-bottom">
