@@ -289,7 +289,7 @@ export default function Home() {
                 aria-expanded={showBreakdown}
                 aria-controls="invoice-breakdown"
               >
-                <span>Subtotal and service</span>
+                <span>Subtotal and tax</span>
                 <ChevronDown size={14} className={showBreakdown ? "rotate" : ""} />
               </button>
               <div
@@ -299,7 +299,7 @@ export default function Home() {
               >
                 <div className="breakdown-detail">
                   <span>Subtotal <b>{formatUsd(subtotal)}</b></span>
-                  <span>Service · 10% <b>{formatUsd(service)}</b></span>
+                  <span>Tax · 15% <b>{formatUsd(tax)}</b></span>
                 </div>
               </div>
               <div className="invoice-total">
@@ -342,7 +342,7 @@ export default function Home() {
                       <div className="receipt-paper-rule" />
                       {items.map((item) => <div className="receipt-line" key={item.id}><span>{item.name} × {item.quantity}</span><b>{formatUsd(item.price * item.quantity)}</b></div>)}
                       <div className="receipt-line"><span>Subtotal</span><b>{formatUsd(subtotal)}</b></div>
-                      <div className="receipt-line"><span>Service · 10%</span><b>{formatUsd(service)}</b></div>
+                      <div className="receipt-line"><span>Tax · 15%</span><b>{formatUsd(tax)}</b></div>
                       <div className="receipt-paper-rule" />
                       <div className="receipt-line receipt-grand-total"><strong>TOTAL PAID</strong><strong>{formatUsd(total)}</strong></div>
                       <div className="receipt-payment-meta"><span>{method}</span><span>REF NODUS-DEMO-0248-7F3A</span><span>{new Date().toLocaleString()}</span></div>
