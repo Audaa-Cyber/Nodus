@@ -202,7 +202,7 @@ export default function Home() {
             <Link href="#how-it-works" onClick={closeMenu}>How it works</Link>
             <Link href="#business" onClick={closeMenu}>For business</Link>
             <Link href="/login?next=%2Fdashboard" prefetch={true} className="mobile-business-link" onClick={closeMenu}>Log in</Link>
-            <Link href="/register?mode=signup" prefetch={true} className="mobile-business-link" onClick={closeMenu}>Create account</Link>
+            <Link href="/register?mode=signup" prefetch={true} className="mobile-business-link" onClick={closeMenu}>Sign up</Link>
           </div>
 
           <div className="nav-right">
@@ -498,7 +498,7 @@ export default function Home() {
             <span>QR checkout</span>
             <span>Payment verification</span>
           </div>
-          <div className="footer-contact">
+          <div className="footer-nav-group footer-legal-group">
             <span className="footer-label">LEGAL & SUPPORT</span>
             <Link href="/privacy" className="footer-legal-link">Privacy</Link>
             <Link href="/terms" className="footer-legal-link">Terms</Link>
