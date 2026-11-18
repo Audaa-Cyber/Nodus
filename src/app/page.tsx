@@ -71,6 +71,7 @@ export default function Home() {
   const closeMenu = () => setMenuOpen(false);
 
   const updateQuantity = (id: number, delta: number) => {
+    if (paymentTimer.current) clearTimeout(paymentTimer.current);
     setItems((current) => current.map((item) => item.id === id ? { ...item, quantity: Math.max(1, Math.min(9, item.quantity + delta)) } : item));
     setPaymentState("idle");
   };
@@ -239,6 +240,7 @@ export default function Home() {
                   aria-label="Choose payment network"
                   value={method}
                   onChange={(event) => {
+                    if (paymentTimer.current) clearTimeout(paymentTimer.current);
                     setMethod(event.target.value);
                     setPaymentState("idle");
                   }}
