@@ -207,7 +207,7 @@ export default function Home() {
 
           <div className="nav-right">
             <Link href="/login?next=%2Fdashboard" prefetch={true} className="nav-login">Log in</Link>
-            <Link href="/register?mode=signup" prefetch={true} className="nav-cta nav-register">Create account <ArrowUpRight size={14} strokeWidth={1.7} aria-hidden="true" /></Link>
+            <Link href="/register?mode=signup" prefetch={true} className="nav-cta nav-register">Sign up <ArrowUpRight size={14} strokeWidth={1.7} aria-hidden="true" /></Link>
             <button
               className="menu-toggle"
               type="button"
@@ -229,8 +229,8 @@ export default function Home() {
               choose a supported stablecoin, and approve payment from their wallet.
             </p>
             <div className="hero-actions">
-              <Link href="#checkout" className="button button-dark">Explore checkout demo <ArrowUpRight size={15} strokeWidth={1.7} aria-hidden="true" /></Link>
-              <Link href="/login?next=%2Fdashboard" className="button-link">Log in to dashboard <ArrowRight size={15} strokeWidth={1.6} aria-hidden="true" /></Link>
+              <Link href="#checkout" className="button button-dark">View demo <ArrowUpRight size={15} strokeWidth={1.7} aria-hidden="true" /></Link>
+              <Link href="/login?next=%2Fdashboard" className="button-link">Log in <ArrowRight size={15} strokeWidth={1.6} aria-hidden="true" /></Link>
             </div>
           </div>
         </div>
@@ -444,8 +444,7 @@ export default function Home() {
               Give your team one place to prepare the bill and give guests a
               direct way to pay. Keep the invoice, payment status, and receipt together.
             </p>
-            <Link href="/register?mode=signup" className="button button-light">Create business account <ArrowUpRight size={15} strokeWidth={1.7} aria-hidden="true" /></Link>
-          </div>
+            </div>
           <div className="business-details">
             <div className="detail-row">
               <span><Clock3 size={17} /> A faster handoff</span>
@@ -473,7 +472,7 @@ export default function Home() {
           <h2>Ready to send<br /><span>your first invoice?</span></h2>
           <div className="closing-bottom">
             <p>Create your business workspace to prepare itemized invoices, share a QR checkout, and track payment status.</p>
-            <Link href="/register?mode=signup" className="button button-light">Create business account <ArrowUpRight size={15} strokeWidth={1.7} aria-hidden="true" /></Link>
+            <Link href="/register?mode=signup" className="button button-light">Create account <ArrowUpRight size={15} strokeWidth={1.7} aria-hidden="true" /></Link>
           </div>
         </div>
       </section>
@@ -500,9 +499,10 @@ export default function Home() {
             <span>Payment verification</span>
           </div>
           <div className="footer-contact">
-            <span className="footer-label">GET STARTED</span>
-            <Link href="/register?mode=signup" prefetch={true} className="footer-cta">Create a business account <ArrowUpRight size={15} strokeWidth={1.7} aria-hidden="true" /></Link>
-            <Link href="/login?next=%2Fdashboard" prefetch={true} className="footer-cta">Log in to dashboard <ArrowUpRight size={15} strokeWidth={1.7} aria-hidden="true" /></Link>
+            <span className="footer-label">LEGAL & SUPPORT</span>
+            <Link href="/privacy" className="footer-legal-link">Privacy</Link>
+            <Link href="/terms" className="footer-legal-link">Terms</Link>
+            <Link href="/contact" className="footer-legal-link">Contact</Link>
           </div>
         </div>
         <div className="shell footer-bottom">
