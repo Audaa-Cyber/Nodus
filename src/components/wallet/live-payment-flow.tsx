@@ -1,8 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useAccount, useSendTransaction, useSwitchChain } from "wagmi";
 import { formatMoney } from "@/lib/invoices";
+import { PayerIcon } from "@/components/payer-design-icons";
+import { paymentProgress } from "./payer-progress";
+import { lockPayerDialogBackground, trapPayerDialogFocus } from "./payer-dialog";
 import { createIdempotencyKey } from "@/lib/idempotency-key";
 import { evmWalletChains, getWalletNetwork } from "@/lib/wallet/networks";
 import { getCircleChain } from "@/lib/server/circle";
@@ -19,6 +22,8 @@ import { createPaymentReferenceWriter } from "@/lib/payments/payment-reference-p
 import type { BridgeResult } from "@circle-fin/app-kit";
 
 interface LivePaymentFlowProps {
+  dockDetails?: ReactNode;
+  onExecutionStateChange?: (locked: boolean) => void;
   shareToken: string;
   invoiceNumber: string;
   amountMinor: number;
@@ -95,11 +100,15 @@ export function LivePaymentFlow({
   selectedAsset,
   activeAddress,
   onPaymentSuccess,
+  dockDetails,
+  onExecutionStateChange,
 }: LivePaymentFlowProps) {
   const { chainId: evmChainId, connector } = useAccount();
   const { switchChainAsync, isPending: isSwitchingChain } = useSwitchChain();
   const { sendTransactionAsync, isPending: isSendingTx } = useSendTransaction();
 
+  const [showDetails, setShowDetails] = useState(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
   const [routes, setRoutes] = useState<StandardizedRouteQuote[]>([]);
   const [selectedRouteIndex, setSelectedRouteIndex] = useState(0);
   const [loadingRoutes, setLoadingRoutes] = useState(false);
@@ -850,8 +859,59 @@ export function LivePaymentFlow({
     stage === "broadcasting" ||
     stage === "verifying";
 
-  return (
-    <div className="wallet-preparation" aria-live="polite">
+  const processing = stage === "authorizing" || stage === "broadcasting" || stage === "verifying" || stage === "settled";
+  const showModal = showDetails || processing;
+  const progress = paymentProgress({ stage, depositTxHash, approvalTxHash, direct: selectedRoute?.provider === "circle_direct" });
+  const executionLocked = busy || Boolean(attemptId && stage !== "settled");
+  useEffect(() => { onExecutionStateChange?.(executionLocked); }, [executionLocked, onExecutionStateChange]);
+  useEffect(() => {
+    if (!showModal) return;
+    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    const unlock = lockPayerDialogBackground(dialog);
+    dialog.focus();
+    const keydown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !processing) setShowDetails(false);
+      trapPayerDialogFocus(event, dialog);
+    };
+    document.addEventListener("keydown", keydown);
+    return () => {
+      document.removeEventListener("keydown", keydown);
+      unlock();
+      if (previous && !previous.closest("[inert]")) previous.focus();
+    };
+  }, [showModal, processing]);
+  const amountLabel = formatMoney(amountMinor, currency);
+  const actionLabel = circleQuote ? `Authorize payment (${circleQuote.totalDebit} USDC)` : "Get Circle quote";
+  const destinationLabel = getWalletNetwork(selectedRoute?.destinationNetwork ?? "")?.label ?? "destination network";
+
+  return <>
+    <section className="dock" aria-label="Payment console">
+      {dockDetails}
+      <button className="cta" type="button" disabled={executionLocked || !selectedRoute || Boolean(routesError)} onClick={() => { setShowDetails(true); void handleAuthorizePayment(); }}>
+        <PayerIcon name="lock" /><span>{loadingRoutes ? "Checking payment routes…" : stage === "verifying" ? "Verifying settlement…" : stage === "authorizing" || stage === "broadcasting" ? "Authorizing payment…" : `Approve & Pay ${amountLabel} USDC (Escrow)`}</span>
+      </button>
+    </section>
+    {routesError && !showModal && <p role="alert" className="wallet-error">{routesError} <button type="button" className="tg" onClick={() => void fetchRoutes()}>Retry discovery</button></p>}
+    {!loadingRoutes && !routesError && !selectedRoute && !showModal && <p role="status">No supported route found for the selected asset and network.</p>}
+    <div className="ov" hidden={!showModal}>
+      <div className="md" role="dialog" aria-modal="true" aria-labelledby="payer-payment-modal-title" tabIndex={-1} ref={dialogRef}>
+        {processing ? <>
+          <h2 id="payer-payment-modal-title">{stage === "settled" ? "Payment complete & verified" : `Settling invoice ${invoiceNumber}`}</h2>
+          <p>Keep this window open while the transactions confirm.</p>
+          <ol className="st">{[
+            { title: "Approving USDC ERC-20 allowance", detail: progress.allowanceRequired ? approvalTxHash ? `Approval ${shortHash(approvalTxHash)}` : "Authorizing USDC for the selected payment route" : "Allowance is not required for a direct USDC transfer" },
+            { title: "Depositing funds into Nodus Escrow Contract", detail: depositTxHash ? `Tx ${shortHash(depositTxHash)}` : selectedRoute?.provider === "circle_direct" ? "Awaiting direct USDC payment authorization" : "Awaiting Circle CCTP burn authorization" },
+            { title: "Verifying on-chain settlement and destination receipt", detail: `Waiting for block confirmations on ${destinationLabel}` },
+          ].map((step, index) => <li className={index < progress.current ? "ok" : index === progress.current ? "act" : ""} key={step.title}><span className="mk"><PayerIcon name="check" /></span><div><b>{step.title}</b><span>{step.detail}</span></div></li>)}</ol>
+          <div className="bar"><i style={{ width: Math.min(100, progress.current / 3 * 100) + "%" }} /></div>
+          {statusMessage && <p className="wallet-inline-status" role="status">{statusMessage}</p>}
+          {(recoveryRequired || sourceTransactionReferenceMissing) && attemptId && <div className="wallet-recovery-panel" role="alert"><strong>{sourceTransactionReferenceMissing ? "Transaction Reference Not Saved" : "Operator Verification Required"}</strong><p>{statusMessage}</p><p>Do not authorize another payment while verification is pending.</p><p>Support Reference (Attempt ID): {attemptId}</p>{depositTxHash && <p>Submitted source transaction: {depositTxHash}</p>}</div>}
+          {flowError && <p role="alert" className="wallet-error">{flowError}</p>}
+        </> : <>
+          <button className="tg" type="button" onClick={() => setShowDetails(false)} aria-label="Close payment details">Close</button>
+          <div className="payer-route-review" aria-live="polite">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
         <p className="wallet-eyebrow" style={{ margin: 0 }}>LIVE ROUTE EXECUTION</p>
         {timeRemainingSeconds !== null && (
@@ -868,18 +928,8 @@ export function LivePaymentFlow({
         )}
       </div>
 
-      <h3>
-        {stage === "idle"
-          ? "Confirm payment parameters"
-          : stage === "authorizing"
-            ? "Authorizing payment…"
-            : stage === "broadcasting"
-              ? "Broadcasting transaction…"
-              : stage === "verifying"
-                ? "Verifying destination settlement…"
-                : stage === "settled"
-                  ? "Payment complete & verified"
-                  : "Payment incomplete"}
+      <h3 id="payer-payment-modal-title">
+        {stage === "idle" ? "Confirm payment parameters" : "Payment incomplete"}
       </h3>
 
       {loadingRoutes ? (
@@ -1009,7 +1059,6 @@ export function LivePaymentFlow({
 
           {statusMessage && (
             <p className="wallet-inline-status" style={{ margin: "0.75rem 0", color: "#1e293b" }}>
-              {stage === "verifying" ? <span className="live-stage-dot" aria-hidden="true">● </span> : ""}
               {statusMessage}
             </p>
           )}
@@ -1062,14 +1111,11 @@ export function LivePaymentFlow({
             <div style={{ marginTop: "1rem" }}>
               <button
                 type="button"
-                className="wallet-primary-button"
+                className="cta"
                 disabled={busy}
                 onClick={() => void handleAuthorizePayment()}
               >
-                {busy ? "Preparing…" : selectedRoute.provider === "circle_direct"
-                  ? "Authorize direct USDC payment" : circleQuote
-                  ? `Authorize payment (${circleQuote.totalDebit} USDC)`
-                  : "Get Circle quote"}
+                {busy ? "Preparing…" : selectedRoute.provider === "circle_direct" ? "Authorize direct USDC payment" : actionLabel}
               </button>
             </div>
           )}
@@ -1098,6 +1144,9 @@ export function LivePaymentFlow({
           {flowError}
         </p>
       )}
+          </div>
+        </>}
+      </div>
     </div>
-  );
+  </>;
 }

@@ -1,9 +1,9 @@
 "use client";
 
-import { useTransition } from "react";
+import { useTransition, type ReactNode } from "react";
 import { cancelInvoiceAction } from "@/app/actions/invoices";
 
-export default function CancelInvoiceForm({ invoiceId }: { invoiceId: string }) {
+export default function CancelInvoiceForm({ invoiceId, className = "button button-outline", children }: { invoiceId: string; className?: string; children?: ReactNode }) {
   const [isPending, startTransition] = useTransition();
 
   return (
@@ -18,9 +18,9 @@ export default function CancelInvoiceForm({ invoiceId }: { invoiceId: string }) 
       }}
     >
       <input type="hidden" name="invoiceId" value={invoiceId} />
-      <button className="button button-outline" type="submit" disabled={isPending}>
+      <button className={className} type="submit" disabled={isPending}>
         {isPending && <span className="button-spinner" aria-hidden="true" />}
-        {isPending ? "Cancelling…" : "Cancel invoice"}
+        {isPending ? "Cancelling…" : children ?? "Cancel invoice"}
       </button>
     </form>
   );

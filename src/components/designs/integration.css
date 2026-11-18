@@ -1,0 +1,51 @@
+/* Integration resets: prevent the application's legacy global styles from
+   changing the approved, mechanically scoped designs. */
+:is(.merchant-design,.payer-design,.scroll-design) :is(h1,h2,h3,p,dl,dd,blockquote){letter-spacing:inherit}
+.merchant-design .hd h1{letter-spacing:-.02em}
+.merchant-design .sh h2,.merchant-design .cd h2,.merchant-design .fb blockquote{letter-spacing:-.01em}
+.payer-design h1{letter-spacing:-.045em}
+.payer-design .done h2{letter-spacing:-.04em}
+.scroll-design .logo{letter-spacing:-.05em}
+:is(.merchant-design,.payer-design,.scroll-design) :is(button,input,select){text-transform:none}
+.merchant-design .acts form{margin:0;display:inline-flex}
+.merchant-design .btn{color:var(--ink);text-decoration:none;cursor:pointer}
+.merchant-design .btn.x{color:var(--red)}
+.merchant-design .sync{letter-spacing:normal}
+.merchant-design .qr svg.q{box-sizing:border-box}
+.scroll-design .scroll{max-width:none}
+.scroll-design .sheet{border-radius:0;max-width:none}
+.scroll-design .top,.scroll-design .dossier,.scroll-design .amt,.scroll-design .fb,.scroll-design .sign,.scroll-design .acts{position:relative}
+.scroll-design .stage{width:100%}
+.scroll-design .stars button svg{fill:currentColor}
+.payer-design .wrap:has(.scroll-design) > article.sheet{display:none}
+.payer-design .wrap:has(.scroll-design){max-width:none;padding:0}
+.payer-design .payer-checkout-options{margin-top:16px}
+.payer-design .payer-checkout-options label{display:block;font-size:13px;color:var(--mute);margin-bottom:6px}
+.payer-design .payer-checkout-options select{width:100%;font:inherit;padding:8px 12px;border:1px solid var(--hair);background:#fff;color:var(--ink)}
+.payer-design .md .wallet-card{border:0;box-shadow:none;background:none;padding:0}
+.payer-design .md .wallet-card h3,.payer-design .md .wallet-card p{color:var(--ink)}
+.payer-design .md .wallet-card button{font:inherit}
+.payer-design .dock .wallet-execution{display:contents}
+.payer-design .dock .wallet-error{flex-basis:100%}
+.payer-design .payer-settlement-error{color:#b42318;font-size:13.5px;margin-top:12px}
+.payer-design .payer-route-review{max-height:min(65vh,600px);overflow-y:auto}
+/* Restore the approved defaults overridden by legacy !important button rules. */
+:is(.merchant-design,.payer-design,.scroll-design) button:active:not(:disabled){transform:none!important;transition:none!important}
+.merchant-design .cp:active:not(:disabled){transition:background .15s!important}
+.payer-design .cta:active:not(:disabled){transition:background .15s,transform .15s!important}
+.payer-design .cta:hover:active:not(:disabled){transform:translateY(-1px)!important}
+.scroll-design .btn:active:not(:disabled){transition:transform .15s,box-shadow .15s!important}
+.scroll-design .btn:hover:active:not(:disabled){transform:translateY(-1px)!important}
+.scroll-design .stars button:active:not(:disabled){transition:transform .15s,color .15s!important}
+.scroll-design .stars button:hover:active:not(:disabled){transform:scale(1.16)!important}
+:is(.merchant-design,.payer-design,.scroll-design) button:disabled{opacity:1!important;cursor:default!important;pointer-events:auto!important;transform:none!important}
+.payer-design .cta:disabled{opacity:.65!important;cursor:progress!important}
+.scroll-design .btn:disabled{opacity:.7!important;cursor:progress!important}
+@media print {
+  .payer-design .dock,.payer-design .ov{display:none!important}
+  .payer-design .sheet{box-shadow:none}
+  .scroll-design .scroll{width:auto!important;padding:0;animation:none}
+  .scroll-design .paper{width:auto!important;margin:0;overflow:visible}
+  .scroll-design .sheet{width:auto!important}
+  .scroll-design .spindle,.scroll-design .core,.scroll-design .curl,.scroll-design .shadeL{display:none}
+}

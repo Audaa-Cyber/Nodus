@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>nodus. — Thank You Scroll</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg1:#F7F7F6;--bg2:#F1F1EF;--hint:#6b7280;--hint-bg:#fff;--ink:#111318;--sepia:#6b7280;--gold:#8a6a2a;--blue:#2457ff;
+ box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+
+
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:radial-gradient(ellipse at 50% 35%,var(--bg1),var(--bg2) 85%) fixed;background-color:var(--bg2);overflow-x:hidden;-webkit-font-smoothing:antialiased}
+.stage{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px 12px}
+button{font:inherit}
+:focus-visible{outline:3px solid var(--blue);outline-offset:3px}
+
+/* ---------- SCROLL MECHANISM ---------- */
+.scroll{--sp:48px;--pad:calc(var(--sp)*40/48);--rt:calc(var(--sp)*34/48);position:relative;width:calc(var(--sp)*2);padding:var(--pad) 0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+@media (max-width:520px){.scroll{--sp:34px}}
+.scroll[data-state=open],.scroll[data-state=opening]{cursor:default}
+.scroll[data-state=closed]{animation:breathe 3.2s ease-in-out infinite}
+@keyframes breathe{50%{filter:drop-shadow(0 0 26px rgba(255,196,90,.5))}}
+.ground{position:absolute;left:3%;right:3%;bottom:calc(var(--pad)*-.2);height:34px;background:radial-gradient(ellipse at center,rgba(0,0,0,.5),transparent 70%);filter:blur(8px);z-index:-1}
+.core{position:absolute;z-index:0;left:calc(var(--sp) - 3px);width:6px;top:var(--pad);bottom:var(--pad);background:linear-gradient(90deg,#d2b377,#f0dfb0,#d2b377)}
+.spindle{position:absolute;z-index:3;top:0;bottom:0;width:var(--sp);left:0;filter:drop-shadow(0 12px 12px rgba(0,0,0,.35));pointer-events:none}
+.rod{position:absolute;left:0;right:0;top:var(--rt);bottom:var(--rt);overflow:hidden;
+ background:linear-gradient(90deg,#6a4616 0%,#a8742c 10%,#dcae5a 26%,#fff1bd 40%,#e4b762 52%,#b07a2e 74%,#7a5119 92%,#5e3d12 100%)}
+.rod::before,.rod::after{content:"";position:absolute;left:0;right:0;height:calc(var(--sp)*.2);z-index:2;
+ background:repeating-linear-gradient(90deg,rgba(60,34,6,.0),rgba(60,34,6,.0) 3px,rgba(60,34,6,.0) 3px),linear-gradient(90deg,#5f3f12,#c99a46 30%,#fff0b0 45%,#c99a46 65%,#5f3f12);box-shadow:0 1px 2px rgba(0,0,0,.45)}
+.rod::before{top:0}.rod::after{bottom:0}
+.rod i{position:absolute;top:calc(var(--sp)*.2);bottom:calc(var(--sp)*.2);left:0;width:6px;will-change:transform;
+ background:linear-gradient(90deg,#4f320c,#ffe9a6 50%,#4f320c);opacity:0}
+.shine{position:absolute;inset:0;z-index:3;background:linear-gradient(90deg,rgba(0,0,0,.28),rgba(0,0,0,0) 24%,rgba(255,255,255,.3) 40%,rgba(255,255,255,0) 56%,rgba(0,0,0,.34))}
+.fin{position:absolute;left:0;width:100%;height:auto;aspect-ratio:48/44;display:block;z-index:4}
+.fin.t{top:0}.fin.b{bottom:0;transform:scaleY(-1)}
+#spR{left:var(--sp)}
+
+.paper{position:relative;z-index:1;margin-left:var(--sp);width:1px;overflow:hidden}
+.curl{position:absolute;top:0;bottom:0;right:0;width:60px;z-index:3;pointer-events:none;background:linear-gradient(270deg,rgba(60,30,0,.6),rgba(60,30,0,.22) 38%,rgba(60,30,0,0))}
+.shadeL{position:absolute;top:0;bottom:0;left:0;width:30px;z-index:3;pointer-events:none;background:linear-gradient(90deg,rgba(60,30,0,.45),rgba(60,30,0,0))}
+.hint{margin-top:26px;font:500 13px/1.3 Inter,system-ui,sans-serif;letter-spacing:.01em;color:var(--hint);background:var(--hint-bg);padding:9px 16px;border-radius:99px;transition:opacity .4s;text-align:center}
+.scroll:not([data-state=closed])~.hint{opacity:0;pointer-events:none}
+
+/* ---------- PARCHMENT ---------- */
+.sheet{position:relative;width:764px;padding:32px 42px 30px;color:var(--ink);font:500 19px/1.45 'Cormorant Garamond',Georgia,serif;
+ background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.75' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .36 0 0 0 0 .22 0 0 0 0 .07 .9 0 0 0 -.3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
+ radial-gradient(ellipse at 18% 12%,rgba(255,255,235,.55),transparent 45%),radial-gradient(ellipse at 50% 45%,#f7e9c4 0%,#edd9a8 58%,#d8b97a 100%);
+ box-shadow:inset 0 0 70px rgba(125,72,12,.5),inset 0 0 8px rgba(90,50,5,.5)}
+.sheet::before{content:"";position:absolute;inset:13px;border:1px solid rgba(138,93,28,.6);outline:1px solid rgba(138,93,28,.28);outline-offset:4px;pointer-events:none}
+.sheet.narrow{padding:28px 22px 24px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:10px 16px;flex-wrap:wrap}
+.logo{font:700 32px/1 Inter,system-ui,sans-serif;letter-spacing:-.05em;color:#12100c}
+.logo b{color:var(--blue);font-weight:800;text-shadow:0 0 14px rgba(36,87,255,.55)}
+.cap{font:600 11px Inter,sans-serif;letter-spacing:.06em;color:var(--sepia);margin-top:5px}
+.cap u{text-decoration:none;color:var(--blue)}
+.pill{font:700 11px Inter,sans-serif;letter-spacing:.08em;color:#0a6e4b;background:rgba(16,185,129,.15);border:1px solid rgba(16,150,105,.55);padding:6px 12px;border-radius:99px;white-space:nowrap}
+h1{font:700 68px/1.05 Caveat,'Segoe Script',cursive;margin:14px 0 2px;text-align:center;color:#1c1309}
+.note{max-width:620px;margin:0 auto 16px;text-align:center;font-size:20px;color:#33230d}
+.dossier{border:1px solid rgba(138,93,28,.55);background:rgba(255,249,228,.5);padding:15px 20px 16px;border-radius:4px}
+.dossier h2{margin:0;font:700 27px/1.15 'Cormorant Garamond',Georgia,serif;display:flex;flex-wrap:wrap;gap:2px 12px;align-items:baseline}
+.dossier h2 span{font:600 11px Inter,sans-serif;letter-spacing:.06em;color:var(--gold)}
+.rows{display:grid;grid-template-columns:1fr 1fr;gap:12px 24px;margin-top:12px}
+.narrow .rows{grid-template-columns:1fr}
+.row{display:flex;gap:11px;align-items:flex-start;font:500 13px/1.4 Inter,sans-serif;color:#3a2910;min-width:0;overflow-wrap:anywhere}
+.row small{display:block;font:600 10.5px Inter,sans-serif;letter-spacing:.04em;color:var(--gold);margin-bottom:1px}
+.row em{font-style:normal;color:#a98a55;padding:0 3px}
+.ico{flex:none;width:30px;height:30px;border-radius:50%;border:1px solid rgba(138,93,28,.65);background:linear-gradient(#fcecbd,#e4bf76);display:grid;place-items:center;color:#5e3b0c}
+.ico svg,.btn svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.amt{margin:12px 0;padding:11px 16px;background:linear-gradient(90deg,#1a2442,#0f1628);border:1px solid #b8873a;border-radius:4px;color:#ecd9a6;display:flex;flex-wrap:wrap;gap:5px 14px;align-items:center;justify-content:center;font:500 12.5px Inter,sans-serif}
+.amt strong{font:700 23px Inter,sans-serif;letter-spacing:-.02em;color:#ffd777}
+.amt i{font-style:normal;color:#b8873a}
+.fb{display:flex;gap:18px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:14px 18px;border:1px dashed rgba(138,93,28,.75);border-radius:6px;background:rgba(255,251,236,.55)}
+.fb h3{margin:0;font:700 24px/1.2 'Cormorant Garamond',Georgia,serif}
+.stars{display:flex;gap:2px;margin:6px 0 2px -2px}
+.stars button{background:none;border:0;padding:2px;cursor:pointer;color:#cdb98f;transition:transform .15s,color .15s}
+.stars button svg{width:30px;height:30px;fill:currentColor;display:block}
+.stars button.on{color:#dc9a14;filter:drop-shadow(0 1px 2px rgba(120,70,0,.4))}
+.stars button:hover{transform:scale(1.16)}
+.lbl{font:500 12.5px Inter,sans-serif;color:var(--sepia);min-height:18px}
+.qr{text-align:center;text-decoration:none;color:var(--sepia);font:600 11px Inter,sans-serif;letter-spacing:.04em}
+.qr svg{display:block;width:92px;height:92px;margin:0 auto 5px;border:1px solid rgba(138,93,28,.7);border-radius:4px;padding:3px;background:#fffaf0}
+.sign{display:flex;justify-content:space-between;align-items:flex-end;gap:12px 20px;flex-wrap:wrap;margin-top:16px}
+.cur{font-family:Caveat,'Segoe Script',cursive;color:#1b1630;line-height:1.05}
+.s1{font-size:27px}.s2{font-size:48px;font-weight:700}.s3{font-size:23px;color:#4a3515}
+.tx{font:500 12px Inter,sans-serif;color:var(--sepia);text-align:right}
+.tx a{display:inline-block;margin-top:3px;color:#1c47c9;font-weight:600;text-decoration:underline;text-underline-offset:3px;word-break:break-all}
+.acts{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:20px}
+.btn{display:inline-flex;align-items:center;gap:9px;padding:12px 22px;border-radius:99px;font:600 14px Inter,sans-serif;cursor:pointer;transition:transform .15s,box-shadow .15s}
+.btn:hover{transform:translateY(-1px)}
+.btn.pri{border:0;color:#fff;background:linear-gradient(#3a6dff,#1c44c6);box-shadow:0 6px 14px rgba(36,87,255,.35),inset 0 1px 0 rgba(255,255,255,.3)}
+.btn.sec{background:transparent;color:#4a3010;border:1.5px solid #7a5420}
+.btn[disabled]{opacity:.7;cursor:progress}
+.toast{position:fixed;left:50%;bottom:calc(22px + env(safe-area-inset-bottom,0px));transform:translate(-50%,30px);opacity:0;background:#12172a;color:#f3e3b4;font:500 13px Inter,sans-serif;padding:11px 18px;border-radius:10px;transition:.3s;pointer-events:none;z-index:20;max-width:90vw;text-align:center}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+/* light workspace theme */
+.hint{border:1px solid #e4e4e0}
+.sheet{background:linear-gradient(180deg,#fff,#FBFBF9);box-shadow:inset 0 0 40px rgba(17,19,24,.045),inset 0 0 0 1px rgba(17,19,24,.06)}
+.sheet::before{border-color:rgba(138,106,42,.45);outline-color:rgba(17,19,24,.1)}
+h1,.logo{color:var(--ink)}
+.note,.row{color:#374151}
+.dossier{border-color:#e4e4e0;background:#FAFAF8}
+.row small,.dossier h2 span{color:var(--gold)}
+.ico{border-color:#e4e4e0;background:#fff;color:var(--ink)}
+.amt{background:#FAFAF8;border:1px solid #e4e4e0;color:var(--sepia)}
+.amt strong{color:var(--ink)}
+.amt i{color:#c4c7c0}
+.fb{border:1px dashed #d4d6d0;background:#fff}
+.stars button{color:#d4d6d0}
+.stars button.on{color:#f0a30a;filter:none}
+.qr svg{border-color:#e4e4e0;background:#fff}
+.s3{color:#4b5563}
+.tx a{color:var(--blue)}
+.btn.sec{color:var(--ink);border-color:#d4d6d0;background:#fff}
+.btn.sec:hover{border-color:var(--ink)}
+.curl{background:linear-gradient(270deg,rgba(17,19,24,.35),rgba(17,19,24,.12) 38%,rgba(17,19,24,0))}
+.shadeL{background:linear-gradient(90deg,rgba(17,19,24,.25),rgba(17,19,24,0))}
+.core{background:linear-gradient(90deg,#e8e8e4,#fff,#e8e8e4)}
+.ground{background:radial-gradient(ellipse at center,rgba(17,19,24,.28),transparent 70%)}
+@media (max-width:520px){h1{font-size:56px}.note{font-size:18px}.s2{font-size:42px}}
+@media (prefers-reduced-motion:reduce){.scroll[data-state=closed]{animation:none}}
+@media print{body{background:#fff}.hint,.toast,.acts,.ground{display:none}}
+</style>
+</head>
+<body>
+<!-- shared vector defs: metals, finial, icons -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+ <defs>
+  <linearGradient id="goldH" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stop-color="#6a4616"/><stop offset=".2" stop-color="#bf8c3a"/><stop offset=".42" stop-color="#fff3c4"/><stop offset=".62" stop-color="#d6a64e"/><stop offset=".85" stop-color="#94651f"/><stop offset="1" stop-color="#5e3d12"/></linearGradient>
+  <radialGradient id="ballShine" cx=".36" cy=".3" r=".7"><stop offset="0" stop-color="#fff" stop-opacity=".95"/><stop offset=".25" stop-color="#fff" stop-opacity=".25"/><stop offset="1" stop-color="#3a2000" stop-opacity=".45"/></radialGradient>
+  <symbol id="finial" viewBox="0 0 48 44">
+   <rect x="9" y="35" width="30" height="9" fill="url(#goldH)"/>
+   <rect x="4" y="28" width="40" height="8" rx="4" fill="url(#goldH)"/>
+   <rect x="17" y="22" width="14" height="7" fill="url(#goldH)"/>
+   <circle cx="24" cy="12.5" r="11" fill="url(#goldH)"/>
+   <circle cx="24" cy="12.5" r="11" fill="url(#ballShine)"/>
+   <rect x="4" y="30.5" width="40" height="1.2" fill="#fff4c8" opacity=".6"/>
+  </symbol>
+  <symbol id="i-mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 4.5 3.4 7.8 8 9 4.6-1.2 8-4.5 8-9V6z"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="i-dl" viewBox="0 0 24 24"><path d="M12 3v12m0 0-4-4m4 4 4-4M5 20h14"/></symbol>
+  <symbol id="i-roll" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 3-6.2M4 4v4h4"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24"><path d="m12 2.6 2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.2 1.2-6.5L2.5 9.5l6.6-.9z"/></symbol>
+ </defs>
+</svg>
+
+<main class="stage">
+ <div class="scroll" id="scroll" data-state="closed" role="button" tabindex="0" aria-expanded="false" aria-label="Unroll your thank-you scroll">
+  <div class="ground"></div>
+  <div class="core"></div>
+
+  <div class="spindle" id="spL"><div class="rod"><div class="shine"></div></div>
+   <svg class="fin t" aria-hidden="true"><use href="#finial"/></svg><svg class="fin b" aria-hidden="true"><use href="#finial"/></svg></div>
+
+  <div class="paper" id="paper">
+   <section class="sheet" id="sheet" inert aria-label="Thank you from Acme Design Labs">
+    <header class="top">
+     <div><div class="logo">nodus<b>.</b></div><div class="cap"><u>•</u> Decentralized Settlement Protocol</div></div>
+     <div class="pill">● ON-CHAIN VERIFIED</div>
+    </header>
+
+    <h1>Thank You!</h1>
+    <p class="note">Your payment of 2,200.00 USDC has settled into escrow on Arbitrum Sepolia, and all of us at Acme Design Labs are deeply grateful for your trust. Your invoice is now sealed on-chain, and we look forward to making something remarkable together.</p>
+
+    <div class="dossier">
+     <h2>Acme Design Labs LLC <span>Business owner dossier</span></h2>
+     <div class="rows">
+      <div class="row"><span class="ico"><svg><use href="#i-mail"/></svg></span><div><small>Email</small>billing@acmestudio.design</div></div>
+      <div class="row"><span class="ico"><svg><use href="#i-phone"/></svg></span><div><small>Phone</small>+1 (415) 890-2410</div></div>
+      <div class="row"><span class="ico"><svg><use href="#i-pin"/></svg></span><div><small>Address</small>548 Market St, Suite 34091, San Francisco, CA 94104</div></div>
+      <div class="row"><span class="ico"><svg><use href="#i-shield"/></svg></span><div><small>Tax ID / EIN</small>84-2910482 <em>|</em> VAT: US842910482 <em>|</em> Payee: 0x4a9F...b10E</div></div>
+     </div>
+    </div>
+
+    <div class="amt"><strong>$2,200.00 USDC</strong><i>•</i><span>Invoice: INV-2026-8894</span><i>•</i><span>Nov 18, 2026</span><i>•</i><span>04:30:15 UTC</span></div>
+
+    <div class="fb">
+     <div>
+      <h3>We’d love your feedback!</h3>
+      <div class="stars" id="stars" role="group" aria-label="Rate your experience"></div>
+      <div class="lbl" id="lbl" aria-live="polite"></div>
+     </div>
+     <a class="qr" href="#review" id="qr" aria-label="Open review page"><span id="qrbox"></span>Open &amp; Scan</a>
+    </div>
+
+    <div class="sign">
+     <div class="cur"><div class="s1">With warmest appreciation,</div><div class="s2">Alex Rivera</div><div class="s3">Founder &amp; Principal Architect</div></div>
+     <div class="tx">Settlement transaction<br><a href="https://sepolia.arbiscan.io/tx/0x7be3a1d94f05c8e2b6a07d3f91c4e58a2d6b0f13c7e9a4d85b21f06c3e9ac91a" target="_blank" rel="noopener noreferrer">0x7be3a1...e9ac91a ↗ Arbiscan</a></div>
+    </div>
+
+    <div class="acts">
+     <button class="btn pri" id="dl" type="button"><svg><use href="#i-dl"/></svg><span>Download Official Receipt (PDF)</span></button>
+     <button class="btn sec" id="back" type="button"><svg><use href="#i-roll"/></svg><span>Roll Back Up</span></button>
+    </div>
+   </section>
+   <div class="shadeL"></div><div class="curl" id="curl"></div>
+  </div>
+
+  <div class="spindle" id="spR"><div class="rod"><div class="shine"></div></div>
+   <svg class="fin t" aria-hidden="true"><use href="#finial"/></svg><svg class="fin b" aria-hidden="true"><use href="#finial"/></svg></div>
+ </div>
+ <div class="hint" id="hint">Payment confirmed. Click the scroll to unroll your thank-you card.</div>
+</main>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+  const $ = s => document.querySelector(s);
+  const scroll = $('#scroll'), paper = $('#paper'), sheet = $('#sheet'), curl = $('#curl'), spL = $('#spL'), spR = $('#spR');
+  const N = 10, DUR = 850, TURNS = 720;
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let SP = 48, INNER = 764, p = 0, target = 0, anim = null, raf = 0;
+
+  /* ---- cylinder inlay bands: true 3D projection of a rotating rod ---- */
+  [spL, spR].forEach(sp => {
+    const rod = sp.querySelector('.rod'); sp._b = [];
+    for (let k = 0; k < N; k++) { const i = document.createElement('i'); rod.appendChild(i); sp._b.push(i); }
+  });
+  function rotate(sp, deg) {
+    sp._b.forEach((b, k) => {
+      const a = (deg + k * 360 / N) * Math.PI / 180, c = Math.cos(a);
+      if (c < 0.03) { b.style.opacity = 0; return; }
+      b.style.opacity = Math.min(1, c * 1.5);
+      b.style.transform = `translateX(${SP / 2 * (1 + Math.sin(a)) - 3}px) scaleX(${c})`;
+    });
+  }
+
+  /* ---- render one frame; paper + right spindle share the same width value => zero gap ---- */
+  function render(v) {
+    const w = v * INNER;
+    scroll.style.width = (2 * SP + w) + 'px';
+    paper.style.width = (w + 1) + 'px';              /* +1px tucks under the spindle */
+    spR.style.left = (SP + w) + 'px';
+    rotate(spR, v * TURNS);                          /* 0 -> 720deg */
+    rotate(spL, 0);
+    const s = Math.sin(Math.PI * v);                 /* curvature shadow peaks mid-motion */
+    curl.style.opacity = (v > 0 ? .45 + .55 * s : 0).toFixed(3);
+    curl.style.width = (34 + 90 * s) + 'px';
+  }
+
+  function measure() {
+    SP = parseFloat(getComputedStyle(scroll).getPropertyValue('--sp')) || 48;
+    const open = Math.min(880, document.documentElement.clientWidth - 24);
+    INNER = Math.max(250, open - 2 * SP);
+    sheet.style.width = INNER + 'px';
+    sheet.classList.toggle('narrow', INNER < 580);
+    render(p);
+  }
+
+  /* ---- state machine: any click re-targets from the CURRENT progress; nothing is dropped ---- */
+  const ease = t => -(Math.cos(Math.PI * t) - 1) / 2;
+  function sync() {
+    const open = target === 1;
+    scroll.dataset.state = anim ? (open ? 'opening' : 'closing') : (open ? 'open' : 'closed');
+    sheet.inert = !open;
+    scroll.setAttribute('aria-expanded', open);
+    if (open) { scroll.removeAttribute('role'); scroll.tabIndex = -1; }
+    else { scroll.setAttribute('role', 'button'); scroll.tabIndex = 0; }
+  }
+  function tick(now) {
+    if (!anim) { raf = 0; return; }
+    const t = Math.min(1, (now - anim.start) / anim.dur);
+    p = anim.from + (anim.to - anim.from) * ease(t);
+    render(p);
+    if (t < 1) { raf = requestAnimationFrame(tick); return; }
+    p = anim.to; render(p); anim = null; raf = 0; sync();
+    if (target === 0 && document.activeElement && sheet.contains(document.activeElement)) scroll.focus();
+  }
+  function go(t) {
+    if (t === target && (anim || p === t)) return;
+    target = t;
+    const dist = Math.abs(t - p);
+    if (dist < 1e-4) { p = t; anim = null; render(p); sync(); return; }
+    anim = { from: p, to: t, start: performance.now(), dur: reduce ? 120 : DUR * dist };
+    sync();
+    if (!raf) raf = requestAnimationFrame(tick);
+  }
+
+  scroll.addEventListener('click', e => { if (e.target.closest('#sheet')) return; if (target === 0) go(1); });
+  scroll.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && target === 0 && e.target === scroll) { e.preventDefault(); go(1); } });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && target === 1) go(0); });
+  $('#back').addEventListener('click', () => go(0));
+
+  /* ---- toast ---- */
+  const toast = $('#toast'); let tt;
+  function say(m) { toast.textContent = m; toast.classList.add('on'); clearTimeout(tt); tt = setTimeout(() => toast.classList.remove('on'), 2600); }
+
+  /* ---- star rating ---- */
+  const msgs = ['Needs work. Tell us what went wrong.', 'Fair. We’ll do better.', 'Good. Thank you!', 'Great. Glad it went well!', 'Exceptional. You made our day!'];
+  const stars = $('#stars'), lbl = $('#lbl'); let val = 0; const btns = [];
+  const paint = n => { btns.forEach((b, i) => { b.classList.toggle('on', i < n); }); lbl.textContent = n ? msgs[n - 1] : 'Tap a star to rate your experience'; };
+  for (let i = 1; i <= 5; i++) {
+    const b = document.createElement('button'); b.type = 'button'; b.setAttribute('aria-label', i + (i === 1 ? ' star' : ' stars'));
+    b.innerHTML = '<svg aria-hidden="true"><use href="#i-star"/></svg>';
+    b.addEventListener('mouseenter', () => paint(i)); b.addEventListener('focus', () => paint(i));
+    b.addEventListener('mouseleave', () => paint(val)); b.addEventListener('blur', () => paint(val));
+    b.addEventListener('click', () => { val = i; paint(i); say('Thanks for rating us ' + i + ' out of 5.'); });
+    stars.appendChild(b); btns.push(b);
+  }
+  paint(0);
+
+  /* ---- vector QR-style code (decorative pattern from invoice id; swap in a real encoder for scanning) ---- */
+  (function () {
+    const n = 25, g = Array.from({ length: n }, () => Array(n).fill(0));
+    let h = 2166136261; for (const c of 'https://nodus.xyz/review/INV-2026-8894') { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619) >>> 0; }
+    const rnd = () => { h ^= h << 13; h >>>= 0; h ^= h >>> 17; h ^= h << 5; h >>>= 0; return h; };
+    const corners = [[0, 0], [n - 7, 0], [0, n - 7]];
+    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) g[y][x] = rnd() & 1;
+    for (let i = 8; i < n - 8; i++) { g[6][i] = (i + 1) & 1; g[i][6] = (i + 1) & 1; }
+    corners.forEach(([cx, cy]) => {
+      for (let y = -1; y <= 7; y++) for (let x = -1; x <= 7; x++) {
+        const X = cx + x, Y = cy + y; if (X < 0 || Y < 0 || X >= n || Y >= n) continue;
+        const inside = x >= 0 && x <= 6 && y >= 0 && y <= 6;
+        g[Y][X] = inside && (x === 0 || x === 6 || y === 0 || y === 6 || (x >= 2 && x <= 4 && y >= 2 && y <= 4)) ? 1 : 0;
+      }
+    });
+    for (let y = -2; y <= 2; y++) for (let x = -2; x <= 2; x++) g[n - 7 + y][n - 7 + x] = (Math.max(Math.abs(x), Math.abs(y)) !== 1) ? 1 : 0;
+    let d = '';
+    for (let y = 0; y < n; y++) { let x = 0; while (x < n) { if (g[y][x]) { let l = 0; while (x + l < n && g[y][x + l]) l++; d += `M${x} ${y}h${l}v1h-${l}z`; x += l; } else x++; } }
+    $('#qrbox').innerHTML = `<svg viewBox="-1 -1 27 27" shape-rendering="crispEdges" aria-hidden="true"><path d="${d}" fill="#14110d"/></svg>`;
+  })();
+  $('#qr').addEventListener('click', e => { e.preventDefault(); say('The review page opens on your phone when you scan.'); });
+
+  /* ---- receipt button ---- */
+  $('#dl').addEventListener('click', function () {
+    const b = this, s = b.querySelector('span'), old = s.textContent;
+    b.disabled = true; s.textContent = 'Preparing receipt…';
+    setTimeout(() => { b.disabled = false; s.textContent = old; say('Receipt for INV-2026-8894 is ready.'); try { window.print(); } catch (e) {} }, 1100);
+  });
+
+  addEventListener('resize', measure);
+  measure(); sync();
+})();
+</script>
+</body>
+</html>

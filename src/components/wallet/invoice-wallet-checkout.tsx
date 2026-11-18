@@ -1,10 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PaymentSuccessCard, type ReceiptInfo, type LineItem } from "@/components/payment-success-card";
-import { useAccount, useConnect, useDisconnect, useSwitchChain } from "wagmi";
+import { useAccount, useConnect, useDisconnect, useReadContract, useSwitchChain } from "wagmi";
 import { formatMoney } from "@/lib/invoices";
+import { formatUnits, parseAbi } from "viem";
+import { PayerIcon } from "@/components/payer-design-icons";
 import { createIdempotencyKey } from "@/lib/idempotency-key";
 import { connectWalletConnectWithRequiredChain, isMobileWalletBrowser, prepareRabbyForWalletConnectRequest, setWalletConnectSessionDefaultChain, walletConnectSessionIncludesChain } from "@/lib/wallet/rabby-mobile-handoff";
 import {
@@ -19,8 +21,10 @@ import type { WalletAsset } from "@/lib/wallet/types";
 import { EvmWalletCard } from "./evm-wallet-card";
 import { WalletProviders } from "./wallet-providers";
 import { LivePaymentFlow } from "./live-payment-flow";
+import { lockPayerDialogBackground, trapPayerDialogFocus } from "./payer-dialog";
 
-type InvoiceWalletCheckoutProps = {
+export type InvoiceWalletCheckoutProps = {
+  onSettled?: () => void;
   shareToken: string;
   invoiceNumber: string;
   amountMinor: number;
@@ -43,6 +47,9 @@ type InvoiceWalletCheckoutProps = {
     address?: string | null;
     website?: string | null;
     taxId?: string | null;
+    founderName?: string | null;
+    founderTitle?: string | null;
+    reviewUrl?: string | null;
   } | null;
 };
 
@@ -90,6 +97,7 @@ function InvoiceWalletCheckoutContent({
   taxRateBps,
   discountMinor,
   sellerDetails,
+  onSettled,
 }: InvoiceWalletCheckoutProps) {
   const { address: evmAddress, chainId: evmChainId, isConnected: isEvmConnected, connector: evmConnector } = useAccount();
   const { connectors, connectAsync } = useConnect();
@@ -98,6 +106,9 @@ function InvoiceWalletCheckoutContent({
   const router = useRouter();
   const walletConnectConnector = connectors.find((candidate) => candidate.id === "walletConnect");
 
+  const [optionsOpen, setOptionsOpen] = useState(false);
+  const [executionBusy, setExecutionBusy] = useState(false);
+  const optionsDialogRef = useRef<HTMLDivElement>(null);
   const [attempt, setAttempt] = useState<{ id: string; status: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [flowError, setFlowError] = useState("");
@@ -316,8 +327,41 @@ function InvoiceWalletCheckoutContent({
     return match ?? availableAssetsOnNetwork[0] ?? null;
   }, [availableAssetsOnNetwork, selectedSymbol]);
 
+  const { data: sourceBalance, isPending: balancePending, isError: balanceError } = useReadContract({
+    address: selectedAsset?.contractAddress as `0x${string}` | undefined,
+    abi: parseAbi(["function balanceOf(address) view returns (uint256)"]),
+    functionName: "balanceOf",
+    args: evmAddress ? [evmAddress] : undefined,
+    chainId: selectedSourceNetwork.chainId,
+    query: { enabled: Boolean(isEvmConnected && evmAddress && selectedAsset?.contractAddress), refetchInterval: 15_000 },
+  });
+  const onExecutionStateChange = useCallback((locked: boolean) => {
+    setExecutionBusy(locked);
+    if (locked) setOptionsOpen(false);
+  }, []);
+  useEffect(() => { if (storedAttemptSettled) onSettled?.(); }, [storedAttemptSettled, onSettled]);
+  useEffect(() => {
+    if (!optionsOpen || executionBusy) return;
+    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const dialog = optionsDialogRef.current;
+    if (!dialog) return;
+    const unlock = lockPayerDialogBackground(dialog);
+    dialog.focus();
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOptionsOpen(false);
+      trapPayerDialogFocus(event, dialog);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      unlock();
+      if (previous && !previous.closest("[inert]")) previous.focus();
+    };
+  }, [optionsOpen, executionBusy]);
+
   // Handle guided network switch
   async function handleSwitchToNetwork(targetChainId: number) {
+    if (executionBusy) return;
     setSwitchError("");
     if (!evmConnector) {
       setSwitchError("No connected wallet is available to switch networks.");
@@ -446,6 +490,7 @@ function InvoiceWalletCheckoutContent({
   if (storedAttemptSettled) {
     return (
       <PaymentSuccessCard
+        shareToken={shareToken}
         invoiceNumber={invoiceNumber}
         amountMinor={amountMinor}
         currency={currency}
@@ -469,8 +514,36 @@ function InvoiceWalletCheckoutContent({
 
   const mockStage = attempt?.status ?? "idle";
 
-  return (
-    <section className="invoice-wallet-checkout" aria-labelledby="invoice-wallet-title">
+  const canRunLiveFlow = !storedAttemptSettled && (storedAttemptId || (liveQuotesEnabled && activeMode === "live" && activeConnection.address));
+  const dockDetails = <>
+    <div className="w"><span className="ic"><PayerIcon name="wallet" /></span><div><small>{isEvmConnected ? "Connected wallet" : "Wallet"}</small><span className="ad" title={evmAddress}>{evmAddress && isEvmConnected ? shortAddress(evmAddress) : "Not connected"}</span></div></div>
+    <button className="net" type="button" disabled={executionBusy} onClick={() => { if (!executionBusy) setOptionsOpen(true); }} aria-label="Choose payment network"><i />{selectedSourceNetwork.label}</button>
+    <div><small style={{ display: "block", fontSize: 12, color: "var(--zinc)" }}>Available balance</small><span className="bal">{!isEvmConnected ? "—" : balanceError ? "Unavailable" : balancePending || typeof sourceBalance !== "bigint" ? "Loading…" : Number(formatUnits(sourceBalance, selectedAsset?.decimals ?? 6)).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " USDC"}</span></div>
+    <button className="tg" type="button" disabled={executionBusy} onClick={() => {
+      if (executionBusy) return;
+      if (isEvmConnected) void disconnectAsync().catch(() => setFlowError("The wallet could not be disconnected. Try again in your wallet."));
+      else setOptionsOpen(true);
+    }}>{isEvmConnected ? "Disconnect" : "Connect wallet"}</button>
+  </>;
+  return <>
+    {canRunLiveFlow ? <LivePaymentFlow
+      shareToken={shareToken} invoiceNumber={invoiceNumber} amountMinor={amountMinor} currency={currency}
+      selectedAsset={selectedAsset} activeAddress={activeConnection.address} dockDetails={dockDetails}
+      onExecutionStateChange={onExecutionStateChange}
+      onPaymentSuccess={(receipts) => {
+        if (Array.isArray(receipts) && receipts.length > 0) setStoredReceipts(receipts as ReceiptInfo[]);
+        setStoredAttemptSettled(true);
+        router.refresh();
+      }}
+    /> : <section className={`dock${isEvmConnected ? "" : " off"}`} aria-label="Payment console">
+      {dockDetails}
+      <button className="cta" type="button" disabled={!payable || (isEvmConnected && !isUnsupportedEvmNetwork)} onClick={() => setOptionsOpen(true)}><PayerIcon name="lock" /><span>{!isEvmConnected ? "Connect wallet to pay" : isUnsupportedEvmNetwork ? "Switch network to pay" : "Checkout unavailable"}</span></button>
+    </section>}
+    {flowError && !optionsOpen && <p role="alert" className="wallet-error">{flowError}</p>}
+    <div className="ov" hidden={!optionsOpen || executionBusy} onClick={(event) => { if (event.target === event.currentTarget) setOptionsOpen(false); }}>
+      <div className="md payer-checkout-options" role="dialog" aria-modal="true" aria-labelledby="invoice-wallet-title" tabIndex={-1} ref={optionsDialogRef}>
+        <button className="tg" type="button" onClick={() => setOptionsOpen(false)} aria-label="Close wallet options">Close</button>
+        <section className="invoice-wallet-checkout" aria-labelledby="invoice-wallet-title">
       <div className="wallet-section-heading">
         <div>
           <p className="wallet-eyebrow">CHECKOUT</p>
@@ -499,6 +572,7 @@ function InvoiceWalletCheckoutContent({
             </div>
             <select
               id="payerSourceNetwork"
+              disabled={executionBusy}
               value={selectedSourceNetwork.key}
               onChange={(event) => {
                 setSourceNetworkManuallySelected(true);
@@ -547,6 +621,7 @@ function InvoiceWalletCheckoutContent({
                       type="button"
                       role="radio"
                       aria-checked={isSelected}
+                      disabled={executionBusy}
                       className={`asset-choice-pill ${isSelected ? "is-selected" : ""}`}
                       onClick={() => {
                         setSelectedSymbol(symbol);
@@ -690,23 +765,7 @@ function InvoiceWalletCheckoutContent({
           )}
 
           {/* 7. LIVE ROUTE EXECUTION OR VERIFICATION RESTORATION (NO MOCK DEMO ON REFRESH) */}
-          {!storedAttemptSettled && (storedAttemptId || (liveQuotesEnabled && activeMode === "live" && activeConnection.address)) ? (
-            <LivePaymentFlow
-              shareToken={shareToken}
-              invoiceNumber={invoiceNumber}
-              amountMinor={amountMinor}
-              currency={currency}
-              selectedAsset={selectedAsset}
-              activeAddress={activeConnection.address}
-              onPaymentSuccess={(receipts) => {
-                if (Array.isArray(receipts) && receipts.length > 0) {
-                  setStoredReceipts(receipts as ReceiptInfo[]);
-                }
-                setStoredAttemptSettled(true);
-                router.refresh();
-              }}
-            />
-          ) : !storedAttemptSettled && allowSimulation && activeMode === "mock" ? (
+          {!storedAttemptSettled && allowSimulation && activeMode === "mock" ? (
             /* DEV-ONLY SIMULATED DEMONSTRATION */
             <div className="wallet-preparation" aria-live="polite">
               <p className="wallet-eyebrow">INTERNAL SIMULATION (DEV ONLY)</p>
@@ -863,8 +922,10 @@ function InvoiceWalletCheckoutContent({
           )}
         </>
       )}
-    </section>
-  );
+        </section>
+      </div>
+    </div>
+  </>;
 }
 
 export function InvoiceWalletCheckout(props: InvoiceWalletCheckoutProps) {

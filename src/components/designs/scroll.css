@@ -1,0 +1,119 @@
+/* Generated from public/nodus. — Thank You Scroll.html; do not redesign. */
+
+.scroll-design{--bg1:#F7F7F6;--bg2:#F1F1EF;--hint:#6b7280;--hint-bg:#fff;--ink:#111318;--sepia:#6b7280;--gold:#8a6a2a;--blue:#2457ff;
+ box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+
+
+.scroll-design{scroll-padding-top:env(safe-area-inset-top,0px)}
+.scroll-design *{box-sizing:border-box}
+.scroll-design{margin:0;min-height:100vh;background:radial-gradient(ellipse at 50% 35%,var(--bg1),var(--bg2) 85%) fixed;background-color:var(--bg2);overflow-x:hidden;-webkit-font-smoothing:antialiased}
+.scroll-design .stage{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px 12px}
+.scroll-design button{font:inherit}
+.scroll-design :focus-visible{outline:3px solid var(--blue);outline-offset:3px}
+
+/* ---------- SCROLL MECHANISM ---------- */
+.scroll-design .scroll{--sp:48px;--pad:calc(var(--sp)*40/48);--rt:calc(var(--sp)*34/48);position:relative;width:calc(var(--sp)*2);padding:var(--pad) 0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+@media (max-width:520px){.scroll-design .scroll{--sp:34px}}
+.scroll-design .scroll[data-state=open],.scroll-design .scroll[data-state=opening]{cursor:default}
+.scroll-design .scroll[data-state=closed]{animation:scroll-breathe 3.2s ease-in-out infinite}
+@keyframes scroll-breathe{50%{filter:drop-shadow(0 0 26px rgba(255,196,90,.5))}}
+.scroll-design .ground{position:absolute;left:3%;right:3%;bottom:calc(var(--pad)*-.2);height:34px;background:radial-gradient(ellipse at center,rgba(0,0,0,.5),transparent 70%);filter:blur(8px);z-index:-1}
+.scroll-design .core{position:absolute;z-index:0;left:calc(var(--sp) - 3px);width:6px;top:var(--pad);bottom:var(--pad);background:linear-gradient(90deg,#d2b377,#f0dfb0,#d2b377)}
+.scroll-design .spindle{position:absolute;z-index:3;top:0;bottom:0;width:var(--sp);left:0;filter:drop-shadow(0 12px 12px rgba(0,0,0,.35));pointer-events:none}
+.scroll-design .rod{position:absolute;left:0;right:0;top:var(--rt);bottom:var(--rt);overflow:hidden;
+ background:linear-gradient(90deg,#6a4616 0%,#a8742c 10%,#dcae5a 26%,#fff1bd 40%,#e4b762 52%,#b07a2e 74%,#7a5119 92%,#5e3d12 100%)}
+.scroll-design .rod::before,.scroll-design .rod::after{content:"";position:absolute;left:0;right:0;height:calc(var(--sp)*.2);z-index:2;
+ background:repeating-linear-gradient(90deg,rgba(60,34,6,.0),rgba(60,34,6,.0) 3px,rgba(60,34,6,.0) 3px),linear-gradient(90deg,#5f3f12,#c99a46 30%,#fff0b0 45%,#c99a46 65%,#5f3f12);box-shadow:0 1px 2px rgba(0,0,0,.45)}
+.scroll-design .rod::before{top:0}.scroll-design .rod::after{bottom:0}
+.scroll-design .rod i{position:absolute;top:calc(var(--sp)*.2);bottom:calc(var(--sp)*.2);left:0;width:6px;will-change:transform;
+ background:linear-gradient(90deg,#4f320c,#ffe9a6 50%,#4f320c);opacity:0}
+.scroll-design .shine{position:absolute;inset:0;z-index:3;background:linear-gradient(90deg,rgba(0,0,0,.28),rgba(0,0,0,0) 24%,rgba(255,255,255,.3) 40%,rgba(255,255,255,0) 56%,rgba(0,0,0,.34))}
+.scroll-design .fin{position:absolute;left:0;width:100%;height:auto;aspect-ratio:48/44;display:block;z-index:4}
+.scroll-design .fin.t{top:0}.scroll-design .fin.b{bottom:0;transform:scaleY(-1)}
+.scroll-design #spR{left:var(--sp)}
+
+.scroll-design .paper{position:relative;z-index:1;margin-left:var(--sp);width:1px;overflow:hidden}
+.scroll-design .curl{position:absolute;top:0;bottom:0;right:0;width:60px;z-index:3;pointer-events:none;background:linear-gradient(270deg,rgba(60,30,0,.6),rgba(60,30,0,.22) 38%,rgba(60,30,0,0))}
+.scroll-design .shadeL{position:absolute;top:0;bottom:0;left:0;width:30px;z-index:3;pointer-events:none;background:linear-gradient(90deg,rgba(60,30,0,.45),rgba(60,30,0,0))}
+.scroll-design .hint{margin-top:26px;font:500 13px/1.3 Inter,system-ui,sans-serif;letter-spacing:.01em;color:var(--hint);background:var(--hint-bg);padding:9px 16px;border-radius:99px;transition:opacity .4s;text-align:center}
+.scroll-design .scroll:not([data-state=closed])~.hint{opacity:0;pointer-events:none}
+
+/* ---------- PARCHMENT ---------- */
+.scroll-design .sheet{position:relative;width:764px;padding:32px 42px 30px;color:var(--ink);font:500 19px/1.45 'Cormorant Garamond',Georgia,serif;
+ background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.75' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .36 0 0 0 0 .22 0 0 0 0 .07 .9 0 0 0 -.3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
+ radial-gradient(ellipse at 18% 12%,rgba(255,255,235,.55),transparent 45%),radial-gradient(ellipse at 50% 45%,#f7e9c4 0%,#edd9a8 58%,#d8b97a 100%);
+ box-shadow:inset 0 0 70px rgba(125,72,12,.5),inset 0 0 8px rgba(90,50,5,.5)}
+.scroll-design .sheet::before{content:"";position:absolute;inset:13px;border:1px solid rgba(138,93,28,.6);outline:1px solid rgba(138,93,28,.28);outline-offset:4px;pointer-events:none}
+.scroll-design .sheet.narrow{padding:28px 22px 24px}
+.scroll-design .top{display:flex;justify-content:space-between;align-items:center;gap:10px 16px;flex-wrap:wrap}
+.scroll-design .logo{font:700 32px/1 Inter,system-ui,sans-serif;letter-spacing:-.05em;color:#12100c}
+.scroll-design .logo b{color:var(--blue);font-weight:800;text-shadow:0 0 14px rgba(36,87,255,.55)}
+.scroll-design .cap{font:600 11px Inter,sans-serif;letter-spacing:.06em;color:var(--sepia);margin-top:5px}
+.scroll-design .cap u{text-decoration:none;color:var(--blue)}
+.scroll-design .pill{font:700 11px Inter,sans-serif;letter-spacing:.08em;color:#0a6e4b;background:rgba(16,185,129,.15);border:1px solid rgba(16,150,105,.55);padding:6px 12px;border-radius:99px;white-space:nowrap}
+.scroll-design h1{font:700 68px/1.05 Caveat,'Segoe Script',cursive;margin:14px 0 2px;text-align:center;color:#1c1309}
+.scroll-design .note{max-width:620px;margin:0 auto 16px;text-align:center;font-size:20px;color:#33230d}
+.scroll-design .dossier{border:1px solid rgba(138,93,28,.55);background:rgba(255,249,228,.5);padding:15px 20px 16px;border-radius:4px}
+.scroll-design .dossier h2{margin:0;font:700 27px/1.15 'Cormorant Garamond',Georgia,serif;display:flex;flex-wrap:wrap;gap:2px 12px;align-items:baseline}
+.scroll-design .dossier h2 span{font:600 11px Inter,sans-serif;letter-spacing:.06em;color:var(--gold)}
+.scroll-design .rows{display:grid;grid-template-columns:1fr 1fr;gap:12px 24px;margin-top:12px}
+.scroll-design .narrow .rows{grid-template-columns:1fr}
+.scroll-design .row{display:flex;gap:11px;align-items:flex-start;font:500 13px/1.4 Inter,sans-serif;color:#3a2910;min-width:0;overflow-wrap:anywhere}
+.scroll-design .row small{display:block;font:600 10.5px Inter,sans-serif;letter-spacing:.04em;color:var(--gold);margin-bottom:1px}
+.scroll-design .row em{font-style:normal;color:#a98a55;padding:0 3px}
+.scroll-design .ico{flex:none;width:30px;height:30px;border-radius:50%;border:1px solid rgba(138,93,28,.65);background:linear-gradient(#fcecbd,#e4bf76);display:grid;place-items:center;color:#5e3b0c}
+.scroll-design .ico svg,.scroll-design .btn svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.scroll-design .amt{margin:12px 0;padding:11px 16px;background:linear-gradient(90deg,#1a2442,#0f1628);border:1px solid #b8873a;border-radius:4px;color:#ecd9a6;display:flex;flex-wrap:wrap;gap:5px 14px;align-items:center;justify-content:center;font:500 12.5px Inter,sans-serif}
+.scroll-design .amt strong{font:700 23px Inter,sans-serif;letter-spacing:-.02em;color:#ffd777}
+.scroll-design .amt i{font-style:normal;color:#b8873a}
+.scroll-design .fb{display:flex;gap:18px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:14px 18px;border:1px dashed rgba(138,93,28,.75);border-radius:6px;background:rgba(255,251,236,.55)}
+.scroll-design .fb h3{margin:0;font:700 24px/1.2 'Cormorant Garamond',Georgia,serif}
+.scroll-design .stars{display:flex;gap:2px;margin:6px 0 2px -2px}
+.scroll-design .stars button{background:none;border:0;padding:2px;cursor:pointer;color:#cdb98f;transition:transform .15s,color .15s}
+.scroll-design .stars button svg{width:30px;height:30px;fill:currentColor;display:block}
+.scroll-design .stars button.on{color:#dc9a14;filter:drop-shadow(0 1px 2px rgba(120,70,0,.4))}
+.scroll-design .stars button:hover{transform:scale(1.16)}
+.scroll-design .lbl{font:500 12.5px Inter,sans-serif;color:var(--sepia);min-height:18px}
+.scroll-design .qr{text-align:center;text-decoration:none;color:var(--sepia);font:600 11px Inter,sans-serif;letter-spacing:.04em}
+.scroll-design .qr svg{display:block;width:92px;height:92px;margin:0 auto 5px;border:1px solid rgba(138,93,28,.7);border-radius:4px;padding:3px;background:#fffaf0}
+.scroll-design .sign{display:flex;justify-content:space-between;align-items:flex-end;gap:12px 20px;flex-wrap:wrap;margin-top:16px}
+.scroll-design .cur{font-family:Caveat,'Segoe Script',cursive;color:#1b1630;line-height:1.05}
+.scroll-design .s1{font-size:27px}.scroll-design .s2{font-size:48px;font-weight:700}.scroll-design .s3{font-size:23px;color:#4a3515}
+.scroll-design .tx{font:500 12px Inter,sans-serif;color:var(--sepia);text-align:right}
+.scroll-design .tx a{display:inline-block;margin-top:3px;color:#1c47c9;font-weight:600;text-decoration:underline;text-underline-offset:3px;word-break:break-all}
+.scroll-design .acts{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:20px}
+.scroll-design .btn{display:inline-flex;align-items:center;gap:9px;padding:12px 22px;border-radius:99px;font:600 14px Inter,sans-serif;cursor:pointer;transition:transform .15s,box-shadow .15s}
+.scroll-design .btn:hover{transform:translateY(-1px)}
+.scroll-design .btn.pri{border:0;color:#fff;background:linear-gradient(#3a6dff,#1c44c6);box-shadow:0 6px 14px rgba(36,87,255,.35),inset 0 1px 0 rgba(255,255,255,.3)}
+.scroll-design .btn.sec{background:transparent;color:#4a3010;border:1.5px solid #7a5420}
+.scroll-design .btn[disabled]{opacity:.7;cursor:progress}
+.scroll-design .toast{position:fixed;left:50%;bottom:calc(22px + env(safe-area-inset-bottom,0px));transform:translate(-50%,30px);opacity:0;background:#12172a;color:#f3e3b4;font:500 13px Inter,sans-serif;padding:11px 18px;border-radius:10px;transition:.3s;pointer-events:none;z-index:20;max-width:90vw;text-align:center}
+.scroll-design .toast.on{opacity:1;transform:translate(-50%,0)}
+/* light workspace theme */
+.scroll-design .hint{border:1px solid #e4e4e0}
+.scroll-design .sheet{background:linear-gradient(180deg,#fff,#FBFBF9);box-shadow:inset 0 0 40px rgba(17,19,24,.045),inset 0 0 0 1px rgba(17,19,24,.06)}
+.scroll-design .sheet::before{border-color:rgba(138,106,42,.45);outline-color:rgba(17,19,24,.1)}
+.scroll-design h1,.scroll-design .logo{color:var(--ink)}
+.scroll-design .note,.scroll-design .row{color:#374151}
+.scroll-design .dossier{border-color:#e4e4e0;background:#FAFAF8}
+.scroll-design .row small,.scroll-design .dossier h2 span{color:var(--gold)}
+.scroll-design .ico{border-color:#e4e4e0;background:#fff;color:var(--ink)}
+.scroll-design .amt{background:#FAFAF8;border:1px solid #e4e4e0;color:var(--sepia)}
+.scroll-design .amt strong{color:var(--ink)}
+.scroll-design .amt i{color:#c4c7c0}
+.scroll-design .fb{border:1px dashed #d4d6d0;background:#fff}
+.scroll-design .stars button{color:#d4d6d0}
+.scroll-design .stars button.on{color:#f0a30a;filter:none}
+.scroll-design .qr svg{border-color:#e4e4e0;background:#fff}
+.scroll-design .s3{color:#4b5563}
+.scroll-design .tx a{color:var(--blue)}
+.scroll-design .btn.sec{color:var(--ink);border-color:#d4d6d0;background:#fff}
+.scroll-design .btn.sec:hover{border-color:var(--ink)}
+.scroll-design .curl{background:linear-gradient(270deg,rgba(17,19,24,.35),rgba(17,19,24,.12) 38%,rgba(17,19,24,0))}
+.scroll-design .shadeL{background:linear-gradient(90deg,rgba(17,19,24,.25),rgba(17,19,24,0))}
+.scroll-design .core{background:linear-gradient(90deg,#e8e8e4,#fff,#e8e8e4)}
+.scroll-design .ground{background:radial-gradient(ellipse at center,rgba(17,19,24,.28),transparent 70%)}
+@media (max-width:520px){.scroll-design h1{font-size:56px}.scroll-design .note{font-size:18px}.scroll-design .s2{font-size:42px}}
+@media (prefers-reduced-motion:reduce){.scroll-design .scroll[data-state=closed]{animation:none}}
+@media print{.scroll-design{background:#fff}.scroll-design .hint,.scroll-design .toast,.scroll-design .acts,.scroll-design .ground{display:none}}
+

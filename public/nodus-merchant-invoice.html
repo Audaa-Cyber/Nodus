@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>#INV-2026-8894 — Nodus Merchant Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#F7F8FA;--card:#FFFFFF;--line:#E5E5DF;--ink:#171816;--mute:#6b6f68;--soft:#f1f2ee;--blue:#1d4ed8;--blue-bg:#eaf1ff;--blue-ln:#c9dafe;--green:#0f6b3a;--green-bg:#eaf7ef;--green-ln:#bfe3cd;--red:#b42318;
+ box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 15px/1.5 'DM Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+button,input{font:inherit;color:inherit}button{cursor:pointer}
+:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.m{font-family:'DM Mono',ui-monospace,monospace}
+svg.i{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex:none}
+body[data-state=open] [data-s=paid],body[data-state=paid] [data-s=open]{display:none!important}
+
+.rv{background:#fff;border-bottom:1px solid var(--line);padding:12px 16px;display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;justify-content:space-between}
+.rv .path{font:400 12.5px 'DM Mono',monospace;color:var(--mute)}
+.seg{display:inline-flex;padding:3px;background:var(--soft);border:1px solid var(--line);border-radius:10px;max-width:100%}
+.seg button{border:0;background:none;padding:8px 14px;border-radius:8px;font-size:13.5px;font-weight:500;color:var(--mute);text-align:left}
+.seg button[aria-pressed=true]{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(23,24,22,.12);font-weight:600}
+.page{max-width:960px;margin:0 auto;padding:26px 16px 70px;display:grid;gap:18px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:0 2px 6px rgba(23,24,22,.03);padding:24px}
+.nav{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.back{display:inline-flex;align-items:center;gap:6px;color:var(--mute);text-decoration:none;font-size:14px;font-weight:500}
+.back:hover{color:var(--ink)}
+.sync{display:inline-flex;align-items:center;gap:8px;font:400 12.5px 'DM Mono',monospace;color:var(--mute)}
+.sync i{width:8px;height:8px;border-radius:50%;background:#16a34a;animation:pl 1.8s infinite}
+@keyframes pl{70%{box-shadow:0 0 0 7px rgba(22,163,74,0)}0%{box-shadow:0 0 0 0 rgba(22,163,74,.5)}}
+.hd{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap}
+.hd h1{margin:0;font-size:clamp(26px,4.5vw,34px);font-weight:700;letter-spacing:-.02em;line-height:1.15;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.hd h1 .n{font-family:'DM Mono',monospace;font-weight:500;letter-spacing:-.03em}
+.sub{margin:4px 0 0;color:var(--mute);font-size:14px}
+.st{display:inline-flex;align-items:center;gap:7px;padding:4px 11px;border-radius:99px;font-size:13px;font-weight:600;border:1px solid}
+.st i{width:7px;height:7px;border-radius:50%;background:currentColor}
+.st.o{color:var(--blue);background:var(--blue-bg);border-color:var(--blue-ln)}
+.st.p{color:var(--green);background:var(--green-bg);border-color:var(--green-ln)}
+.acts{display:flex;gap:8px;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:8px;height:38px;padding:0 14px;background:#fff;border:1px solid var(--line);border-radius:10px;font-size:14px;font-weight:500;box-shadow:0 1px 2px rgba(23,24,22,.04)}
+.btn:hover{border-color:#c9c9c0;background:#fcfcfa}
+.btn.x{color:var(--red);border-color:#f0d3cf}.btn.x:hover{background:#fdf4f3;border-color:#e6b4ae}
+.lab{font:600 12px 'DM Sans',sans-serif;letter-spacing:.05em;color:var(--mute);text-transform:uppercase;margin:0 0 6px}
+.amt{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap}
+.big{font:500 clamp(36px,7vw,56px)/1 'DM Mono',monospace;letter-spacing:-.04em}
+.big small{font-size:.4em;letter-spacing:0;color:var(--mute);margin-left:8px}
+.net{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border:1px solid var(--line);border-radius:8px;font-size:13px;font-weight:500;background:var(--soft)}
+.net i{width:8px;height:8px;border-radius:50%;background:#2f6bff}
+.sh{display:grid;grid-template-columns:1fr auto;gap:28px;align-items:center}
+.sh h2,.cd h2{margin:0 0 4px;font-size:18px;font-weight:700;letter-spacing:-.01em}
+.sh p.d{margin:0 0 16px;color:var(--mute);font-size:14px;max-width:46ch}
+.lk{display:flex;gap:8px}
+.lk input{flex:1;min-width:0;height:42px;padding:0 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);font:400 13.5px 'DM Mono',monospace}
+.cp{height:42px;padding:0 16px;border:0;border-radius:10px;background:var(--ink);color:#fff;font-weight:600;font-size:14px;display:inline-flex;align-items:center;gap:8px;white-space:nowrap;transition:background .15s}
+.cp:hover{background:#34362f}.cp.ok{background:#15803d}
+.qr{text-align:center;font-size:13px;color:var(--mute)}
+.qr svg.q{display:block;width:148px;height:148px;margin:0 auto 8px;padding:8px;border:1px solid var(--line);border-radius:10px;background:#fff}
+.qr span{display:inline-flex;align-items:center;gap:6px;font-weight:500}
+.ban{display:flex;gap:14px;align-items:center;background:var(--green-bg);border:1px solid var(--green-ln);color:var(--green);border-radius:14px;padding:16px 20px}
+.ban .c{width:34px;height:34px;border-radius:50%;background:#fff;border:1px solid var(--green-ln);display:grid;place-items:center;flex:none}
+.ban b{display:block;font-size:15.5px}.ban span{font-size:13.5px}
+.kv{margin:0}
+.kv>div{display:grid;grid-template-columns:200px 1fr auto;gap:6px 16px;align-items:center;padding:13px 0;border-top:1px solid var(--line)}
+.kv>div:first-child{border-top:0;padding-top:4px}
+.kv dt{color:var(--mute);font-size:14px}.kv dd{margin:0;font:400 14px 'DM Mono',monospace;word-break:break-all}
+.kv .ac{display:flex;gap:6px}
+.ib{width:32px;height:32px;border:1px solid var(--line);background:#fff;border-radius:8px;display:grid;place-items:center;color:var(--ink);text-decoration:none}
+.ib:hover{background:var(--soft)}.ib.ok{color:#15803d;border-color:var(--green-ln);background:var(--green-bg)}
+.fb{display:grid;grid-template-columns:auto 1fr;gap:22px;align-items:center}
+.sc{font:500 42px/1 'DM Mono',monospace;letter-spacing:-.04em}
+.stars{display:flex;gap:2px;color:#e8a008;margin-top:6px}.stars svg{width:20px;height:20px;fill:currentColor}
+.fb blockquote{margin:0;font-size:19px;line-height:1.4;font-weight:500;letter-spacing:-.01em}
+.fb cite{display:block;margin-top:8px;font-style:normal;color:var(--mute);font-size:13.5px}
+.cd .top{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:18px;padding-bottom:16px;border-bottom:1px solid var(--line)}
+.chip{font:500 12.5px 'DM Mono',monospace;background:var(--soft);border:1px solid var(--line);padding:4px 9px;border-radius:7px;color:var(--mute)}
+.parties{display:grid;grid-template-columns:1fr 1fr;gap:28px;padding-bottom:22px;border-bottom:1px solid var(--line)}
+.parties h3{margin:0 0 8px}
+.parties .nm{font-weight:700;font-size:16.5px}
+.parties p{margin:2px 0;font-size:14px;color:#3b3d38;overflow-wrap:anywhere}
+.parties p.m{font-size:13px}
+.parties p b{font-weight:500;color:var(--mute)}
+.tw{margin-top:20px}
+table{width:100%;border-collapse:collapse}
+th{font:600 12px 'DM Sans',sans-serif;letter-spacing:.05em;text-transform:uppercase;color:var(--mute);text-align:right;padding:0 0 10px;border-bottom:1px solid var(--line)}
+th:first-child,td:first-child{text-align:left}
+td{padding:14px 0;border-bottom:1px solid var(--line);text-align:right;font:400 14px 'DM Mono',monospace;vertical-align:top}
+td:first-child{font-family:'DM Sans',sans-serif;padding-right:16px}
+td b{display:block;font-weight:600;font-size:14.5px}td span{display:block;color:var(--mute);font-size:13px;margin-top:1px}
+col.q{width:70px}col.u{width:130px}col.t{width:140px}
+.sum{margin:20px 0 0 auto;width:min(340px,100%);border:1px solid var(--line);border-radius:12px;background:#fbfbf9;padding:6px 18px}
+.sum p{display:flex;justify-content:space-between;margin:0;padding:10px 0;font-size:14px;border-bottom:1px solid var(--line)}
+.sum p span:last-child{font-family:'DM Mono',monospace}
+.sum p.t{border:0;font-weight:700;font-size:15.5px;padding:13px 0 12px}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translate(-50%,24px);opacity:0;background:var(--ink);color:#fff;font-size:13.5px;padding:10px 16px;border-radius:10px;transition:.25s;pointer-events:none;max-width:90vw;text-align:center;z-index:9}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+@media (max-width:720px){.sh,.parties,.fb{grid-template-columns:1fr}.qr{text-align:left}.qr svg.q{margin:0 0 8px}.kv>div{grid-template-columns:1fr auto}.kv dt{grid-column:1/-1}.card{padding:18px}.seg{width:100%}.seg button{flex:1}
+ .tw thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+ table,tbody,tr{display:block}colgroup{display:none}
+ tr{display:grid;grid-template-columns:repeat(3,1fr);gap:0 8px;padding:14px 0;border-bottom:1px solid var(--line)}
+ td{border:0;padding:6px 0 0;text-align:left}td:first-child{grid-column:1/-1;padding:0 0 4px}
+ td:not(:first-child)::before{display:block;font:500 12px 'DM Sans',sans-serif;color:var(--mute);margin-bottom:1px}
+ td:nth-child(2)::before{content:"Qty"}td:nth-child(3)::before{content:"Unit price"}td:nth-child(4)::before{content:"Line total"}}
+@media (prefers-reduced-motion:reduce){.sync i{animation:none}}
+@media print{.rv,.acts,.toast,.sh,.back{display:none!important}body{background:#fff}.card{box-shadow:none}}
+</style>
+</head>
+<body data-state="open">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
+ <symbol id="print" viewBox="0 0 24 24"><path d="M7 9V4h10v5M7 17H5a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2"/><rect x="7" y="14" width="10" height="6"/></symbol>
+ <symbol id="copy" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h8"/></symbol>
+ <symbol id="ext" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 14v5H5V6h5"/></symbol>
+ <symbol id="check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+ <symbol id="edit" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4"/></symbol>
+ <symbol id="qrc" viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6"/><rect x="14" y="4" width="6" height="6"/><rect x="4" y="14" width="6" height="6"/><path d="M14 14h3v3h-3zM20 14v6h-6"/></symbol>
+ <symbol id="back" viewBox="0 0 24 24"><path d="M19 12H5m6-6-6 6 6 6"/></symbol>
+ <symbol id="x" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+ <symbol id="star" viewBox="0 0 24 24"><path d="m12 2.6 2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.2 1.2-6.5L2.5 9.5l6.6-.9z"/></symbol>
+</defs></svg>
+
+<div class="rv">
+ <span class="path">/dashboard/invoices/INV-2026-8894</span>
+ <div class="seg" role="group" aria-label="Preview invoice state">
+  <button type="button" data-set="open" aria-pressed="true">Open / Unpaid (Share &amp; Collect)</button>
+  <button type="button" data-set="paid" aria-pressed="false">Paid / Settled (On-Chain Audit &amp; Receipt)</button>
+ </div>
+</div>
+
+<main class="page">
+ <div class="nav">
+  <a class="back" href="#" data-toast="Returns to the invoice list in the full dashboard."><svg class="i"><use href="#back"/></svg>Back to invoices</a>
+  <span class="sync" role="status"><i></i><span id="sync">Live · synced just now</span></span>
+ </div>
+
+ <section class="card hd">
+  <div>
+   <h1><span class="n">#INV-2026-8894</span>
+    <span class="st o" data-s="open"><i></i>Open</span>
+    <span class="st p" data-s="paid"><i></i>Paid</span></h1>
+   <p class="sub" data-s="open">Issued Nov 18, 2026 · Due Nov 28, 2026 · Waiting for the customer to pay</p>
+   <p class="sub" data-s="paid">Issued Nov 18, 2026 · Settled Nov 18, 2026 · Funds released to your wallet</p>
+  </div>
+  <div class="acts">
+   <button class="btn" type="button" id="print"><svg class="i"><use href="#print"/></svg>Print / Save PDF</button>
+   <button class="btn" type="button" data-s="open" data-toast="Edit opens the invoice editor in the full dashboard."><svg class="i"><use href="#edit"/></svg>Edit</button>
+   <button class="btn x" type="button" data-s="open" data-toast="Cancel asks for confirmation, then disables the payment link."><svg class="i"><use href="#x"/></svg>Cancel Invoice</button>
+  </div>
+ </section>
+
+ <section class="card amt">
+  <div>
+   <p class="lab" data-s="open">Amount due</p><p class="lab" data-s="paid">Amount received</p>
+   <div class="big">$2,200.00<small>USDC</small></div>
+  </div>
+  <span class="net"><i></i>Arbitrum Sepolia</span>
+ </section>
+
+ <section class="ban" data-s="paid" role="status">
+  <span class="c"><svg class="i" style="width:18px;height:18px;stroke-width:2.2"><use href="#check"/></svg></span>
+  <div><b>Payment Verified On-Chain</b><span>Destination settlement independently confirmed on Arbitrum Sepolia. Funds are in your receiving wallet.</span></div>
+ </section>
+
+ <section class="card sh" data-s="open">
+  <div>
+   <h2>Share with your customer</h2>
+   <p class="d">Send this public payment link. The customer pays in USDC and the funds are held in escrow until settlement.</p>
+   <p class="lab">Public payment link</p>
+   <div class="lk">
+    <input id="lnk" class="m" readonly value="https://nodus.app/pay/8f9a2b4c71e0d35a" aria-label="Public payment link">
+    <button class="cp" type="button" id="cpl"><svg class="i"><use href="#copy"/></svg><span>Copy Link</span></button>
+   </div>
+  </div>
+  <div class="qr"><div id="qrbox"></div><span><svg class="i"><use href="#qrc"/></svg>Scan to pay on mobile</span></div>
+ </section>
+
+ <section class="card" data-s="paid">
+  <h2 style="margin:0 0 14px;font-size:18px;font-weight:700">On-chain settlement verification</h2>
+  <dl class="kv">
+   <div><dt>Cryptographic receipt number</dt><dd>#RCP-2026-8894</dd><span class="ac"><button class="ib" type="button" data-copy="#RCP-2026-8894" aria-label="Copy receipt number" title="Copy"><svg class="i"><use href="#copy"/></svg></button></span></div>
+   <div><dt>Settlement timestamp</dt><dd>Nov 18, 2026 · 04:30:15 UTC</dd><span></span></div>
+   <div><dt>Destination transaction hash</dt><dd>0x8f2a...c19d</dd><span class="ac">
+    <button class="ib" type="button" data-copy="0x8f2a3b71d90e4c58a6f1027be3d4958c1a7e60f2b9d35c481e07a6d2f4b8c19d" aria-label="Copy transaction hash" title="Copy"><svg class="i"><use href="#copy"/></svg></button>
+    <a class="ib" href="https://sepolia.arbiscan.io/tx/0x8f2a3b71d90e4c58a6f1027be3d4958c1a7e60f2b9d35c481e07a6d2f4b8c19d" target="_blank" rel="noopener noreferrer" aria-label="View transaction on Arbiscan" title="View on Arbiscan"><svg class="i"><use href="#ext"/></svg></a></span></div>
+   <div><dt>Escrow smart contract</dt><dd>0x83eF...91c0</dd><span class="ac">
+    <button class="ib" type="button" data-copy="0x83eF1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d91c0" aria-label="Copy contract address" title="Copy"><svg class="i"><use href="#copy"/></svg></button>
+    <a class="ib" href="https://sepolia.arbiscan.io/address/0x83eF1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d91c0" target="_blank" rel="noopener noreferrer" aria-label="View contract on Arbiscan" title="View on Arbiscan"><svg class="i"><use href="#ext"/></svg></a></span></div>
+  </dl>
+ </section>
+
+ <section class="card" data-s="paid">
+  <p class="lab">Customer feedback</p>
+  <div class="fb">
+   <div><div class="sc">5.0</div><div class="stars" role="img" aria-label="5 out of 5 stars"><svg><use href="#star"/></svg><svg><use href="#star"/></svg><svg><use href="#star"/></svg><svg><use href="#star"/></svg><svg><use href="#star"/></svg></div></div>
+   <div><blockquote>“Exceptional speed, zero gas friction &amp; instant receipt.”</blockquote><cite>William Jones, Vanguard Ventures LLC · submitted from the Thank You Scroll</cite></div>
+  </div>
+ </section>
+
+ <section class="card cd">
+  <div class="top"><h2 style="margin:0">Invoice summary &amp; items</h2><span class="chip">#INV-2026-8894</span></div>
+  <div class="parties">
+   <div><h3 class="lab">Billed by</h3><p class="nm">Apex Studio Group</p>
+    <p>452 Innovation Way, San Francisco, CA 94107</p><p>billing@apexstudio.io</p><p>+1 555-234-8901</p>
+    <p class="m"><b>Tax ID / EIN</b> 84-2910482</p><p class="m"><b>Receiving wallet</b> 0x71C8...a82F</p></div>
+   <div><h3 class="lab">Billed to</h3><p class="nm">William Jones</p><p>Vanguard Ventures LLC</p>
+    <p>w.jones@vanguardventures.co</p><p>+1 555-310-7742</p><p>88 Harbor Avenue, Suite 12, Oakland, CA 94607</p></div>
+  </div>
+  <div class="tw">
+   <table>
+    <colgroup><col><col class="q"><col class="u"><col class="t"></colgroup>
+    <thead><tr><th>Item description</th><th>Qty</th><th>Unit price</th><th>Line total</th></tr></thead>
+    <tbody>
+     <tr><td><b>Web &amp; Interface Architecture</b><span>Information design, responsive UI system and component library</span></td><td>1</td><td>$500.00</td><td>$500.00</td></tr>
+     <tr><td><b>Branding &amp; Visual Identity</b><span>Two logo concepts, typography and brand guidelines</span></td><td>2</td><td>$300.00</td><td>$600.00</td></tr>
+     <tr><td><b>Smart Contract Security Audit</b><span>Manual review and static analysis of escrow contracts</span></td><td>1</td><td>$600.00</td><td>$600.00</td></tr>
+     <tr><td><b>Checkout &amp; Web3 Integration</b><span>Wallet connect, USDC checkout flow and event indexing</span></td><td>3</td><td>$50.00</td><td>$150.00</td></tr>
+     <tr><td><b>Deployment &amp; Handover Runbook</b><span>Production deploy, environment config and operations guide</span></td><td>3</td><td>$50.00</td><td>$150.00</td></tr>
+    </tbody>
+   </table>
+  </div>
+  <div class="sum">
+   <p><span>Subtotal</span><span>$2,000.00</span></p>
+   <p><span>Tax (10%)</span><span>$200.00</span></p>
+   <p><span>Discount</span><span>$0.00</span></p>
+   <p class="t"><span data-s="open">Net Total Due</span><span data-s="paid">Net Total Paid</span><span>$2,200.00 USDC</span></p>
+  </div>
+ </section>
+</main>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+  const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
+  const toast = $('#toast'); let tt;
+  const say = m => { toast.textContent = m; toast.classList.add('on'); clearTimeout(tt); tt = setTimeout(() => toast.classList.remove('on'), 2600); };
+
+  /* state switcher */
+  function setState(s, push) {
+    document.body.dataset.state = s;
+    $$('.seg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.set === s));
+    document.title = (s === 'paid' ? 'Paid' : 'Open') + ' · #INV-2026-8894 — Nodus Merchant Dashboard';
+    if (push) { try { history.replaceState(null, '', '#' + s); } catch (e) {} }
+    ago = 0; tick();
+  }
+  $$('.seg button').forEach(b => b.addEventListener('click', () => setState(b.dataset.set, true)));
+
+  /* realtime sync indicator */
+  let ago = 0;
+  function tick() { $('#sync').textContent = ago < 2 ? 'Live · synced just now' : 'Live · synced ' + ago + 's ago'; }
+  setInterval(() => { ago = (ago + 1) % 15; tick(); }, 1000);
+
+  /* clipboard */
+  async function copy(t) {
+    try { await navigator.clipboard.writeText(t); return true; }
+    catch (e) { const a = document.createElement('textarea'); a.value = t; a.style.cssText = 'position:fixed;opacity:0'; document.body.appendChild(a); a.select(); let ok = false; try { ok = document.execCommand('copy'); } catch (_) {} a.remove(); return ok; }
+  }
+  $('#cpl').addEventListener('click', async function () {
+    const ok = await copy($('#lnk').value), sp = this.querySelector('span'), use = this.querySelector('use');
+    if (!ok) { $('#lnk').select(); say('Press Ctrl+C to copy the selected link.'); return; }
+    this.classList.add('ok'); sp.textContent = 'Copied'; use.setAttribute('href', '#check');
+    setTimeout(() => { this.classList.remove('ok'); sp.textContent = 'Copy Link'; use.setAttribute('href', '#copy'); }, 1800);
+  });
+  $('#lnk').addEventListener('focus', function () { this.select(); });
+  $$('[data-copy]').forEach(b => b.addEventListener('click', async () => {
+    const ok = await copy(b.dataset.copy), use = b.querySelector('use');
+    if (!ok) { say('Copy is blocked here. Select the value and copy it manually.'); return; }
+    b.classList.add('ok'); use.setAttribute('href', '#check'); say('Copied to clipboard.');
+    setTimeout(() => { b.classList.remove('ok'); use.setAttribute('href', '#copy'); }, 1600);
+  }));
+
+  $$('[data-toast]').forEach(b => b.addEventListener('click', e => { e.preventDefault(); say(b.dataset.toast); }));
+  $('#print').addEventListener('click', () => { try { window.print(); } catch (e) { say('Printing is blocked in this preview.'); } });
+
+  /* decorative vector QR pattern seeded from the link (replace with a real encoder to make it scannable) */
+  (function () {
+    const n = 25, g = Array.from({ length: n }, () => Array(n).fill(0)), url = $('#lnk').value;
+    let h = 2166136261; for (const c of url) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619) >>> 0; }
+    const rnd = () => { h ^= h << 13; h >>>= 0; h ^= h >>> 17; h ^= h << 5; h >>>= 0; return h; };
+    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) g[y][x] = rnd() & 1;
+    for (let i = 8; i < n - 8; i++) { g[6][i] = (i + 1) & 1; g[i][6] = (i + 1) & 1; }
+    [[0, 0], [n - 7, 0], [0, n - 7]].forEach(([cx, cy]) => {
+      for (let y = -1; y <= 7; y++) for (let x = -1; x <= 7; x++) {
+        const X = cx + x, Y = cy + y; if (X < 0 || Y < 0 || X >= n || Y >= n) continue;
+        const ins = x >= 0 && x <= 6 && y >= 0 && y <= 6;
+        g[Y][X] = ins && (x === 0 || x === 6 || y === 0 || y === 6 || (x >= 2 && x <= 4 && y >= 2 && y <= 4)) ? 1 : 0;
+      }
+    });
+    for (let y = -2; y <= 2; y++) for (let x = -2; x <= 2; x++) g[n - 7 + y][n - 7 + x] = Math.max(Math.abs(x), Math.abs(y)) !== 1 ? 1 : 0;
+    let d = '';
+    for (let y = 0; y < n; y++) { let x = 0; while (x < n) { if (g[y][x]) { let l = 0; while (x + l < n && g[y][x + l]) l++; d += `M${x} ${y}h${l}v1h-${l}z`; x += l; } else x++; } }
+    $('#qrbox').innerHTML = `<svg class="q" viewBox="0 0 ${n} ${n}" shape-rendering="crispEdges" role="img" aria-label="QR code for the payment link"><path d="${d}" fill="#000"/></svg>`;
+  })();
+
+  setState(location.hash === '#paid' ? 'paid' : 'open', false);
+})();
+</script>
+</body>
+</html>

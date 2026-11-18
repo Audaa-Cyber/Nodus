@@ -143,9 +143,10 @@ test("Dashboard Layout: Integrates InvoiceRealtimeProvider across the executive 
 
 test("Invoice Detail Page: Embeds InvoiceDetailLiveSync in unpaid invoice view", async () => {
   const page = await read("../src/app/dashboard/invoices/[id]/page.tsx");
-
-  assert.ok(page.includes('import { InvoiceDetailLiveSync } from "@/components/invoice-detail-live-sync";'));
-  assert.ok(page.includes("<InvoiceDetailLiveSync invoiceId={invoice.id} currentStatus={invoice.status} />"));
+  const surface = await read("../src/components/merchant-open-surface.tsx");
+  assert.ok(page.includes("<MerchantOpenSurface"));
+  assert.ok(surface.includes('import { InvoiceDetailLiveSync } from "@/components/invoice-detail-live-sync";'));
+  assert.ok(surface.includes("<InvoiceDetailLiveSync invoiceId={id} currentStatus={invoice.status} />"));
 });
 
 test("Invoices Page: InvoicesPage renders InvoicesTable client component with server data", async () => {

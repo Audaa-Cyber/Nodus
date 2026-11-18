@@ -1,11 +1,12 @@
 import { createHash } from "node:crypto";
 import type { Metadata } from "next";
 import Link from "next/link";
-import Image from "next/image";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { formatMoney } from "@/lib/invoices";
+import { parseInvoiceItems, settlementContract } from "@/lib/invoice-design";
 import { getWalletNetwork } from "@/lib/wallet/networks";
-import { LazyInvoiceWalletCheckout } from "@/components/wallet/lazy-wallet-checkout";
+import { PayerInvoiceFrame } from "@/components/payer-invoice-frame";
+import { PayerInvoiceSheet } from "@/components/payer-invoice-sheet";
 import { PaymentSuccessCard, type LineItem } from "@/components/payment-success-card";
 
 export const dynamic = "force-dynamic";
@@ -68,9 +69,10 @@ export default async function PublicInvoicePage({ params }: { params: Promise<{ 
 
   const tokenHash = createHash("sha256").update(token, "utf8").digest("hex");
   const supabase = await createSupabaseServerClient();
-  const [{ data, error }, contextResult] = await Promise.all([
+  const [{ data, error }, contextResult, partyResult] = await Promise.all([
     supabase.rpc("lookup_shared_invoice", { p_token_hash: tokenHash }),
     supabase.rpc("lookup_shared_payment_context", { p_token_hash: tokenHash }),
+    supabase.rpc("lookup_shared_invoice_parties", { p_token_hash: tokenHash }),
   ]);
   if (error) return unavailablePage("Invoice details are temporarily unavailable", "We couldn't load this invoice right now.", "error");
   const invoice = data?.[0];
@@ -94,11 +96,21 @@ export default async function PublicInvoicePage({ params }: { params: Promise<{ 
   const { data: receipts } = await supabase.rpc("lookup_shared_payment_receipts", { p_token_hash: tokenHash });
 
   const status = invoice.status;
+  const parties = partyResult.data?.[0] ?? null;
+  const sellerDetails = { email: sellerEmail, phone: sellerPhone, address: sellerAddress,
+    website: sellerWebsite, taxId: sellerTaxId,
+    founderName: typeof seller.founder_name === "string" ? seller.founder_name : null,
+    founderTitle: typeof seller.founder_title === "string" ? seller.founder_title : null,
+    reviewUrl: typeof seller.review_url === "string" ? seller.review_url : null };
 
   if (status === "paid") {
+    const { data: receiptDestinations } = await supabase.rpc("lookup_shared_receipt_destinations", { p_token_hash: tokenHash });
+    const historicalRecipients = new Map(receiptDestinations?.map(entry => [entry.receipt_number, entry.recipient_address]) ?? []);
+    const receiptDetails = receipts?.map(entry => ({ ...entry, recipient_address: historicalRecipients.get(entry.receipt_number) ?? null })) ?? [];
     return (
-      <main className="public-invoice-page">
+      <main>
         <PaymentSuccessCard
+          shareToken={token}
           invoiceNumber={invoice.invoice_number}
           amountMinor={invoice.amount_minor}
           currency={invoice.currency}
@@ -107,21 +119,15 @@ export default async function PublicInvoicePage({ params }: { params: Promise<{ 
           issueDate={invoice.issue_date}
           dueDate={invoice.due_date}
           destinationNetwork={destinationNetwork}
-          recipientAddress={recipientAddress}
-          receipt={receipts?.[0] ?? null}
-          receipts={receipts ?? []}
+          recipientAddress={receiptDetails[0]?.recipient_address ?? null}
+          receipt={receiptDetails[0] ?? null}
+          receipts={receiptDetails}
           lineItems={Array.isArray(invoice.line_items) ? (invoice.line_items as unknown as LineItem[]) : null}
           subtotalMinor={invoice.subtotal_minor}
           taxRateBps={invoice.tax_rate_bps}
           discountMinor={invoice.discount_minor}
           sellerFooter={typeof seller.invoice_footer === "string" ? seller.invoice_footer : invoice.invoice_footer}
-          sellerDetails={{
-            email: sellerEmail,
-            phone: sellerPhone,
-            address: sellerAddress,
-            website: sellerWebsite,
-            taxId: sellerTaxId,
-          }}
+          sellerDetails={sellerDetails}
         />
       </main>
     );
@@ -136,70 +142,49 @@ export default async function PublicInvoicePage({ params }: { params: Promise<{ 
           ? "This invoice is open. Contact the business with any questions."
           : "This invoice is not available for payment.";
 
-  return <main className="public-invoice-page"><article className="public-invoice-card" aria-labelledby="public-invoice-title">
-    <header className="public-invoice-header">{sellerLogo ? <Image src={sellerLogo} alt={sellerName ?? "Business logo"} width={150} height={56} unoptimized style={{width:"auto",height:"auto",maxWidth:150,maxHeight:56,objectFit:"contain"}}/> : <span className="public-brand">{sellerName}</span>}<span className={`status status-${status}`}>{status}</span></header>
-    <p className="eyebrow">INVOICE FROM {sellerName?.toLocaleUpperCase() ?? "BUSINESS"}</p>
-    <h1 id="public-invoice-title">Invoice {invoice.invoice_number}</h1>
-    <p className="public-invoice-business">{sellerName}</p>
-    {(sellerEmail||sellerPhone||sellerAddress||sellerWebsite||sellerTaxId)&&<section className="public-invoice-dates" aria-label="Business details">{sellerAddress&&<p>{sellerAddress}</p>}{sellerPhone&&<p>{sellerPhone}</p>}{sellerEmail&&<p>{sellerEmail}</p>}{sellerWebsite&&<p>{sellerWebsite}</p>}{sellerTaxId&&<p>Tax ID: {sellerTaxId}</p>}</section>}
-    <div className="public-invoice-amount"><span>INVOICE TOTAL</span><strong>{safeFormatMoney(invoice.amount_minor, invoice.currency)}</strong></div>
-    <section className="public-invoice-description" aria-label="Invoice items"><h2>Items</h2>{Array.isArray(invoice.line_items)&&invoice.line_items.length ? <div>{(invoice.line_items as unknown as Array<{description:string;quantity:number;unitPriceMinor:number;lineTotalMinor:number}>).map((item,index)=><div key={index} style={{display:"flex",justifyContent:"space-between",gap:16,padding:"9px 0",borderBottom:"1px solid #e5e5df"}}><span>{item.description}<small style={{display:"block",color:"#777"}}>{item.quantity} × {safeFormatMoney(item.unitPriceMinor,invoice.currency!)}</small></span><strong>{safeFormatMoney(item.lineTotalMinor,invoice.currency!)}</strong></div>)}</div>:<p>{invoice.description}</p>}{invoice.subtotal_minor!==null&&invoice.subtotal_minor!==undefined&&<p>Subtotal <strong>{safeFormatMoney(invoice.subtotal_minor,invoice.currency!)}</strong></p>}{(invoice.tax_rate_bps??0)>0&&<p>Tax ({((invoice.tax_rate_bps??0)/100).toFixed(2)}%) <strong>{safeFormatMoney(Math.round((invoice.subtotal_minor??invoice.amount_minor??0)*(invoice.tax_rate_bps??0)/10000),invoice.currency!)}</strong></p>}{(invoice.discount_minor??0)>0&&<p>Discount <strong>−{safeFormatMoney(invoice.discount_minor ?? 0, invoice.currency!)}</strong></p>}</section>
-    <dl className="public-invoice-dates">
-      <div><dt>Issued</dt><dd>{displayDate(invoice.issue_date)}</dd></div>
-      {invoice.due_date && <div><dt>Due</dt><dd>{displayDate(invoice.due_date)}</dd></div>}
-      {destinationNetwork && (
-        <div>
-          <dt>Settlement network</dt>
-          <dd>{formatNetworkLabel(destinationNetwork)}</dd>
-        </div>
-      )}
-      {recipientAddress && (
-        <div>
-          <dt>Merchant recipient</dt>
-          <dd title={recipientAddress}>
-            <code>{shortAddress(recipientAddress)}</code>
-          </dd>
-        </div>
-      )}
-    </dl>
-    <p className={`public-invoice-status public-status-${status}`} role="status">{statusMessage}</p>
-    {receipts && receipts.length > 0 && <section className="public-invoice-description" aria-labelledby="payment-receipt-title"><h2 id="payment-receipt-title">Payment receipt</h2><ul>{receipts.map((receipt) => {
-      const outcome = receipt.outcome === "VERIFIED" ? "Verified settlement"
-        : receipt.outcome === "PARTIAL" ? "Verified partial payment"
-          : receipt.outcome === "OVERPAID" ? "Verified payment; overpayment review required"
-            : "Payment received; reconciliation review required";
-      const hashes = Array.isArray(receipt.destination_tx_hashes) ? receipt.destination_tx_hashes.filter((hash): hash is string => typeof hash === "string" && /^0x[0-9a-fA-F]{64}$/.test(hash)) : [];
-      return <li key={receipt.receipt_number}><strong>{receipt.receipt_number}</strong><p>{outcome}</p><p>{formatBaseUnits(receipt.received_amount_base_units, receipt.received_asset_decimals)} {receipt.destination_asset_id ?? "asset"} on {receipt.destination_network ?? "network"}</p>{hashes.map((hash) => <p key={hash}>Destination transaction: <code>{hash}</code></p>)}</li>;
-    })}</ul><p className="public-invoice-note">This receipt reflects payment verification and is not a separate invoice.</p></section>}
-    {(status === "open" || status === "overdue") ? (
-      <LazyInvoiceWalletCheckout
-        shareToken={token}
-        invoiceNumber={invoice.invoice_number}
-        amountMinor={invoice.amount_minor}
-        currency={invoice.currency}
-        status={status}
-        destinationNetwork={destinationNetwork}
-        recipientAddress={recipientAddress}
-        businessName={sellerName}
-        logoUrl={sellerLogo}
-        issueDate={invoice.issue_date}
-        dueDate={invoice.due_date}
-        sellerFooter={typeof seller.invoice_footer === "string" ? seller.invoice_footer : invoice.invoice_footer}
-        lineItems={Array.isArray(invoice.line_items) ? (invoice.line_items as unknown as LineItem[]) : null}
-        subtotalMinor={invoice.subtotal_minor}
-        taxRateBps={invoice.tax_rate_bps}
-        discountMinor={invoice.discount_minor}
-        sellerDetails={{
-          email: sellerEmail,
-          phone: sellerPhone,
-          address: sellerAddress,
-          website: sellerWebsite,
-          taxId: sellerTaxId,
-        }}
-      />
-    ) : (
-      <p className="public-invoice-note">Wallet setup is unavailable for this invoice. No payment can be prepared.</p>
-    )}
-    <p className="public-invoice-note">Wallet connection is optional and does not authorize payment.</p><footer className="public-invoice-note invoice-thank-you" style={{textAlign:"left",fontSize:24}}>{(typeof seller.invoice_footer === "string" ? seller.invoice_footer : invoice.invoice_footer) || "Thank you for your business."}<br/><span style={{fontSize:10,opacity:.65}}>Powered by nodus.</span></footer>
-  </article></main>;
+  const lineItems = parseInvoiceItems(invoice.line_items);
+  const items = lineItems.length ? lineItems : [{ description: invoice.description, quantity: 1,
+    unitPriceMinor: invoice.subtotal_minor ?? invoice.amount_minor,
+    lineTotalMinor: invoice.subtotal_minor ?? invoice.amount_minor }];
+  const subtotalMinor = invoice.subtotal_minor ?? invoice.amount_minor;
+  const escrowContract = shortAddress(settlementContract(null));
+  const checkout = (status === "open" || status === "overdue") ? {
+    shareToken: token, invoiceNumber: invoice.invoice_number, amountMinor: invoice.amount_minor,
+    currency: invoice.currency, status, destinationNetwork, recipientAddress,
+    businessName: sellerName, logoUrl: sellerLogo, issueDate: invoice.issue_date, dueDate: invoice.due_date,
+    sellerFooter: typeof seller.invoice_footer === "string" ? seller.invoice_footer : invoice.invoice_footer,
+    lineItems: items, subtotalMinor, taxRateBps: invoice.tax_rate_bps, discountMinor: invoice.discount_minor, sellerDetails,
+  } : null;
+
+  return <PayerInvoiceFrame checkout={checkout}>
+    <PayerInvoiceSheet
+      invoiceNumber={invoice.invoice_number} status={status} businessName={sellerName} logoUrl={sellerLogo}
+      email={sellerEmail} phone={sellerPhone} address={sellerAddress} taxId={sellerTaxId}
+      customerName={parties?.customer_name} customerEmail={parties?.customer_email}
+      customerCompany={parties?.customer_company} customerPhone={parties?.customer_phone} customerAddress={parties?.customer_address}
+      amount={safeFormatMoney(invoice.amount_minor, invoice.currency)} subtotal={safeFormatMoney(subtotalMinor, invoice.currency)}
+      tax={safeFormatMoney(Math.round(subtotalMinor * (invoice.tax_rate_bps ?? 0) / 10000), invoice.currency)}
+      taxPercent={((invoice.tax_rate_bps ?? 0) / 100).toString()} discount={safeFormatMoney(invoice.discount_minor ?? 0, invoice.currency)}
+      issueDate={displayDate(invoice.issue_date)} dueDate={invoice.due_date ? displayDate(invoice.due_date) : "—"}
+      network={destinationNetwork ? formatNetworkLabel(destinationNetwork) : "Unavailable"} recipient={shortAddress(recipientAddress)}
+      escrowContract={escrowContract} signature={sellerDetails.founderName} signatureTitle={sellerDetails.founderTitle}
+      items={items.map((item) => ({ ...item, price: safeFormatMoney(item.unitPriceMinor, invoice.currency!), total: safeFormatMoney(item.lineTotalMinor, invoice.currency!) }))}
+    />
+    {status !== "open" && <p className={`public-invoice-status public-status-${status}`} role="status">{statusMessage}</p>}
+    {receipts && receipts.length > 0 && <section className="done" aria-labelledby="payment-receipt-title">
+      <h2 id="payment-receipt-title">Payment receipt</h2><ul>{receipts.map((receipt) => {
+        const outcome = receipt.outcome === "VERIFIED" ? "Verified settlement"
+          : receipt.outcome === "PARTIAL" ? "Verified partial payment"
+            : receipt.outcome === "OVERPAID" ? "Verified payment; overpayment review required"
+              : "Payment received; reconciliation review required";
+        const hashes = Array.isArray(receipt.destination_tx_hashes)
+          ? receipt.destination_tx_hashes.filter((hash): hash is string => typeof hash === "string" && /^0x[0-9a-fA-F]{64}$/.test(hash)) : [];
+        return <li key={receipt.receipt_number}><strong>{receipt.receipt_number}</strong><p>{outcome}</p>
+          <p>{formatBaseUnits(receipt.received_amount_base_units, receipt.received_asset_decimals)} {receipt.destination_asset_id ?? "asset"} on {receipt.destination_network ?? "network"}</p>
+          {hashes.map((hash) => <p key={hash}>Destination transaction: <code>{hash}</code></p>)}
+        </li>;
+      })}</ul><p>This receipt reflects payment verification and is not a separate invoice.</p>
+    </section>}
+    {!checkout && <p className="public-invoice-note">Wallet setup is unavailable for this invoice. No payment can be prepared.</p>}
+  </PayerInvoiceFrame>;
 }

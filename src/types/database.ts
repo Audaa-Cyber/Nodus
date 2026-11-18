@@ -3,6 +3,15 @@ export type Json = string | number | boolean | null | { [key: string]: Json | un
 export interface Database {
   public: {
     Tables: {
+      invoice_feedback: {
+        Row: { invoice_id: string; business_id: string; rating: number; comment: string | null; submitted_at: string };
+        Insert: { invoice_id: string; business_id: string; rating: number; comment?: string | null; submitted_at?: string };
+        Update: { rating?: number; comment?: string | null; submitted_at?: string };
+        Relationships: [
+          { foreignKeyName: "invoice_feedback_invoice_id_fkey"; columns: ["invoice_id"]; isOneToOne: true; referencedRelation: "invoices"; referencedColumns: ["id"] },
+          { foreignKeyName: "invoice_feedback_business_id_fkey"; columns: ["business_id"]; isOneToOne: false; referencedRelation: "business_profiles"; referencedColumns: ["id"] }
+        ];
+      };
       business_profiles: {
         Row: { id: string; owner_user_id: string; business_name: string; email: string; receiving_address: string | null; receiving_network: string | null; logo_url?: string | null; business_phone?: string | null; business_address?: string | null; website_url?: string | null; tax_registration_number?: string | null; invoice_prefix?: string; next_invoice_number?: number; default_currency?: string; default_payment_terms_days?: number; invoice_footer?: string; created_at: string; updated_at: string };
         Insert: { id?: string; owner_user_id: string; business_name: string; email: string; receiving_address?: string | null; receiving_network?: string | null; logo_url?: string | null; business_phone?: string | null; business_address?: string | null; website_url?: string | null; tax_registration_number?: string | null; invoice_prefix?: string; next_invoice_number?: number; default_currency?: string; default_payment_terms_days?: number; invoice_footer?: string; created_at?: string; updated_at?: string };
@@ -80,6 +89,10 @@ export interface Database {
     };
     Views: Record<string, never>;
     Functions: {
+      lookup_shared_invoice_parties: { Args: { p_token_hash: string }; Returns: { invoice_id: string; customer_name: string | null; customer_email: string | null; customer_company: string | null; customer_phone: string | null; customer_address: string | null }[] };
+      lookup_shared_invoice_feedback: { Args: { p_token_hash: string }; Returns: { rating: number; comment: string | null; customer_name: string | null; submitted_at: string }[] };
+      lookup_shared_receipt_destinations: { Args: { p_token_hash: string }; Returns: { receipt_number: string; recipient_address: string | null }[] };
+      submit_shared_invoice_feedback: { Args: { p_token_hash: string; p_rating: number; p_comment?: string | null }; Returns: { rating: number; comment: string | null; customer_name: string | null; submitted_at: string }[] };
       allocate_invoice_number: { Args: { p_business_id: string }; Returns: string };
       lookup_shared_invoice: { Args: { p_token_hash: string }; Returns: { link_status: string; business_name: string | null; invoice_number: string | null; description: string | null; amount_minor: number | null; currency: string | null; issue_date: string | null; due_date: string | null; status: "draft" | "open" | "paid" | "cancelled" | "overdue" | null; expires_at: string; line_items: Json | null; subtotal_minor: number | null; tax_rate_bps: number | null; discount_minor: number | null; logo_url: string | null; invoice_footer: string | null; seller_snapshot: Json | null }[] };
       create_mock_payment_attempt: { Args: { p_token_hash: string; p_idempotency_key: string; p_source_asset_id: string; p_source_network: string }; Returns: Database["public"]["Tables"]["payment_attempts"]["Row"][] };

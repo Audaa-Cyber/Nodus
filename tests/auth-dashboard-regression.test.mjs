@@ -73,7 +73,7 @@ test("auth callback route sets cookies directly on redirect response and wraps e
 });
 
 test("middleware recognizes chunked Supabase auth cookies and does not reject them as unauthenticated", async () => {
-  const middlewareCode = await read("../middleware.ts");
+  const middlewareCode = await read("../src/middleware.ts");
 
   assert.ok(
     middlewareCode.includes("c.name.includes(\"-auth-token\")") ||

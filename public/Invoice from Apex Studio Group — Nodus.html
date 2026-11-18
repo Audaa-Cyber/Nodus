@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Invoice from Apex Studio Group — Nodus</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600&family=DM+Mono:wght@400;500&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700;9..40,800&display=swap" rel="stylesheet">
+<style>
+:root{--desk:#F5F5F4;--paper:#FFFFFF;--paper2:#FFFFFF;--ink:#111318;--mute:#6b7280;--hair:#e5e7e3;--emerald:#16a34a;--emerald-d:#0f7a3a;--zinc:#A1A1AA;
+ box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:var(--desk);color:var(--ink);font:400 15px/1.5 'DM Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased;
+ background-image:radial-gradient(ellipse at 50% -10%,#1d1f1c,transparent 60%)}
+:focus-visible{outline:2px solid var(--emerald);outline-offset:3px}
+button{font:inherit;cursor:pointer}
+.mono{font-family:'DM Mono',ui-monospace,monospace}
+svg.i{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.wrap{max-width:960px;margin:0 auto;padding:32px 16px 40px}
+
+/* sheet */
+.sheet{position:relative;padding:48px 52px 44px;background:
+ url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .4 0 0 0 0 .3 0 0 0 0 .15 .8 0 0 0 -.3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.5'/%3E%3C/svg%3E"),
+ linear-gradient(180deg,var(--paper2),var(--paper));box-shadow:0 30px 60px rgba(0,0,0,.65),0 2px 0 rgba(255,255,255,.05)}
+.head{display:grid;grid-template-columns:1.25fr 1fr;gap:32px}
+.brand{display:flex;gap:12px;align-items:center}
+.brand b{display:block;font-size:19px;line-height:1.15;font-weight:700}
+.brand span{font-size:13px;color:var(--mute)}
+h1{margin:26px 0 12px;font-weight:800;font-size:clamp(56px,10vw,108px);line-height:.88;letter-spacing:-.045em}
+.no{font:500 13px 'DM Mono',monospace;color:var(--mute);margin-left:2px}
+.pill{display:inline-flex;align-items:center;gap:9px;margin-top:10px;padding:7px 14px 7px 12px;border:1px solid var(--ink);border-radius:99px;font:500 12.5px 'DM Mono',monospace;background:var(--paper2)}
+.dot{width:9px;height:9px;border-radius:50%;background:#16a870;box-shadow:0 0 0 0 rgba(22,168,112,.6);animation:pulse 1.8s infinite}
+@keyframes pulse{70%{box-shadow:0 0 0 9px rgba(22,168,112,0)}100%{box-shadow:0 0 0 0 rgba(22,168,112,0)}}
+.dos h2,.to h2{margin:0 0 10px;font-size:13px;font-weight:700;color:var(--mute)}
+dl.d{margin:0;display:grid;gap:9px}
+dl.d div{display:flex;gap:11px;align-items:flex-start;font-size:14px;line-height:1.4}
+dl.d svg{margin-top:2px;color:var(--ink)}
+.dos{padding-top:6px;border-top:2px solid var(--ink);padding-top:16px}
+.row2{display:grid;grid-template-columns:1.25fr 1fr;gap:32px;margin-top:38px;align-items:start}
+.to .nm{font-size:22px;font-weight:700;line-height:1.2;margin-bottom:2px}
+.to .co{font-size:15px;color:var(--mute);margin-bottom:10px}
+.banner{background:var(--ink);color:#fff}
+.banner .t{padding:20px 24px 18px}
+.banner small{display:block;font-size:13px;color:var(--zinc)}
+.banner .amt{font-weight:800;font-size:clamp(28px,4.4vw,40px);letter-spacing:-.025em;font-variant-numeric:tabular-nums;line-height:1.1;margin-top:2px}
+.dates{margin-top:10px;display:grid;gap:6px}
+.dates p{display:flex;justify-content:space-between;margin:0;padding:0 2px;font-size:12.5px;color:var(--mute);font-weight:500;letter-spacing:.02em}
+.dates b{font:500 13.5px 'DM Mono',monospace;color:var(--ink)}
+
+/* table */
+.tw{margin-top:40px;overflow-x:auto}
+table{width:100%;table-layout:fixed;border-collapse:collapse;font-variant-numeric:tabular-nums}
+th{padding:12px 16px;font-size:13px;font-weight:700;text-align:right;border-bottom:2px solid var(--ink);color:var(--ink);white-space:nowrap}
+td{padding:16px;text-align:right;border-bottom:1px solid var(--hair);border-left:1px solid var(--hair);font:400 14.5px 'DM Mono',monospace;vertical-align:middle}
+th:first-child,td:first-child{text-align:left;width:60px;border-left:0}
+th.ds,td.ds{text-align:left;background:var(--ink);color:#fff;border-left:0;border-bottom:1px solid #2c2e2b;font-family:'DM Sans',sans-serif}
+th.ds{color:#fff;border-bottom:1px solid #2c2e2b;padding-top:14px}
+td.ds b{display:block;font-weight:700;font-size:15px;color:#fff}
+td.ds span{display:block;margin-top:2px;font-size:12.5px;color:var(--zinc);line-height:1.4}
+td.pr{width:112px}td.q{width:76px}td.am{width:128px;font-weight:500;color:var(--ink)}
+td:first-child{color:var(--mute)}
+tr:last-child td{border-bottom:2px solid var(--ink)}
+tr:last-child td.ds{border-bottom:0}
+
+td.ds{padding:18px 22px;overflow-wrap:anywhere}th.ds{padding-left:22px}
+@media (max-width:760px){
+.tw{overflow:visible}
+.tw table,.tw tbody,.tw tr,.tw td{display:block}
+.tw thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.tw tbody tr{position:relative;display:grid;grid-template-columns:repeat(3,1fr);margin-bottom:16px;border:1px solid var(--ink);background:var(--paper2)}
+.tw tbody td,.tw tbody tr:last-child td{width:auto;border:0;text-align:left;padding:12px 16px}
+.tw tbody td.ds{grid-column:1/-1;padding:16px 56px 16px 18px}
+.tw tbody td:first-child{position:absolute;top:16px;right:16px;padding:0;color:var(--zinc);z-index:1}
+.tw tbody td.pr::before,.tw tbody td.q::before,.tw tbody td.am::before{display:block;font:500 12px 'DM Sans',sans-serif;color:var(--mute);margin-bottom:2px}
+.tw tbody td.pr::before{content:"Price"}.tw tbody td.q::before{content:"QTY"}.tw tbody td.am::before{content:"Amount"}
+}
+.sum{margin:22px 0 0 auto;width:min(360px,100%)}
+.sum p{display:flex;justify-content:space-between;margin:0;padding:9px 4px;border-bottom:1px solid var(--hair);font-size:14px}
+.sum p span:last-child{font:400 14px 'DM Mono',monospace}
+.tot{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:16px;background:#0a0a0a;color:#fff;border-radius:99px;padding:15px 26px;font-weight:700;font-size:15px}
+.tot span:last-child{font:500 17px 'DM Mono',monospace}
+
+.foot{display:grid;grid-template-columns:1.4fr 1fr;gap:40px;margin-top:44px;padding-top:24px;border-top:1px solid var(--hair);align-items:end}
+.foot h3{margin:0 0 10px;font-size:13px;font-weight:700;color:var(--mute)}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:5px 18px;margin:0;font-size:13.5px}
+.kv dt{color:var(--mute)}.kv dd{margin:0;font-family:'DM Mono',monospace;font-size:13px}
+.guar{display:flex;gap:10px;margin:14px 0 0;font-size:13px;color:#3c3a33;line-height:1.5}
+.guar svg{margin-top:2px;color:var(--emerald-d)}
+.sig{text-align:right}
+.sig .cv{font:600 58px/1 Caveat,'Segoe Script',cursive;color:#14213d;transform:rotate(-3deg);display:inline-block}
+.sig svg{display:block;margin:-6px 0 4px auto;width:200px;height:20px;stroke:#14213d;fill:none;stroke-width:2;stroke-linecap:round}
+.sig p{margin:0;font-size:13px;color:var(--mute)}.sig p b{color:var(--ink);font-weight:700}
+
+/* dock */
+.dock{position:sticky;bottom:calc(14px + env(safe-area-inset-bottom,0px));margin-top:26px;background:#171816;color:#fff;border:1px solid #2f322e;box-shadow:0 18px 40px rgba(0,0,0,.6);display:flex;flex-wrap:wrap;align-items:center;gap:14px 22px;padding:14px 18px 14px 20px;z-index:5}
+.w{display:flex;align-items:center;gap:12px;flex:1 1 280px;min-width:0}
+.w .ic{width:38px;height:38px;border:1px solid #3a3d39;display:grid;place-items:center;color:var(--emerald)}
+.w .ic svg{width:19px;height:19px}
+.w small{display:block;font-size:12px;color:var(--zinc)}
+.w .ad{font:500 14.5px 'DM Mono',monospace}
+.net{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border:1px solid #3a3d39;border-radius:99px;font-size:12.5px;font-weight:500;white-space:nowrap}
+.net i{width:8px;height:8px;border-radius:50%;background:#4e8dff}
+.bal{font:500 14.5px 'DM Mono',monospace;white-space:nowrap}
+.tg{background:none;border:1px solid #3a3d39;color:#d4d4d8;padding:7px 12px;font-size:12.5px;font-weight:500;border-radius:3px}
+.tg:hover{border-color:#6a6e68;color:#fff}
+.cta{margin-left:auto;background:var(--emerald);color:#04150d;border:0;padding:14px 26px;font-weight:700;font-size:15px;border-radius:3px;display:inline-flex;gap:10px;align-items:center;transition:background .15s,transform .15s}
+.cta:hover{background:#4fe0a2;transform:translateY(-1px)}
+.cta[disabled]{opacity:.65;cursor:progress;transform:none}
+.dock.off .w .ic{color:#8a8d87}
+.dock[hidden]{display:none}
+
+/* modal */
+.ov{position:fixed;inset:0;z-index:30;background:rgba(5,6,5,.78);display:grid;place-items:center;padding:16px}
+.ov[hidden]{display:none}
+.md{width:min(520px,100%);background:#171816;color:#fff;border:1px solid #34372f;padding:26px 26px 22px;box-shadow:0 30px 80px rgba(0,0,0,.7)}
+.md h2{margin:0 0 4px;font-size:20px}
+.md > p{margin:0 0 20px;color:var(--zinc);font-size:13.5px}
+.st{list-style:none;margin:0;padding:0;display:grid;gap:0}
+.st li{display:grid;grid-template-columns:30px 1fr;gap:14px;padding:14px 0;border-top:1px solid #2c2e2b;opacity:.45;transition:opacity .3s}
+.st li.act,.st li.ok{opacity:1}
+.st b{display:block;font-size:14.5px;font-weight:500}
+.st span{display:block;font:400 12px 'DM Mono',monospace;color:var(--zinc);margin-top:2px;word-break:break-all}
+.mk{width:26px;height:26px;border:1.5px solid #4a4d48;border-radius:50%;display:grid;place-items:center;color:transparent}
+.mk svg{width:14px;height:14px}
+.act .mk{border-color:var(--emerald);border-top-color:transparent;animation:sp .8s linear infinite}
+.ok .mk{background:var(--emerald);border-color:var(--emerald);color:#04150d}
+@keyframes sp{to{transform:rotate(360deg)}}
+.bar{height:2px;background:#2c2e2b;margin-top:6px}.bar i{display:block;height:100%;width:0;background:var(--emerald);transition:width .5s}
+
+/* success */
+.done{background:var(--paper2);padding:48px 52px;box-shadow:0 30px 60px rgba(0,0,0,.65)}
+.done[hidden]{display:none}
+.chk{width:56px;height:56px;background:var(--ink);color:var(--emerald);display:grid;place-items:center}
+.chk svg{width:28px;height:28px;stroke-width:2.2}
+.done h2{margin:22px 0 6px;font-size:clamp(34px,6vw,56px);font-weight:800;letter-spacing:-.04em;line-height:1}
+.done > p{margin:0 0 28px;color:var(--mute);max-width:560px}
+.rc{display:grid;grid-template-columns:auto 1fr;border-top:2px solid var(--ink)}
+.rc dt,.rc dd{margin:0;padding:12px 0;border-bottom:1px solid var(--hair);font-size:14px}
+.rc dt{color:var(--mute);padding-right:28px}
+.rc dd{font-family:'DM Mono',monospace;font-size:13.5px;word-break:break-all;display:flex;gap:10px;align-items:center;justify-content:space-between}
+.rc dd a{color:var(--ink)}
+.cp{background:none;border:1px solid var(--ink);padding:3px 10px;font:500 12px 'DM Sans',sans-serif;white-space:nowrap}
+.cp:hover{background:var(--ink);color:#fff}
+.acts{display:flex;gap:12px;flex-wrap:wrap;margin-top:28px}
+.b1,.b2{padding:13px 22px;font-weight:700;font-size:14px;border-radius:3px;text-decoration:none;display:inline-flex;gap:8px;align-items:center}
+.b1{background:var(--ink);color:#fff;border:1px solid var(--ink)}.b2{background:none;border:1px solid var(--ink);color:var(--ink)}
+@media (max-width:760px){.sheet,.done{padding:30px 20px}.head,.row2,.foot{grid-template-columns:1fr;gap:26px}.sig{text-align:left}.sig svg{margin-left:0}.cta{margin-left:0;width:100%;justify-content:center}.rc{grid-template-columns:1fr}.rc dt{padding-bottom:0;border-bottom:0}}
+/* light workspace theme */
+body{background:var(--desk);background-image:none}
+.sheet,.done{background:#fff;border:1px solid #e4e4e0;box-shadow:0 1px 2px rgba(16,24,40,.05),0 16px 40px rgba(16,24,40,.07)}
+.pill{background:#E8F6EE;border-color:#b9e3cb;color:#0f6b3a}
+.banner{background:#FAFAF8;color:var(--ink);border:1px solid #e5e5e0}
+.banner small{color:var(--mute)}
+.tot{background:var(--ink)}
+.dock{background:#fff;color:var(--ink);border:1px solid #e4e4e0;box-shadow:0 14px 36px rgba(16,24,40,.14)}
+.dock small{color:var(--mute)!important}
+.w .ic{border-color:#e4e4e0}
+.dock.off .w .ic{color:#9ca3af}
+.net{border-color:#e4e4e0;background:#FAFAF8}
+.tg{border-color:#d6d6d1;color:#374151}
+.tg:hover{border-color:var(--ink);color:var(--ink)}
+.cta{background:var(--emerald);color:#fff}
+.cta:hover{background:#15803d}
+.ov{background:rgba(17,19,24,.45)}
+.md{background:#fff;color:var(--ink);border-color:#e4e4e0;box-shadow:0 24px 60px rgba(16,24,40,.28)}
+.md>p,.st span{color:var(--mute)}
+.st li{border-top-color:#eceae6}
+.mk{border-color:#cfd2cc}
+.ok .mk{color:#fff}
+.bar{background:#eceae6}
+.chk{background:#E8F6EE;color:var(--emerald);border:1px solid #b9e3cb}
+@media (prefers-reduced-motion:reduce){.dot,.act .mk{animation:none}}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
+ <symbol id="phone" viewBox="0 0 24 24"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/></symbol>
+ <symbol id="mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="1.5"/><path d="m3 7 9 6 9-6"/></symbol>
+ <symbol id="pin" viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></symbol>
+ <symbol id="id" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="1.5"/><circle cx="9" cy="11" r="2"/><path d="M6 16c.6-1.6 1.8-2.2 3-2.2s2.4.6 3 2.2M14.5 10h4M14.5 14h3"/></symbol>
+ <symbol id="shield" viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 4.5 3.4 7.8 8 9 4.6-1.2 8-4.5 8-9V6z"/><path d="m9 12 2 2 4-4"/></symbol>
+ <symbol id="wallet" viewBox="0 0 24 24"><path d="M4 7a2 2 0 0 1 2-2h12v4M4 7v10a2 2 0 0 0 2 2h14V9H6a2 2 0 0 1-2-2z"/><circle cx="16.5" cy="14" r="1"/></symbol>
+ <symbol id="check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+ <symbol id="lock" viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="10" rx="1.5"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></symbol>
+ <symbol id="ext" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 14v5H5V6h5"/></symbol>
+</defs></svg>
+
+<div class="wrap">
+ <main id="main">
+  <article class="sheet" id="invoice" aria-label="Invoice from Apex Studio Group">
+   <header class="head">
+    <div>
+     <div class="brand">
+      <svg width="44" height="44" viewBox="0 0 44 44" aria-hidden="true"><rect width="44" height="44" fill="#171816"/><path d="M10 34 22 9l12 25h-6.2L22 20.8 16.2 34z" fill="#F6F1E8"/><rect x="15" y="29" width="14" height="3" fill="#2fd18b"/></svg>
+      <div><b>Apex Studio Group</b><span>Engineering &amp; Visual Architecture</span></div>
+     </div>
+     <h1>INVOICE</h1>
+     <span class="no">No. APX-2026-0142</span><br>
+     <span class="pill"><span class="dot"></span>OPEN · DUE NOV 28, 2026</span>
+    </div>
+    <section class="dos" aria-label="Merchant business dossier">
+     <h2>Business dossier</h2>
+     <dl class="d">
+      <div><svg class="i"><use href="#phone"/></svg><dd style="margin:0">+1 555-234-8901</dd></div>
+      <div><svg class="i"><use href="#mail"/></svg><dd style="margin:0">billing@apexstudio.io</dd></div>
+      <div><svg class="i"><use href="#pin"/></svg><dd style="margin:0">452 Innovation Way, SF, CA 94107</dd></div>
+      <div><svg class="i"><use href="#id"/></svg><dd style="margin:0">Tax ID / EIN: 84-2910482 · VAT: EU372019482</dd></div>
+     </dl>
+    </section>
+   </header>
+
+   <section class="row2">
+    <div class="to">
+     <h2>Invoice to</h2>
+     <div class="nm">William Jones</div>
+     <div class="co">Vanguard Ventures LLC</div>
+     <dl class="d">
+      <div><svg class="i"><use href="#pin"/></svg><dd style="margin:0">88 Harbor Avenue, Suite 12, Oakland, CA 94607</dd></div>
+      <div><svg class="i"><use href="#phone"/></svg><dd style="margin:0">+1 555-310-7742</dd></div>
+      <div><svg class="i"><use href="#mail"/></svg><dd style="margin:0">w.jones@vanguardventures.co</dd></div>
+     </dl>
+    </div>
+    <div>
+     <div class="banner"><div class="t"><small>Total:</small><div class="amt">$2,200.00 USDC</div></div></div>
+     <div class="dates"><p>INVOICE DATE: <b>18 Nov 2026</b></p><p>DATE DUE: <b>28 Nov 2026</b></p></div>
+    </div>
+   </section>
+
+   <div class="tw">
+    <table>
+     <colgroup><col style="width:60px"><col><col style="width:112px"><col style="width:76px"><col style="width:128px"></colgroup>
+     <thead><tr><th>No</th><th class="ds">Description</th><th>Price</th><th>QTY</th><th>Amount</th></tr></thead>
+     <tbody>
+      <tr><td>01</td><td class="ds"><b>Web &amp; Interface Architecture</b><span>Information design, responsive UI system and component library</span></td><td class="pr">$500.00</td><td class="q">1</td><td class="am">$500.00</td></tr>
+      <tr><td>02</td><td class="ds"><b>Branding &amp; Visual Identity</b><span>Two logo concepts, typography and brand guidelines</span></td><td class="pr">$300.00</td><td class="q">2</td><td class="am">$600.00</td></tr>
+      <tr><td>03</td><td class="ds"><b>Smart Contract Security Audit</b><span>Manual review and static analysis of escrow contracts</span></td><td class="pr">$600.00</td><td class="q">1</td><td class="am">$600.00</td></tr>
+      <tr><td>04</td><td class="ds"><b>Checkout &amp; Web3 Integration</b><span>Wallet connect, USDC checkout flow and event indexing</span></td><td class="pr">$50.00</td><td class="q">3</td><td class="am">$150.00</td></tr>
+      <tr><td>05</td><td class="ds"><b>Deployment &amp; Handover Runbook</b><span>Production deploy, environment config and operations guide</span></td><td class="pr">$50.00</td><td class="q">3</td><td class="am">$150.00</td></tr>
+     </tbody>
+    </table>
+   </div>
+
+   <div class="sum">
+    <p><span>Subtotal</span><span>$2,000.00</span></p>
+    <p><span>Tax / Protocol VAT (10%)</span><span>$200.00</span></p>
+    <p><span>Discount</span><span>$0.00</span></p>
+    <div class="tot"><span>Total Due:</span><span>$2,200.00 USDC</span></div>
+   </div>
+
+   <footer class="foot">
+    <section>
+     <h3>Payment method &amp; escrow terms</h3>
+     <dl class="kv">
+      <dt>Asset</dt><dd>USDC · Circle CCTP</dd>
+      <dt>Network</dt><dd>Arbitrum Sepolia</dd>
+      <dt>Escrow Contract</dt><dd>0x83eF...91c0</dd>
+      <dt>Payee</dt><dd>0x71C8...a82F</dd>
+     </dl>
+     <p class="guar"><svg class="i"><use href="#lock"/></svg><span>Your deposit is held by the Nodus Escrow Contract, never by Apex Studio Group or Nodus. Funds release to the payee on-chain after settlement is verified, and no intermediary can move them.</span></p>
+    </section>
+    <section class="sig">
+     <span class="cv">Apex Studio</span>
+     <svg viewBox="0 0 200 20" aria-hidden="true"><path d="M4 14C40 4 72 18 104 9s60-6 92 3"/></svg>
+     <p><b>Authorized Signatory</b> / Design Director</p>
+    </section>
+   </footer>
+  </article>
+
+  <section class="dock" id="dock" aria-label="Payment console">
+   <div class="w">
+    <span class="ic"><svg class="i"><use href="#wallet"/></svg></span>
+    <div><small id="wl">Connected wallet</small><span class="ad" id="wa">0x71C8...a82F</span></div>
+   </div>
+   <span class="net"><i></i>Arbitrum Sepolia</span>
+   <div><small style="display:block;font-size:12px;color:var(--zinc)">Available balance</small><span class="bal" id="bal">3,450.00 USDC</span></div>
+   <button class="tg" id="tg" type="button">Disconnect</button>
+   <button class="cta" id="pay" type="button"><svg class="i"><use href="#lock"/></svg><span id="paylbl">Approve &amp; Pay $2,200.00 USDC (Escrow)</span></button>
+  </section>
+ </main>
+
+ <section class="done" id="done" hidden aria-live="polite">
+  <div class="chk"><svg class="i"><use href="#check"/></svg></div>
+  <h2>Payment settled.</h2>
+  <p>Your 2,200.00 USDC is secured in the Nodus Escrow Contract and verified on Arbitrum Sepolia. Apex Studio Group has been notified.</p>
+  <dl class="rc">
+   <dt>Receipt number</dt><dd id="r-no"></dd>
+   <dt>Invoice</dt><dd>APX-2026-0142</dd>
+   <dt>Amount</dt><dd>2,200.00 USDC</dd>
+   <dt>Transaction hash</dt><dd><span id="r-tx"></span><button class="cp" id="cp" type="button">Copy</button></dd>
+   <dt>Paid from</dt><dd>0x71C8...a82F</dd>
+   <dt>Escrow contract</dt><dd>0x83eF...91c0</dd>
+   <dt>Block</dt><dd id="r-bk"></dd>
+   <dt>Settled at</dt><dd id="r-ts"></dd>
+  </dl>
+  <div class="acts">
+   <a class="b1" id="r-ln" href="#" target="_blank" rel="noopener noreferrer"><svg class="i"><use href="#ext"/></svg>View on Arbiscan</a>
+   <button class="b2" id="again" type="button">Reset demo</button>
+  </div>
+ </section>
+</div>
+
+<div class="ov" id="ov" hidden>
+ <div class="md" role="dialog" aria-modal="true" aria-labelledby="mt" tabindex="-1" id="md">
+  <h2 id="mt">Settling invoice APX-2026-0142</h2>
+  <p>Keep this window open while the transactions confirm.</p>
+  <ol class="st" id="st"></ol>
+  <div class="bar"><i id="pb"></i></div>
+ </div>
+</div>
+
+<script>
+(() => {
+  const $ = s => document.querySelector(s);
+  const main = $('#main'), dock = $('#dock'), ov = $('#ov'), md = $('#md');
+  let connected = true, balance = 3450, busy = false;
+  const fmt = n => n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const hex = n => { const a = new Uint8Array(n / 2); crypto.getRandomValues(a); return [...a].map(b => b.toString(16).padStart(2, '0')).join(''); };
+
+  function paint() {
+    dock.classList.toggle('off', !connected);
+    $('#wl').textContent = connected ? 'Connected wallet' : 'Wallet';
+    $('#wa').textContent = connected ? '0x71C8...a82F' : 'Not connected';
+    $('#bal').textContent = connected ? fmt(balance) + ' USDC' : '—';
+    $('#tg').textContent = connected ? 'Disconnect' : 'Connect wallet';
+    $('#paylbl').innerHTML = connected ? 'Approve &amp; Pay $2,200.00 USDC (Escrow)' : 'Connect wallet to pay';
+  }
+  $('#tg').addEventListener('click', () => {
+    if (busy) return;
+    const b = $('#tg');
+    if (connected) { connected = false; paint(); return; }
+    b.textContent = 'Connecting…'; b.disabled = true;
+    setTimeout(() => { connected = true; b.disabled = false; paint(); }, 700);
+  });
+
+  const steps = [
+    { t: 'Approving USDC ERC-20 allowance', d: 'Authorizing 2,200.00 USDC for the Nodus Escrow Contract', ms: 1800 },
+    { t: 'Depositing funds into Nodus Escrow Contract', d: '', ms: 2200 },
+    { t: 'Verifying on-chain settlement and destination receipt', d: 'Waiting for block confirmations on Arbitrum Sepolia', ms: 1900 }
+  ];
+  const mkIcon = '<span class="mk"><svg class="i"><use href="#check"/></svg></span>';
+  function renderSteps(cur, hash) {
+    $('#st').innerHTML = steps.map((s, i) => {
+      const cls = i < cur ? 'ok' : i === cur ? 'act' : '';
+      const d = i === 1 && hash && i <= cur ? 'Tx 0x' + hash.slice(0, 10) + '…' + hash.slice(-6) : (i === 1 ? 'Calling deposit(invoiceId, 2,200.00 USDC)' : s.d);
+      return `<li class="${cls}">${mkIcon}<div><b>${s.t}</b><span>${d}</span></div></li>`;
+    }).join('');
+    $('#pb').style.width = Math.min(100, (cur / steps.length) * 100) + '%';
+  }
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+
+  async function pay() {
+    if (busy) return;
+    if (!connected) { $('#tg').click(); return; }
+    busy = true; $('#pay').disabled = true;
+    const hash = hex(64);
+    main.inert = true; ov.hidden = false; md.focus();
+    for (let i = 0; i < steps.length; i++) { renderSteps(i, hash); await wait(steps[i].ms); }
+    renderSteps(steps.length, hash);
+    await wait(700);
+    balance -= 2200;
+    const now = new Date();
+    $('#r-no').textContent = 'NDS-RCPT-2026-' + hex(8).toUpperCase();
+    $('#r-tx').textContent = '0x' + hash;
+    $('#r-bk').textContent = (48210000 + Math.floor(Math.random() * 90000)).toLocaleString('en-US');
+    $('#r-ts').textContent = now.toISOString().slice(0, 19).replace('T', ' ') + ' UTC';
+    $('#r-ln').href = 'https://sepolia.arbiscan.io/tx/0x' + hash;
+    ov.hidden = true; main.inert = false;
+    $('#invoice').hidden = true; dock.hidden = true; $('#done').hidden = false;
+    $('#done').scrollIntoView({ block: 'start' });
+    busy = false;
+  }
+  $('#pay').addEventListener('click', pay);
+
+  $('#cp').addEventListener('click', async function () {
+    try { await navigator.clipboard.writeText($('#r-tx').textContent); this.textContent = 'Copied'; }
+    catch (e) { this.textContent = 'Select to copy'; }
+    setTimeout(() => this.textContent = 'Copy', 1600);
+  });
+  $('#again').addEventListener('click', () => {
+    $('#done').hidden = true; $('#invoice').hidden = false; dock.hidden = false;
+    $('#pay').disabled = false; paint(); scrollTo(0, 0);
+  });
+  paint();
+})();
+</script>
+</body>
+</html>

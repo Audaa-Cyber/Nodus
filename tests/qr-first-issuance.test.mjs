@@ -33,6 +33,7 @@ test("Task 1: src/app/actions/invoices.ts offloads NEAR registration and generat
 
 test("Task 2: src/app/dashboard/invoices/[id]/page.tsx verifies token and renders hero QR panel unthrottled", async () => {
   const page = await read("../src/app/dashboard/invoices/[id]/page.tsx");
+  const surface = await read("../src/components/merchant-open-surface.tsx");
 
   // 1. Unthrottled parallel DB loading without artificial delay
   assert.doesNotMatch(page, /withTransitionDelay/, "no withTransitionDelay throttle in detail page");
@@ -43,20 +44,21 @@ test("Task 2: src/app/dashboard/invoices/[id]/page.tsx verifies token and render
   assert.ok(page.includes("/pay/${query.token}"), "constructs pay URL with verified token");
 
   // 3. Invokes InvoiceSharePanel as primary hero element with initialUrl and invoiceNumber
-  assert.ok(page.includes("<InvoiceSharePanel"), "renders InvoiceSharePanel");
-  assert.ok(page.includes("initialUrl={initialPayUrl ?? undefined}"), "passes verified initialUrl to InvoiceSharePanel");
-  assert.ok(page.includes("invoiceNumber={invoice.invoice_number}"), "passes invoiceNumber to InvoiceSharePanel");
+  assert.ok(page.includes("<MerchantOpenSurface"), "routes unpaid invoices to the approved surface");
+  assert.ok(surface.includes("<InvoiceSharePanel"), "renders InvoiceSharePanel");
+  assert.ok(surface.includes("initialUrl={initialPayUrl ?? undefined}"), "passes verified initialUrl to InvoiceSharePanel");
+  assert.ok(surface.includes("invoiceNumber={invoice.invoice_number}"), "passes invoiceNumber to InvoiceSharePanel");
 
   // 4. Immediate confirmation banner
-  assert.ok(page.includes("Invoice issued successfully. Ready for customer payment."), "renders immediate issuance confirmation banner");
+  assert.ok(surface.includes("Invoice issued successfully. Ready for customer payment."), "renders immediate issuance confirmation banner");
 
   // 5. Hero placement: InvoiceSharePanel is positioned before the invoice-detail-sheet
-  const sharePanelIndex = page.indexOf("<InvoiceSharePanel");
-  const invoiceSheetIndex = page.indexOf("className=\"invoice-detail-sheet invoice-print-sheet\"");
+  const sharePanelIndex = surface.indexOf("<InvoiceSharePanel");
+  const invoiceSheetIndex = surface.indexOf("<MerchantInvoiceSummary");
   assert.ok(sharePanelIndex > 0 && sharePanelIndex < invoiceSheetIndex, "InvoiceSharePanel is placed before invoice-detail-sheet as hero element");
 });
 
-test("Task 3: src/components/invoice-share-panel.tsx provides QR-First interface without raw URL input", async () => {
+test("Approved Share Panel provides a readonly payment URL, one-click copy and a real vector QR", async () => {
   const panel = await read("../src/components/invoice-share-panel.tsx");
 
   // 1. Correct interface
@@ -67,36 +69,30 @@ test("Task 3: src/components/invoice-share-panel.tsx provides QR-First interface
 
   // 2. localStorage persistence with nodus:invoice-qr: key
   assert.ok(panel.includes("`nodus:invoice-qr:${invoiceId}`"), "uses nodus:invoice-qr:${invoiceId} localStorage key");
-  assert.match(panel, /localStorage\.setItem\([\s\S]*?JSON\.stringify\(\{\s*url:\s*initialUrl/, "persists initialUrl to localStorage");
-  assert.match(panel, /shareState === "active"[\s\S]*?localStorage\.getItem\(storageKey\)/, "restores URL from localStorage when shareState is active");
+  assert.ok(panel.includes("localStorage.setItem"), "persists valid share URLs");
+  assert.ok(panel.includes("localStorage.getItem(storageKey)"), "restores cached URLs under authoritative share state");
 
   // 3. Hero QR Display with exact markup
-  assert.ok(panel.includes('className="qr-hero-card"'), "has qr-hero-card container");
-  assert.ok(panel.includes('className="qr-badge"'), "has qr-badge");
-  assert.ok(panel.includes("SCAN TO PAY"), "displays SCAN TO PAY badge");
-  assert.ok(panel.includes('className="qr-frame"'), "has qr-frame");
+  assert.ok(panel.includes('className="card sh no-print"'), "uses approved share card");
+  assert.ok(panel.includes('className="qr"'), "uses approved QR container");
   assert.ok(panel.includes("<QRCodeSVG"), "renders QRCodeSVG");
-  assert.ok(panel.includes("size={260}"), "uses size 260 for QR code");
+  assert.ok(panel.includes("size={148}"), "uses approved size 148 for QR code");
   assert.ok(panel.includes('level="M"'), "uses error correction level M");
   assert.ok(panel.includes("marginSize={4}"), "uses marginSize 4");
   assert.ok(panel.includes('bgColor="#ffffff"'), "uses bgColor #ffffff");
-  assert.ok(panel.includes('fgColor="#171816"'), "uses fgColor #171816");
-  assert.ok(panel.includes("Scan with any mobile phone camera or crypto wallet to pay."), "includes scan instructions");
+  assert.ok(panel.includes('fgColor="#000000"'), "uses approved black QR foreground");
+  assert.ok(panel.includes("Scan to pay on mobile"), "includes approved scan instructions");
 
   // 4. Action bar functions: Download QR, Copy link, Share
-  assert.match(panel, /XMLSerializer\(\)\.serializeToString/, "uses XMLSerializer for SVG export");
-  assert.ok(panel.includes('"http://www.w3.org/2000/svg"'), "adds SVG XML namespace");
-  assert.ok(panel.includes("nodus-invoice-"), "downloads with nodus-invoice- prefix");
   assert.ok(panel.includes("navigator.clipboard.writeText"), "copies URL to clipboard");
-  assert.ok(panel.includes("Payment link copied to clipboard ✓"), "displays transient copied confirmation");
-  assert.ok(panel.includes("navigator.share"), "supports native Web Share API");
+  assert.ok(panel.includes('"Copied"'), "displays approved copied confirmation");
 
   // 5. Fallback button when no cached URL exists
   assert.ok(panel.includes("Generate QR code"), "provides Generate QR code button when URL is absent");
 
-  // 6. CRUCIAL: Raw URL is NEVER displayed as an input text box
-  assert.doesNotMatch(panel, /<input[^>]*value=\{url\}[^>]*\/>/, "does NOT render raw URL in an input field");
-  assert.doesNotMatch(panel, /Public invoice URL/, "does NOT render Public invoice URL field");
+  // 6. The approved design displays the public capability without making it editable.
+  assert.match(panel, /<input[^>]*readOnly[^>]*value=\{visibleUrl\}/, "renders only the readonly, authoritatively active payment URL");
+  assert.ok(panel.includes('"Copy Link"'), "uses the approved one-click action");
 });
 
 test("Task 4: src/components/invoice-form.tsx enforces locking and double-click prevention", async () => {

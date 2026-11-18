@@ -5,97 +5,31 @@ import { readFile } from "node:fs/promises";
 const successCardSource = await readFile(new URL("../src/components/payment-success-card.tsx", import.meta.url), "utf8");
 const invoicePageSource = await readFile(new URL("../src/app/pay/[token]/page.tsx", import.meta.url), "utf8");
 const checkoutSource = await readFile(new URL("../src/components/wallet/invoice-wallet-checkout.tsx", import.meta.url), "utf8");
-const styles = await readFile(new URL("../src/app/globals.css", import.meta.url), "utf8");
 
-test("PaymentSuccessCard provides a compact, receipt-style card with handwritten thank you message", () => {
-  // Circular checkmark badge and payment verified badge
-  assert.match(successCardSource, /receipt-success-badge/);
-  assert.match(successCardSource, /PAYMENT VERIFIED/);
-
-  // Handwritten / script thank you message
-  assert.match(successCardSource, /invoice-thank-you/);
-  assert.match(successCardSource, /Thank you for your business\./);
-
-  // Prominent amount display
-  assert.match(successCardSource, /AMOUNT PAID/);
-  assert.match(successCardSource, /safeFormatMoney\(amountMinor, currency\)/);
-
-  // Key-value confirmation details
-  assert.match(successCardSource, /<dt>Status<\/dt>/);
-  assert.match(successCardSource, /Verified on-chain/);
-  assert.match(successCardSource, /<dt>Invoice reference<\/dt>/);
-  assert.match(successCardSource, /<dt>Paid to<\/dt>/);
-  assert.match(successCardSource, /<dt>Payment date<\/dt>/);
-  assert.match(successCardSource, /<dt>Receipt number<\/dt>/);
-  assert.match(successCardSource, /<dt>Settlement network<\/dt>/);
-  assert.match(successCardSource, /<dt>Destination tx<\/dt>/);
-
-  // Itemized breakdown and print action
-  assert.match(successCardSource, /View itemized invoice/);
-  assert.match(successCardSource, /Print Receipt/);
-  assert.match(successCardSource, /window\.print\(\)/);
-
-  // Extensible slot for upcoming 5-star service rating & written review feature
-  assert.match(successCardSource, /receipt-review-slot/);
-  assert.match(successCardSource, /\{reviewSlot\}/);
-
-  // Subtle NODUS branding footer
-  assert.match(successCardSource, /receipt-footer/);
-  assert.match(successCardSource, /Powered by nodus\./);
+test("Receipt renders the locked scroll surface instead of the former receipt card", () => {
+  for (const required of ["scroll-design", 'className="stage"', 'className="scroll"', 'data-state="closed"', 'className="paper"', 'className="sheet"', 'className="spindle"', 'className="fin t"', 'className="fin b"', "Thank You!", "ON-CHAIN VERIFIED", "Business owner dossier", "Download Official Receipt (PDF)", "Roll Back Up"]) {
+    assert.ok(successCardSource.includes(required), `Missing approved receipt structure: ${required}`);
+  }
+  assert.match(successCardSource, /<InvoiceRating/);
+  assert.doesNotMatch(successCardSource, /Acme Design Labs|INV-2026-8894|0x7be3a1/);
 });
 
-test("PaymentSuccessCard includes high quality HD image download feature", () => {
-  // High-DPI canvas engine present
-  assert.match(successCardSource, /generateHighResReceiptImage/);
-  assert.match(successCardSource, /const scale = 3;/); // 3x Retina resolution (~300 DPI)
-  assert.match(successCardSource, /document\.fonts\?\.ready/);
-  assert.match(successCardSource, /canvas\.toBlob/);
-  assert.match(successCardSource, /image\/png/);
-
-  // Download HD image button in quick actions
-  assert.match(successCardSource, /receipt-download-btn/);
-  assert.match(successCardSource, /Download HD Image/);
-  assert.match(successCardSource, /Preparing HD Image…/);
-  assert.match(successCardSource, /Downloaded HD Image/);
+test("Receipt only offers an official PDF after a successful PDF response", () => {
+  assert.match(successCardSource, /\/api\/pay\/\$\{encodeURIComponent\(shareToken\)\}\/receipt/);
+  assert.match(successCardSource, /response\.ok/);
+  assert.match(successCardSource, /application\/pdf/);
+  assert.match(successCardSource, /URL\.revokeObjectURL/);
 });
 
-test("PaymentSuccessCard includes kinetic animations and SVG checkmark draw", () => {
-  // SVG checkmark path for draw animation
-  assert.match(successCardSource, /receipt-checkmark-svg/);
-  assert.match(successCardSource, /receipt-checkmark-path/);
-
-  // Matching keyframe animations in stylesheet
-  assert.match(styles, /@keyframes receiptCardSpringIn/);
-  assert.match(styles, /@keyframes badgePop/);
-  assert.match(styles, /@keyframes badgeRipple/);
-  assert.match(styles, /@keyframes strokeCheckmark/);
-  assert.match(styles, /stroke-dasharray:\s*28/);
-  assert.match(styles, /stroke-dashoffset:\s*28/);
-});
-
-test("Public invoice page renders PaymentSuccessCard when status === 'paid' (refresh preservation)", () => {
+test("Public paid invoice refresh still renders PaymentSuccessCard without checkout controls", () => {
   assert.match(invoicePageSource, /import\s*\{[^}]*PaymentSuccessCard[^}]*\}\s*from\s*"@\/components\/payment-success-card"/);
   const paidMatch = invoicePageSource.match(/if \(status === "paid"\)\s*\{([\s\S]*?)\n  \}/);
-  assert.ok(paidMatch, "if (status === 'paid') block exists");
+  assert.ok(paidMatch);
   assert.match(paidMatch[1], /<PaymentSuccessCard/);
   assert.doesNotMatch(paidMatch[1], /<LazyInvoiceWalletCheckout/);
 });
 
-test("Invoice wallet checkout replaces checkout controls with PaymentSuccessCard upon verified settlement", () => {
-  assert.match(checkoutSource, /import\s*\{[^}]*PaymentSuccessCard[^}]*\}\s*from\s*"@\/components\/payment-success-card"/);
+test("Verified live settlement still replaces checkout controls with the receipt", () => {
   assert.match(checkoutSource, /if \(storedAttemptSettled\) \{\s*return \(\s*<PaymentSuccessCard/);
   assert.match(checkoutSource, /onPaymentSuccess=\{\(receipts\) => \{[\s\S]*?setStoredAttemptSettled\(true\);/);
-});
-
-test("Receipt card styles, download button, and print rules are present in globals.css", () => {
-  assert.match(styles, /\.receipt-card-wrapper/);
-  assert.match(styles, /\.receipt-card/);
-  assert.match(styles, /\.receipt-success-badge/);
-  assert.match(styles, /\.receipt-thank-you-title/);
-  assert.match(styles, /\.receipt-amount-display/);
-  assert.match(styles, /\.receipt-download-btn/);
-  assert.match(styles, /\.receipt-review-slot/);
-  assert.match(styles, /@media \(prefers-reduced-motion:\s*reduce\)/);
-  assert.match(styles, /@media print[\s\S]*?\.receipt-card/);
-  assert.match(styles, /@media print[\s\S]*?\.receipt-download-btn/);
 });

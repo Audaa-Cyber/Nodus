@@ -1,0 +1,101 @@
+/* Generated from public/nodus-merchant-invoice.html; do not redesign. */
+
+.merchant-design{--bg:#F7F8FA;--card:#FFFFFF;--line:#E5E5DF;--ink:#171816;--mute:#6b6f68;--soft:#f1f2ee;--blue:#1d4ed8;--blue-bg:#eaf1ff;--blue-ln:#c9dafe;--green:#0f6b3a;--green-bg:#eaf7ef;--green-ln:#bfe3cd;--red:#b42318;
+ box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+.merchant-design{scroll-padding-top:env(safe-area-inset-top,0px)}
+.merchant-design *{box-sizing:border-box}
+.merchant-design{margin:0;background:var(--bg);color:var(--ink);font:400 15px/1.5 'DM Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+.merchant-design button,.merchant-design input{font:inherit;color:inherit}.merchant-design button{cursor:pointer}
+.merchant-design :focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.merchant-design .m{font-family:'DM Mono',ui-monospace,monospace}
+.merchant-design svg.i{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.merchant-design[data-state=open] [data-s=paid],.merchant-design[data-state=paid] [data-s=open]{display:none!important}
+
+.merchant-design .rv{background:#fff;border-bottom:1px solid var(--line);padding:12px 16px;display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;justify-content:space-between}
+.merchant-design .rv .path{font:400 12.5px 'DM Mono',monospace;color:var(--mute)}
+.merchant-design .seg{display:inline-flex;padding:3px;background:var(--soft);border:1px solid var(--line);border-radius:10px;max-width:100%}
+.merchant-design .seg button{border:0;background:none;padding:8px 14px;border-radius:8px;font-size:13.5px;font-weight:500;color:var(--mute);text-align:left}
+.merchant-design .seg button[aria-pressed=true]{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(23,24,22,.12);font-weight:600}
+.merchant-design .page{max-width:960px;margin:0 auto;padding:26px 16px 70px;display:grid;gap:18px}
+.merchant-design .card{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:0 2px 6px rgba(23,24,22,.03);padding:24px}
+.merchant-design .nav{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.merchant-design .back{display:inline-flex;align-items:center;gap:6px;color:var(--mute);text-decoration:none;font-size:14px;font-weight:500}
+.merchant-design .back:hover{color:var(--ink)}
+.merchant-design .sync{display:inline-flex;align-items:center;gap:8px;font:400 12.5px 'DM Mono',monospace;color:var(--mute)}
+.merchant-design .sync i{width:8px;height:8px;border-radius:50%;background:#16a34a;animation:merchant-pl 1.8s infinite}
+@keyframes merchant-pl{70%{box-shadow:0 0 0 7px rgba(22,163,74,0)}0%{box-shadow:0 0 0 0 rgba(22,163,74,.5)}}
+.merchant-design .hd{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap}
+.merchant-design .hd h1{margin:0;font-size:clamp(26px,4.5vw,34px);font-weight:700;letter-spacing:-.02em;line-height:1.15;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.merchant-design .hd h1 .n{font-family:'DM Mono',monospace;font-weight:500;letter-spacing:-.03em}
+.merchant-design .sub{margin:4px 0 0;color:var(--mute);font-size:14px}
+.merchant-design .st{display:inline-flex;align-items:center;gap:7px;padding:4px 11px;border-radius:99px;font-size:13px;font-weight:600;border:1px solid}
+.merchant-design .st i{width:7px;height:7px;border-radius:50%;background:currentColor}
+.merchant-design .st.o{color:var(--blue);background:var(--blue-bg);border-color:var(--blue-ln)}
+.merchant-design .st.p{color:var(--green);background:var(--green-bg);border-color:var(--green-ln)}
+.merchant-design .acts{display:flex;gap:8px;flex-wrap:wrap}
+.merchant-design .btn{display:inline-flex;align-items:center;gap:8px;height:38px;padding:0 14px;background:#fff;border:1px solid var(--line);border-radius:10px;font-size:14px;font-weight:500;box-shadow:0 1px 2px rgba(23,24,22,.04)}
+.merchant-design .btn:hover{border-color:#c9c9c0;background:#fcfcfa}
+.merchant-design .btn.x{color:var(--red);border-color:#f0d3cf}.merchant-design .btn.x:hover{background:#fdf4f3;border-color:#e6b4ae}
+.merchant-design .lab{font:600 12px 'DM Sans',sans-serif;letter-spacing:.05em;color:var(--mute);text-transform:uppercase;margin:0 0 6px}
+.merchant-design .amt{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap}
+.merchant-design .big{font:500 clamp(36px,7vw,56px)/1 'DM Mono',monospace;letter-spacing:-.04em}
+.merchant-design .big small{font-size:.4em;letter-spacing:0;color:var(--mute);margin-left:8px}
+.merchant-design .net{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border:1px solid var(--line);border-radius:8px;font-size:13px;font-weight:500;background:var(--soft)}
+.merchant-design .net i{width:8px;height:8px;border-radius:50%;background:#2f6bff}
+.merchant-design .sh{display:grid;grid-template-columns:1fr auto;gap:28px;align-items:center}
+.merchant-design .sh h2,.merchant-design .cd h2{margin:0 0 4px;font-size:18px;font-weight:700;letter-spacing:-.01em}
+.merchant-design .sh p.d{margin:0 0 16px;color:var(--mute);font-size:14px;max-width:46ch}
+.merchant-design .lk{display:flex;gap:8px}
+.merchant-design .lk input{flex:1;min-width:0;height:42px;padding:0 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);font:400 13.5px 'DM Mono',monospace}
+.merchant-design .cp{height:42px;padding:0 16px;border:0;border-radius:10px;background:var(--ink);color:#fff;font-weight:600;font-size:14px;display:inline-flex;align-items:center;gap:8px;white-space:nowrap;transition:background .15s}
+.merchant-design .cp:hover{background:#34362f}.merchant-design .cp.ok{background:#15803d}
+.merchant-design .qr{text-align:center;font-size:13px;color:var(--mute)}
+.merchant-design .qr svg.q{display:block;width:148px;height:148px;margin:0 auto 8px;padding:8px;border:1px solid var(--line);border-radius:10px;background:#fff}
+.merchant-design .qr span{display:inline-flex;align-items:center;gap:6px;font-weight:500}
+.merchant-design .ban{display:flex;gap:14px;align-items:center;background:var(--green-bg);border:1px solid var(--green-ln);color:var(--green);border-radius:14px;padding:16px 20px}
+.merchant-design .ban .c{width:34px;height:34px;border-radius:50%;background:#fff;border:1px solid var(--green-ln);display:grid;place-items:center;flex:none}
+.merchant-design .ban b{display:block;font-size:15.5px}.merchant-design .ban span{font-size:13.5px}
+.merchant-design .kv{margin:0}
+.merchant-design .kv>div{display:grid;grid-template-columns:200px 1fr auto;gap:6px 16px;align-items:center;padding:13px 0;border-top:1px solid var(--line)}
+.merchant-design .kv>div:first-child{border-top:0;padding-top:4px}
+.merchant-design .kv dt{color:var(--mute);font-size:14px}.merchant-design .kv dd{margin:0;font:400 14px 'DM Mono',monospace;word-break:break-all}
+.merchant-design .kv .ac{display:flex;gap:6px}
+.merchant-design .ib{width:32px;height:32px;border:1px solid var(--line);background:#fff;border-radius:8px;display:grid;place-items:center;color:var(--ink);text-decoration:none}
+.merchant-design .ib:hover{background:var(--soft)}.merchant-design .ib.ok{color:#15803d;border-color:var(--green-ln);background:var(--green-bg)}
+.merchant-design .fb{display:grid;grid-template-columns:auto 1fr;gap:22px;align-items:center}
+.merchant-design .sc{font:500 42px/1 'DM Mono',monospace;letter-spacing:-.04em}
+.merchant-design .stars{display:flex;gap:2px;color:#e8a008;margin-top:6px}.merchant-design .stars svg{width:20px;height:20px;fill:currentColor}
+.merchant-design .fb blockquote{margin:0;font-size:19px;line-height:1.4;font-weight:500;letter-spacing:-.01em}
+.merchant-design .fb cite{display:block;margin-top:8px;font-style:normal;color:var(--mute);font-size:13.5px}
+.merchant-design .cd .top{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:18px;padding-bottom:16px;border-bottom:1px solid var(--line)}
+.merchant-design .chip{font:500 12.5px 'DM Mono',monospace;background:var(--soft);border:1px solid var(--line);padding:4px 9px;border-radius:7px;color:var(--mute)}
+.merchant-design .parties{display:grid;grid-template-columns:1fr 1fr;gap:28px;padding-bottom:22px;border-bottom:1px solid var(--line)}
+.merchant-design .parties h3{margin:0 0 8px}
+.merchant-design .parties .nm{font-weight:700;font-size:16.5px}
+.merchant-design .parties p{margin:2px 0;font-size:14px;color:#3b3d38;overflow-wrap:anywhere}
+.merchant-design .parties p.m{font-size:13px}
+.merchant-design .parties p b{font-weight:500;color:var(--mute)}
+.merchant-design .tw{margin-top:20px}
+.merchant-design table{width:100%;border-collapse:collapse}
+.merchant-design th{font:600 12px 'DM Sans',sans-serif;letter-spacing:.05em;text-transform:uppercase;color:var(--mute);text-align:right;padding:0 0 10px;border-bottom:1px solid var(--line)}
+.merchant-design th:first-child,.merchant-design td:first-child{text-align:left}
+.merchant-design td{padding:14px 0;border-bottom:1px solid var(--line);text-align:right;font:400 14px 'DM Mono',monospace;vertical-align:top}
+.merchant-design td:first-child{font-family:'DM Sans',sans-serif;padding-right:16px}
+.merchant-design td b{display:block;font-weight:600;font-size:14.5px}.merchant-design td span{display:block;color:var(--mute);font-size:13px;margin-top:1px}
+.merchant-design col.q{width:70px}.merchant-design col.u{width:130px}.merchant-design col.t{width:140px}
+.merchant-design .sum{margin:20px 0 0 auto;width:min(340px,100%);border:1px solid var(--line);border-radius:12px;background:#fbfbf9;padding:6px 18px}
+.merchant-design .sum p{display:flex;justify-content:space-between;margin:0;padding:10px 0;font-size:14px;border-bottom:1px solid var(--line)}
+.merchant-design .sum p span:last-child{font-family:'DM Mono',monospace}
+.merchant-design .sum p.t{border:0;font-weight:700;font-size:15.5px;padding:13px 0 12px}
+.merchant-design .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translate(-50%,24px);opacity:0;background:var(--ink);color:#fff;font-size:13.5px;padding:10px 16px;border-radius:10px;transition:.25s;pointer-events:none;max-width:90vw;text-align:center;z-index:9}
+.merchant-design .toast.on{opacity:1;transform:translate(-50%,0)}
+@media (max-width:720px){.merchant-design .sh,.merchant-design .parties,.merchant-design .fb{grid-template-columns:1fr}.merchant-design .qr{text-align:left}.merchant-design .qr svg.q{margin:0 0 8px}.merchant-design .kv>div{grid-template-columns:1fr auto}.merchant-design .kv dt{grid-column:1/-1}.merchant-design .card{padding:18px}.merchant-design .seg{width:100%}.merchant-design .seg button{flex:1}
+ .merchant-design .tw thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+ .merchant-design table,.merchant-design tbody,.merchant-design tr{display:block}.merchant-design colgroup{display:none}
+ .merchant-design tr{display:grid;grid-template-columns:repeat(3,1fr);gap:0 8px;padding:14px 0;border-bottom:1px solid var(--line)}
+ .merchant-design td{border:0;padding:6px 0 0;text-align:left}.merchant-design td:first-child{grid-column:1/-1;padding:0 0 4px}
+ .merchant-design td:not(:first-child)::before{display:block;font:500 12px 'DM Sans',sans-serif;color:var(--mute);margin-bottom:1px}
+ .merchant-design td:nth-child(2)::before{content:"Qty"}.merchant-design td:nth-child(3)::before{content:"Unit price"}.merchant-design td:nth-child(4)::before{content:"Line total"}}
+@media (prefers-reduced-motion:reduce){.merchant-design .sync i{animation:none}}
+@media print{.merchant-design .rv,.merchant-design .acts,.merchant-design .toast,.merchant-design .sh,.merchant-design .back{display:none!important}.merchant-design{background:#fff}.merchant-design .card{box-shadow:none}}
+
