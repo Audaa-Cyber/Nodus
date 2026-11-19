@@ -6,6 +6,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 export type AuthenticatedUser = {
   id: string;
   email?: string;
+  emailConfirmed: boolean;
   firstName?: string | null;
   lastName?: string | null;
 };
@@ -52,6 +53,7 @@ export const getVerifiedUser = cache(async (): Promise<AuthenticatedUser | null>
   return {
     id: data.user.id,
     email: data.user.email ?? undefined,
+    emailConfirmed: Boolean(data.user.email_confirmed_at),
     firstName: givenName || nameParts[0] || null,
     lastName: familyName || nameParts.slice(1).join(" ") || null,
   };
