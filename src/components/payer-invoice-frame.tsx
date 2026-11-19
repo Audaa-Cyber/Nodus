@@ -40,12 +40,15 @@ export function PayerInvoiceFrame({
   checkout,
   isPaid = false,
   shareToken,
+  paidAt,
 }: {
   children: ReactNode;
   checkout: InvoiceWalletCheckoutProps | null;
   isPaid?: boolean;
   shareToken?: string;
+  paidAt?: string | null;
 }) {
+  const stageRef = useRef<HTMLDivElement>(null);
   const paperRef = useRef<HTMLDivElement>(null);
   const windowRef = useRef<HTMLDivElement>(null);
   const topRef = useRef<HTMLDivElement>(null);
@@ -68,6 +71,7 @@ export function PayerInvoiceFrame({
       const paperWindow = windowRef.current;
       if (!paper || !paperWindow) return;
       const height = Math.ceil(paper.scrollHeight + 14);
+      if (stageRef.current) stageRef.current.style.minHeight = `${height + 58}px`;
       paperWindow.style.height = "0px";
       void paperWindow.offsetHeight;
       topRef.current?.classList.add("printing");
@@ -132,7 +136,7 @@ export function PayerInvoiceFrame({
     <div className="payer-design">
       <div className="wrap">
         <main className="receipt-print-experience">
-          <div className="receipt-printer-stage">
+          <div className="receipt-printer-stage" ref={stageRef}>
             <div className="receipt-printer-slot receipt-slot-top" ref={topRef} aria-hidden="true" />
             <div className={`receipt-paper-window${tearing ? " tearing" : ""}`} ref={windowRef}>
               <div className={`receipt-paper-capture${falling ? " torn-away" : ""}`} ref={paperRef}>
@@ -140,7 +144,7 @@ export function PayerInvoiceFrame({
                 {paid && printed && (
                   <div className="receipt-advance-stamp" aria-label="Paid">
                     PAID
-                    <small>{new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }).toUpperCase()}</small>
+                    <small>{paidAt && Number.isFinite(Date.parse(paidAt)) ? new Date(paidAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" }).toUpperCase() : "VERIFIED"}</small>
                   </div>
                 )}
               </div>
