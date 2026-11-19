@@ -190,7 +190,14 @@ export async function discoverPaymentRoutes(
   // =========================================================================
   // 4. MOCK / SIMULATION FALLBACK (when in mock mode or for verification)
   // =========================================================================
-  if (candidateRoutes.length === 0 && process.env.PAYMENT_MODE === "mock") {
+  const sourceCircleInfo = getCircleChain(sourceNetwork, isTestnet);
+
+  // Mock mode must not invent routes for networks outside the configured
+  // Circle corridor. Unsupported source networks return an empty route list.
+  if (candidateRoutes.length === 0
+    && process.env.PAYMENT_MODE === "mock"
+    && sourceCircleInfo
+    && destCircleInfo) {
     candidateRoutes.push({
       id: `nodus-sim-${invoiceId}-${Date.now()}`,
       provider: "simulation",
