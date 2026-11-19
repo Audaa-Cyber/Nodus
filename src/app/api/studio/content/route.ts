@@ -43,38 +43,36 @@ export async function POST(request: NextRequest) {
   }
 
   const db = createCmsServiceClient();
-  const timestamp = new Date().toISOString();
-  let documentId = id;
-  let version = 1;
+  const { data, error } = await db.rpc("nodus_cms_save_document", {
+    p_document_id: id,
+    p_kind: kind,
+    p_slug: slug,
+    p_title: title,
+    p_status: status,
+    p_content: content,
+    p_seo: seo,
+    p_actor: admin.workosUserId,
+    p_change_note: changeNote,
+  });
 
-  if (id) {
-    const current = await db.from("cms_documents").select("id").eq("id", id).maybeSingle();
-    if (current.error || !current.data) return NextResponse.json({ error: "Content entry not found." }, { status: 404 });
-    const count = await db.from("cms_revisions").select("version").eq("document_id", id).order("version", { ascending: false }).limit(1).maybeSingle();
-    version = (count.data?.version ?? 0) + 1;
-    const update = await db.from("cms_documents").update({
-      kind, slug, title, status, content, seo,
-      published_at: status === "published" ? timestamp : null,
-      updated_by: admin.workosUserId, updated_at: timestamp,
-    }).eq("id", id);
-    if (update.error) return NextResponse.json({ error: update.error.message }, { status: 400 });
-  } else {
-    const insert = await db.from("cms_documents").insert({
-      kind, slug, title, status, content, seo,
-      published_at: status === "published" ? timestamp : null,
-      created_by: admin.workosUserId, updated_by: admin.workosUserId,
-    }).select("id").single();
-    if (insert.error || !insert.data) return NextResponse.json({ error: insert.error?.message ?? "Could not create entry." }, { status: 400 });
-    documentId = insert.data.id;
+  if (error) {
+    const statusCode = error.code === "P0002" ? 404 : error.code === "23505" ? 409 : error.code === "42501" ? 403 : 400;
+    const message = error.code === "23505"
+      ? "That URL slug is already in use."
+      : error.code === "P0002"
+        ? "Content entry not found."
+        : error.code === "42501"
+          ? "Your role is not allowed to edit content."
+          : "Could not save this content entry.";
+    return NextResponse.json({ error: message }, { status: statusCode });
   }
 
-  const revision = await db.from("cms_revisions").insert({
-    document_id: documentId, version, title, status, content, seo,
-    changed_by: admin.workosUserId, change_note: changeNote,
-  });
-  if (revision.error) return NextResponse.json({ error: "Entry saved, but its revision snapshot failed. Contact support." }, { status: 500 });
+  const saved = Array.isArray(data) ? data[0] : data;
+  if (!saved?.document_id || typeof saved.version !== "number") {
+    return NextResponse.json({ error: "The CMS did not confirm the saved revision." }, { status: 500 });
+  }
 
-  return NextResponse.json({ ok: true, id: documentId, version });
+  return NextResponse.json({ ok: true, id: saved.document_id, version: saved.version });
 }
 
 export async function DELETE(request: NextRequest) {
