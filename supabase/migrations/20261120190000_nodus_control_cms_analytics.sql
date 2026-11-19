@@ -74,6 +74,12 @@ create table if not exists public.cms_analytics_events (
   session_id uuid not null,
   created_at timestamptz not null default now()
 );
+-- The analytics table may already exist from the initial CMS foundation migration.
+-- Add compatibility fields without replacing collected event records.
+alter table public.cms_analytics_events
+  add column if not exists event_id uuid not null default gen_random_uuid(),
+  add column if not exists session_id uuid not null default gen_random_uuid();
+
 create index if not exists cms_analytics_events_created_idx on public.cms_analytics_events(created_at desc);
 create index if not exists cms_analytics_events_path_created_idx on public.cms_analytics_events(path, created_at desc);
 create index if not exists cms_analytics_events_session_created_idx on public.cms_analytics_events(session_id, created_at desc);
