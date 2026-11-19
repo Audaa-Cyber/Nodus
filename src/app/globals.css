@@ -5130,3 +5130,77 @@ main > section button {
     margin-top: 30px;
   }
 }
+
+
+/* Checkout demo now mirrors the invoice document shown to customers. */
+.invoice-stage-heading { display: none; }
+.demo-invoice-card {
+  position: relative;
+  padding: 0;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid #e4e4df;
+  box-shadow: 0 22px 65px rgba(29, 30, 24, .075);
+}
+.demo-invoice-document { padding: 28px 28px 20px; background: #fff; color: #171816; }
+.demo-invoice-header { display: flex; justify-content: space-between; gap: 14px; align-items: flex-start; padding-bottom: 20px; border-bottom: 2px solid #171816; }
+.demo-merchant { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.demo-merchant-mark { width: 34px; height: 34px; display: grid; place-items: center; flex: 0 0 auto; background: #171816; color: #fff; font-size: 18px; font-weight: 600; }
+.demo-merchant div, .demo-invoice-number { display: flex; flex-direction: column; gap: 3px; }
+.demo-merchant strong { font-size: 14px; }
+.demo-merchant small, .demo-invoice-number small { color: #777; font-size: 8px; letter-spacing: .07em; }
+.demo-invoice-number { align-items: flex-end; text-align: right; }
+.demo-invoice-number span, .demo-field-label { color: #777; font-family: var(--mono); font-size: 8px; letter-spacing: .12em; }
+.demo-invoice-number strong { font-family: var(--mono); font-size: 13px; }
+.demo-invoice-parties { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; padding: 18px 0 20px; }
+.demo-invoice-parties > div { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.demo-invoice-parties strong { margin-top: 4px; font-size: 11px; }
+.demo-invoice-parties small { color: #777; font-size: 9px; overflow-wrap: anywhere; }
+.demo-invoice-table-wrap { overflow-x: auto; }
+.demo-invoice-table { width: 100%; border-collapse: collapse; font-size: 9px; font-variant-numeric: tabular-nums; }
+.demo-invoice-table th { padding: 9px 5px; border-top: 1px solid #171816; border-bottom: 1px solid #171816; color: #777; font-family: var(--mono); font-size: 7px; font-weight: 500; letter-spacing: .06em; text-align: right; white-space: nowrap; }
+.demo-invoice-table th:first-child, .demo-invoice-table td:first-child { text-align: left; padding-left: 0; }
+.demo-invoice-table td { padding: 11px 5px; border-bottom: 1px solid #e6e6e2; color: #555; text-align: right; white-space: nowrap; }
+.demo-invoice-table td:first-child { white-space: normal; }
+.demo-invoice-table td strong { color: #171816; font-weight: 600; }
+.demo-invoice-totals { width: min(100%, 220px); margin: 14px 0 0 auto; }
+.demo-invoice-totals > div { display: flex; justify-content: space-between; gap: 10px; padding: 5px 0; color: #666; font-size: 9px; }
+.demo-invoice-totals strong { color: #171816; font-family: var(--mono); font-size: 9px; font-weight: 500; }
+.demo-invoice-totals .demo-invoice-total { margin-top: 7px; padding: 10px 12px; background: #171816; color: #fff; }
+.demo-invoice-totals .demo-invoice-total strong { color: #fff; font-size: 11px; }
+.demo-invoice-footer { display: flex; justify-content: space-between; gap: 10px; margin-top: 20px; padding-top: 12px; border-top: 1px solid #e5e5e0; color: #777; font-size: 8px; }
+.demo-payment-panel { position: relative; padding: 17px 28px 20px; border-top: 1px solid #e5e5df; background: #fafaf8; }
+.demo-payment-panel .invoice-foot { margin-top: 12px; }
+.demo-printer-overlay { position: absolute; z-index: 8; inset: -1px 0 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 8px; padding: 10px 14px 12px; overflow: hidden; background: rgba(248,248,245,.98); animation: demo-printer-arrive 220ms ease-out both; }
+.demo-printer-shell { width: min(100%, 360px); padding: 0 10px 8px; overflow: hidden; border-radius: 5px; background: #191a18; box-shadow: 0 12px 24px rgba(0,0,0,.14); }
+.demo-printer-slot { height: 10px; margin: 0 -10px; background: #080908; border-bottom: 2px solid #343632; }
+.demo-printer-slot span, .demo-printer-base span { display: block; width: 70%; height: 2px; margin: auto; background: #444642; }
+.demo-printer-paper { position: relative; width: 100%; max-width: 320px; margin: 0 auto; padding: 17px 16px 14px; background: #fff; color: #171816; font-family: var(--mono); font-size: 8px; animation: demo-paper-feed 1.35s steps(14,end) both; box-shadow: 0 3px 9px rgba(0,0,0,.14); }
+.demo-paper-brand { display: flex; flex-direction: column; gap: 3px; padding-right: 62px; }
+.demo-paper-brand strong { font-family: var(--sans); font-size: 15px; }
+.demo-paper-brand span, .demo-paper-meta { color: #777; font-size: 7px; letter-spacing: .06em; }
+.demo-paper-meta { display: flex; flex-direction: column; gap: 3px; margin-top: 9px; }
+.demo-paper-rule { height: 1px; margin: 9px 0; background: #d9d9d5; }
+.demo-paper-line { display: flex; justify-content: space-between; gap: 8px; margin: 6px 0; }
+.demo-paper-line strong { flex-shrink: 0; font-weight: 600; }
+.demo-paper-total { font-size: 9px; }
+.demo-paper-settlement { margin-top: 11px; overflow-wrap: anywhere; }
+.demo-printer-paper > p { margin: 12px 0 0; color: #777; text-align: center; font-size: 8px; }
+.demo-paid-stamp { position: absolute; top: 17px; right: 14px; transform: rotate(12deg); border: 2px solid rgba(39,128,74,.8); border-radius: 50%; padding: 4px 6px; color: rgba(39,128,74,.9); font-family: var(--sans); font-size: 12px; font-weight: 800; letter-spacing: .08em; }
+.demo-printer-base { display: flex; align-items: center; justify-content: center; height: 10px; margin: 0 -10px; background: #10110f; }
+.demo-download-receipt { min-height: 31px; padding: 0 12px; border: 1px solid #171816; border-radius: 2px; background: #171816; color: #fff; font-size: 9px; }
+@keyframes demo-printer-arrive { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes demo-paper-feed { from { transform: translateY(-68%); clip-path: inset(0 0 100% 0); } to { transform: translateY(0); clip-path: inset(0 0 0 0); } }
+.invoice-note { max-width: 470px; }
+@media (max-width: 520px) {
+  .demo-invoice-document { padding: 22px 17px 16px; }
+  .demo-payment-panel { padding: 15px 17px 18px; }
+  .demo-invoice-parties { gap: 12px; }
+  .demo-invoice-table th { font-size: 6px; letter-spacing: 0; }
+  .demo-invoice-table td { padding: 9px 4px; font-size: 8px; }
+  .demo-invoice-table td:first-child { min-width: 112px; }
+  .demo-printer-overlay { padding-inline: 8px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .demo-printer-overlay, .demo-printer-paper { animation: none !important; }
+}
