@@ -21,7 +21,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }));
 
   const contentRoutes = [
-    ...features.map((doc: any) => ({ doc, prefix: "/features/" })),
+    ...features.map((doc) => ({ doc, prefix: "/features/" })),
     ...faqs.map((doc: any) => ({ doc, prefix: "/faq/" })),
     ...announcements.map((doc: any) => ({ doc, prefix: "/updates/" })),
     ...(settings.changelogEnabled ? changelog.map((doc: any) => ({ doc, prefix: "/updates/" })) : []),
