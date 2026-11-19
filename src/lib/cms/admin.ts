@@ -8,7 +8,7 @@ import { createClient } from "@supabase/supabase-js";
 export type CmsAdminRole = "owner" | "admin" | "editor" | "analyst";
 export type CmsAdmin = {
   id: string;
-  workosUserId: string;
+  supabaseUserId: string;
   email: string;
   displayName: string | null;
   role: CmsAdminRole;
@@ -27,8 +27,8 @@ export async function getCmsAdmin(): Promise<CmsAdmin | null> {
   try { db = createCmsServiceClient(); } catch { return null; }
   const { data: existing, error } = await db
     .from("cms_admin_users")
-    .select("id,workos_user_id,email,display_name,role,is_active")
-    .eq("workos_user_id", user.id)
+    .select("id,supabase_user_id,email,display_name,role,is_active")
+    .eq("supabase_user_id", user.id)
     .maybeSingle();
 
   if (error) return null;
@@ -36,7 +36,7 @@ export async function getCmsAdmin(): Promise<CmsAdmin | null> {
     if (!existing.is_active) return null;
     return {
       id: existing.id,
-      workosUserId: existing.workos_user_id,
+      supabaseUserId: existing.supabase_user_id,
       email: existing.email,
       displayName: existing.display_name,
       role: existing.role as CmsAdminRole,
@@ -46,7 +46,7 @@ export async function getCmsAdmin(): Promise<CmsAdmin | null> {
     };
   }
 
-  const bootstrapSubjects = (process.env.CMS_ADMIN_WORKOS_SUBJECTS ?? "")
+  const bootstrapSubjects = (process.env.CMS_ADMIN_SUPABASE_USER_IDS ?? "")
     .split(",").map((value) => value.trim()).filter(Boolean);
   const bootstrapEmails = (process.env.CMS_ADMIN_EMAILS ?? "")
     .split(",").map((value) => value.trim().toLowerCase()).filter(Boolean);
@@ -57,7 +57,7 @@ export async function getCmsAdmin(): Promise<CmsAdmin | null> {
   if (!email) return null;
 
   const { error: bootstrapError } = await db.rpc("nodus_cms_bootstrap_owner", {
-    p_workos_user_id: user.id,
+    p_supabase_user_id: user.id,
     p_email: email,
     p_display_name: [user.firstName, user.lastName].filter(Boolean).join(" ") || null,
   });
@@ -67,14 +67,14 @@ export async function getCmsAdmin(): Promise<CmsAdmin | null> {
   // than trusting the bootstrap return value or keeping an environment bypass.
   const { data: bootstrapped, error: readError } = await db
     .from("cms_admin_users")
-    .select("id,workos_user_id,email,display_name,role,is_active")
-    .eq("workos_user_id", user.id)
+    .select("id,supabase_user_id,email,display_name,role,is_active")
+    .eq("supabase_user_id", user.id)
     .maybeSingle();
 
   if (readError || !bootstrapped || !bootstrapped.is_active) return null;
   return {
     id: bootstrapped.id,
-    workosUserId: bootstrapped.workos_user_id,
+    supabaseUserId: bootstrapped.supabase_user_id,
     email: bootstrapped.email,
     displayName: bootstrapped.display_name,
     role: bootstrapped.role as CmsAdminRole,
