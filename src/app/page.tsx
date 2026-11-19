@@ -93,10 +93,10 @@ export default function Home() {
     context.font = "700 20px Arial";
     context.fillText("PAYMENT RECEIPT", 24, 42);
     context.font = "600 16px Arial";
-    context.fillText("Maison Café", 24, 78);
+    context.fillText("Your business", 24, 78);
     context.font = "12px Arial";
     context.fillStyle = "#777777";
-    context.fillText("Addis Ababa · Table 08", 24, 98);
+    context.fillText("Addis Ababa, Ethiopia", 24, 98);
     context.save();
     context.translate(300, 78);
     context.rotate(0.22);
@@ -172,7 +172,7 @@ export default function Home() {
     context.fillStyle = "#777777";
     context.font = "12px Arial";
     context.textAlign = "center";
-    context.fillText("Thank you for visiting Maison Café.", 180, y);
+    context.fillText("Thank you for visiting Your business.", 180, y);
     y += 18;
     context.font = "10px Arial";
     context.fillText("Simulated payment · No funds were transferred", 180, y);
@@ -251,12 +251,12 @@ export default function Home() {
                 <header className="demo-invoice-header">
                   <div className="demo-merchant">
                     <span className="demo-merchant-mark">m.</span>
-                    <div><strong>Maison Café</strong><small>ADDIS ABABA · ETHIOPIA</small></div>
+                    <div><strong>Your business</strong><small>ADDIS ABABA · ETHIOPIA</small></div>
                   </div>
                   <div className="demo-invoice-number"><span>INVOICE</span><strong>N° 0248</strong><small>ISSUED {new Date().toLocaleDateString()}</small></div>
                 </header>
                 <div className="demo-invoice-parties">
-                  <div><span className="demo-field-label">BILLED BY</span><strong>Maison Café</strong><small>Bole Road, Addis Ababa</small><small>billing@maisoncafe.example</small></div>
+                  <div><span className="demo-field-label">BILLED BY</span><strong>Your business</strong><small>Bole Road, Addis Ababa</small><small>billing@maisoncafe.example</small></div>
                   <div><span className="demo-field-label">BILLED TO</span><strong>Walk-in customer</strong><small>Customer checkout</small></div>
                 </div>
                 <div className="demo-invoice-table-wrap">
@@ -308,7 +308,7 @@ export default function Home() {
                       <div className="demo-printer-slot"><span /></div>
                       <div className="demo-printer-paper">
                         <div className="demo-paid-stamp">PAID</div>
-                        <div className="demo-paper-brand"><strong>Maison Café</strong><span>PAYMENT RECEIPT</span></div>
+                        <div className="demo-paper-brand"><strong>Your business</strong><span>PAYMENT RECEIPT</span></div>
                         <div className="demo-paper-meta"><span>Invoice N° 0248</span><span>{new Date().toLocaleString()}</span></div>
                         <div className="demo-paper-rule" />
                         {items.map((item) => <div className="demo-paper-line" key={item.id}><span>{item.name} × {item.quantity}</span><strong>{formatUsd(item.price * item.quantity)}</strong></div>)}
