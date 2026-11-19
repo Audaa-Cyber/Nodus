@@ -18,7 +18,8 @@ export async function POST(request: NextRequest) {
   try { body = await request.json(); } catch { return new NextResponse(null, { status: 400 }); }
   const eventName = body.eventName === "cta_click" ? "cta_click" : body.eventName === "page_view" ? "page_view" : null;
   const path = typeof body.path === "string" ? body.path : "";
-  if (!eventName || !path.startsWith("/") || path.startsWith("/studio") || path.startsWith("/api/") || path.length > 500) {
+  const excludedPrefixes = ["/studio", "/control", "/dashboard", "/api", "/pay", "/login", "/register", "/auth", "/sign-in", "/sign-up", "/reset-password"];
+  if (!eventName || !path.startsWith("/") || excludedPrefixes.some((prefix) => path === prefix || path.startsWith(prefix + "/")) || path.length > 500) {
     return new NextResponse(null, { status: 204 });
   }
 
