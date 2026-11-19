@@ -11,6 +11,7 @@ export function effectiveStatus(invoice: Pick<Invoice, "status" | "due_date">, t
 const KNOWN_CRYPTO_TOKENS = new Set([
   "USDC",
   "USDT",
+  "EURC",
   "NEAR",
   "ETH",
   "SOL",
@@ -22,7 +23,7 @@ const KNOWN_CRYPTO_TOKENS = new Set([
 ]);
 
 export function formatMoney(minor: number, currency: string): string {
-  const normalizedCurrency = (currency || "USD").trim().toUpperCase();
+  const normalizedCurrency = (currency || "USDC").trim().toUpperCase();
   const amount = (minor || 0) / 100;
 
   const formattedNumber = new Intl.NumberFormat("en-US", {
@@ -61,7 +62,9 @@ export function formatUtcDate(dateString: string): string {
 export function parseInvoiceForm(formData: FormData) {
   const get = (key: string) => String(formData.get(key) ?? "").trim();
   const lineItemsRaw = get("lineItems");
-  const taxRateBps = Number(get("taxRateBps") || 0);
+  const taxRaw = get("taxRateBps");
+  if (taxRaw === "") throw new Error("Enter a tax rate. Use 0 if no tax applies.");
+  const taxRateBps = Number(taxRaw);
   const discountMinor = Number(get("discountMinor") || 0);
   const invoiceFooter = get("invoiceFooter").slice(0, 1000);
   const customerName = get("customerName").slice(0, 120) || null;
@@ -92,7 +95,7 @@ export function parseInvoiceForm(formData: FormData) {
   const amountMinor = subtotalMinor + Math.round(subtotalMinor*taxRateBps/10000) - discountMinor;
   if (!Number.isSafeInteger(amountMinor) || amountMinor < 1 || amountMinor > 999999999999) throw new Error("Invoice total is outside the supported range.");
   const description = lineItems.map(item=>item.description).join("; ").slice(0,2000);
-  if (!/^[A-Z]{3}$/.test(currency)) throw new Error("Use a three-letter currency code, such as USD.");
+  if (!(["USDC", "USDT", "EURC"] as const).includes(currency as "USDC" | "USDT" | "EURC")) throw new Error("Choose USDC, USDT, or EURC.");
   const isValidDate = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00Z`)) && new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10) === value;
   if (!isValidDate(issueDate)) throw new Error("Choose a valid issue date.");
   if (dueDate && !isValidDate(dueDate)) throw new Error("Choose a valid due date.");
