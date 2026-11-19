@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getBusinessContext } from "@/lib/auth/business-context";
 
 export const dynamic = "force-dynamic";
 const headers={"Cache-Control":"private, no-store"};
@@ -7,10 +7,8 @@ const headers={"Cache-Control":"private, no-store"};
 export async function GET(_request:Request,{params}:{params:Promise<{id:string}>}) {
   const {id}=await params;
   if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) return NextResponse.json({error:"Invoice unavailable."},{status:404,headers});
-  const supabase=await createSupabaseServerClient();
-  const {data:{user},error:authError}=await supabase.auth.getUser();
-  if(authError||!user)return NextResponse.json({error:"Unauthorized."},{status:401,headers});
-  const {data:business}=await supabase.from("business_profiles").select("id").eq("owner_user_id",user.id).maybeSingle();
+  const {supabase,user,business}=await getBusinessContext();
+  if(!user)return NextResponse.json({error:"Unauthorized."},{status:401,headers});
   if(!business)return NextResponse.json({error:"Invoice unavailable."},{status:404,headers});
   const {data:invoice}=await supabase.from("invoices").select("id,customer_name").eq("id",id).eq("business_id",business.id).maybeSingle();
   if(!invoice)return NextResponse.json({error:"Invoice unavailable."},{status:404,headers});
