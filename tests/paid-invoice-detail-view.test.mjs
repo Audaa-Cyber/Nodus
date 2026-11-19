@@ -35,7 +35,8 @@ test("merchant route keeps paid rendering behind invoice ownership and real pers
   assert.match(source, /\.eq\("business_id", business\.id\)/);
   assert.match(source, /const isPaid = invoice\.status === "paid"/);
   assert.match(source, /if \(isPaid\) \{[\s\S]*?<PaidInvoiceDetailView/);
-  assert.ok(source.indexOf("if (error || !invoice) notFound()") < source.indexOf("getSupabaseAdminClient()"));
+  assert.ok(source.indexOf("if (error || !invoice) notFound()") > source.indexOf("const { supabase, user, business }"));
+  assert.doesNotMatch(source, /NearReconciliationLiveSync|near_settlement_outbox/);
 });
 
 test("payer wallet is visible in settlement details and the NEAR reconciliation block is removed", () => {
@@ -43,7 +44,7 @@ test("payer wallet is visible in settlement details and the NEAR reconciliation 
   const html = render({
     primarySettlement: {
       ...props.primarySettlement,
-      evidence: { ...props.primarySettlement.evidence, destinationProof: { payer } },
+      evidence: { destinationProof: { payer } },
     },
     primaryAttempt: {
       id: "attempt-real", source_asset_id: "arbitrum-sepolia:usdc", source_network: "arbitrum-sepolia",
