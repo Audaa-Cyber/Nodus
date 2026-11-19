@@ -63,6 +63,11 @@ export default async function DashboardLayout({ children }: Readonly<{ children:
           </aside>
           </DashboardSidebar>
           <main className="dashboard-main min-w-0">
+            {process.env.NODE_ENV === "development" && process.env.NODUS_DEV_AUTH_BYPASS === "true" ? (
+              <div role="status" className="mx-4 mt-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 sm:mx-6">
+                Local demo mode · Preview only. Supabase data and payment actions require a real account.
+              </div>
+            ) : null}
             <InvoiceRealtimeProvider businessId={business?.id} userId={user.id}>
               <div className="dashboard-content">
                 <DashboardHeader recipientUserId={user.id} userEmail={user.email} />
