@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
 
   const db = createCmsServiceClient();
   const { data: authUser, error: authUserError } = await db.auth.admin.getUserById(supabaseUserId);
-  if (authUserError || !authUser.user || authUser.user.email?.toLowerCase() !== email) {
+  if (authUserError || !authUser.user || !authUser.user.email_confirmed_at || authUser.user.email?.toLowerCase() !== email) {
     return NextResponse.json({ error: "The Supabase user ID and verified account email do not match." }, { status: 400 });
   }
   const { error } = await db.from("cms_admin_users").insert({
