@@ -5214,3 +5214,8 @@ main > section button {
   .demo-quantity-control { gap: 2px; }
   .demo-quantity-control button { width: 16px; height: 16px; }
 }
+
+/* Subtle global tracking for a more open reading rhythm. */
+body {
+  letter-spacing: .012em;
+}
