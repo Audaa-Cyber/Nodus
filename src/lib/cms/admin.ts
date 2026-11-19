@@ -68,6 +68,7 @@ export async function getCmsAdmin(): Promise<CmsAdmin | null> {
       display_name: [user.firstName, user.lastName].filter(Boolean).join(" ") || null,
       role: "owner",
       is_active: true,
+      invited_by: user.id,
     })
     .select("id,workos_user_id,email,display_name,role,is_active")
     .single();
