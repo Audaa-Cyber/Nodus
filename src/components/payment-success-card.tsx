@@ -144,7 +144,6 @@ export function PaymentSuccessCard({
   const merchant = activeReceipt?.business_name || businessName || "Merchant";
   const networkKey = activeReceipt?.destination_network || destinationNetwork;
   const network = networkKey ? getWalletNetwork(networkKey) : null;
-  const networkName = network?.label || networkKey || "network unavailable";
   const amount = receiptAmount(activeReceipt, amountMinor);
   const date = receiptDate(activeReceipt?.issued_at);
   const hashes = Array.isArray(activeReceipt?.destination_tx_hashes)
