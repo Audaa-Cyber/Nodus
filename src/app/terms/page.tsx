@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getPublishedCmsDocument } from "@/lib/cms/public";
 import { CmsPublicPage } from "@/components/cms-public-page";
+import { cmsMetadata } from "@/lib/cms/metadata";
 
 const sections = [
   {
@@ -68,6 +69,8 @@ const sections = [
     ]
   }
 ];
+
+export async function generateMetadata() { return cmsMetadata(await getPublishedCmsDocument("terms"), { title: "Terms of service | Nodus", description: "The rules for using Nodus invoices, checkout, wallets, and payment features." }); }
 
 export default async function TermsPage() {
   const cmsDocument = await getPublishedCmsDocument("terms");
