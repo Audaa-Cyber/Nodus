@@ -64,6 +64,9 @@ export function parseInvoiceForm(formData: FormData) {
   const taxRateBps = Number(get("taxRateBps") || 0);
   const discountMinor = Number(get("discountMinor") || 0);
   const invoiceFooter = get("invoiceFooter").slice(0, 1000);
+  const customerName = get("customerName").slice(0, 120) || null;
+  const customerEmail = get("customerEmail").slice(0, 254).toLowerCase() || null;
+  if (customerEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail)) throw new Error("Enter a valid customer email address, or leave it blank.");
   const currency = get("currency").toUpperCase();
   const issueDate = get("issueDate");
   const dueDate = get("dueDate") || null;
@@ -95,5 +98,5 @@ export function parseInvoiceForm(formData: FormData) {
   if (dueDate && !isValidDate(dueDate)) throw new Error("Choose a valid due date.");
   if (dueDate && dueDate < issueDate) throw new Error("Due date must be on or after the issue date.");
 
-  return { customer_name: null, customer_email: null, description, line_items: lineItems, subtotal_minor: subtotalMinor, tax_rate_bps: taxRateBps, discount_minor: discountMinor, invoice_footer: invoiceFooter, amount_minor: amountMinor, currency, issue_date: issueDate, due_date: dueDate };
+  return { customer_name: customerName, customer_email: customerEmail, description, line_items: lineItems, subtotal_minor: subtotalMinor, tax_rate_bps: taxRateBps, discount_minor: discountMinor, invoice_footer: invoiceFooter, amount_minor: amountMinor, currency, issue_date: issueDate, due_date: dueDate };
 }
