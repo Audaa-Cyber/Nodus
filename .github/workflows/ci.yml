@@ -1,0 +1,38 @@
+name: Nodus CI
+
+on:
+  push:
+    branches:
+      - feat/workos-multichain-checkout
+  pull_request:
+    branches:
+      - main
+
+concurrency:
+  group: nodus-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      NEXT_PUBLIC_WORKOS_REDIRECT_URI: http://localhost:3000/auth/callback
+      WORKOS_CLIENT_ID: client_ci_placeholder
+      WORKOS_API_KEY: sk_test_ci_placeholder
+      WORKOS_COOKIE_PASSWORD: ci-only-cookie-password-0123456789012345
+      WORKOS_ISSUER: https://api.workos.com/user_management/client_ci_placeholder
+      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_ci_placeholder
+      SUPABASE_SERVICE_ROLE_KEY: ci-only-service-role-placeholder
+      PAYMENT_MODE: mock
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run test:payments
+      - run: npm run lint
+      - run: npm run build
