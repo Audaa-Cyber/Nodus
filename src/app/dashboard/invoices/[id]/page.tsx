@@ -2,7 +2,6 @@ import { MerchantOpenSurface } from "@/components/merchant-open-surface";
 import { notFound, redirect } from "next/navigation";
 import { createHash } from "node:crypto";
 import { PaidInvoiceDetailView } from "@/components/paid-invoice-detail-view";
-import { NearReconciliationLiveSync } from "@/components/near-reconciliation-live-sync";
 import { getBusinessContext } from "@/lib/auth/business-context";
 import { effectiveStatus } from "@/lib/invoices";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -79,15 +78,6 @@ export default async function InvoiceDetailPage({
   const invoiceSellerTaxId = typeof sellerSnapshot.tax_registration_number === "string" ? sellerSnapshot.tax_registration_number : business.tax_registration_number;
   const invoiceSellerFooter = typeof sellerSnapshot.invoice_footer === "string" ? sellerSnapshot.invoice_footer : (invoice.invoice_footer || business.invoice_footer || "Thank you for your business.");
 
-  // The settlement outbox is intentionally service-role-only. Read it through
-  // the server admin client after the user-scoped invoice ownership check above.
-  const { data: nearOutbox, error: nearOutboxError } = await getSupabaseAdminClient()
-    .from("near_settlement_outbox")
-    .select(
-      "id,payment_attempt_id,source_transaction_hash,status,near_transaction_hash,last_error_code,submitted_at,created_at,attempt_count"
-    )
-    .eq("invoice_id", id);
-
   const status = effectiveStatus(invoice);
   const isPaid = invoice.status === "paid";
   const isCancelled = invoice.status === "cancelled";
@@ -129,47 +119,9 @@ export default async function InvoiceDetailPage({
     ? attempts?.find((a) => a.id === primaryReceipt.payment_attempt_id) ?? null
     : null;
 
-  // NEAR outbox entries for the primary attempt
-  const primaryNearEntry = primaryAttempt
-    ? nearOutbox?.find((n) => n.payment_attempt_id === primaryAttempt.id) ?? null
-    : null;
-  const primaryNearEntryForView = primaryNearEntry
-    ? {
-        ...primaryNearEntry,
-        status: (primaryNearEntry.status === "pending" && primaryNearEntry.last_error_code
-          ? "retrying"
-          : primaryNearEntry.status) as "pending" | "processing" | "retrying" | "submitted" | "blocked",
-      }
-    : null;
-  const nearCctpNetworks = new Set(["sepolia", "base-sepolia", "arbitrum-sepolia", "optimism-sepolia", "arc-testnet"]);
-  const primaryQuoteSnapshot = primaryAttempt?.quote_snapshot && typeof primaryAttempt.quote_snapshot === "object"
-    ? primaryAttempt.quote_snapshot as Record<string, unknown>
-    : null;
-  const hasCrossChainNearCctpRoute = Boolean(primaryAttempt && primarySettlement
-    && primaryAttempt.mode === "live"
-    && primaryQuoteSnapshot?.type === "circle_cctp"
-    && primaryAttempt.source_network !== primaryAttempt.destination_network
-    && nearCctpNetworks.has(primaryAttempt.source_network)
-    && nearCctpNetworks.has(primaryAttempt.destination_network)
-    && primaryAttempt.source_asset_id === `${primaryAttempt.source_network}:usdc`
-    && primaryAttempt.destination_asset_id === `${primaryAttempt.destination_network}:usdc`
-    && primarySettlement.destination_network === primaryAttempt.destination_network
-    && primarySettlement.destination_asset_id === primaryAttempt.destination_asset_id);
-  const nearSettlementEligibility = hasCrossChainNearCctpRoute
-    ? "eligible"
-    : primaryAttempt
-      && (primaryAttempt.mode !== "live"
-        || primaryQuoteSnapshot?.type === "circle_direct"
-        || primaryAttempt.source_network === primaryAttempt.destination_network)
-      ? "not_applicable"
-      : primaryAttempt
-        ? "unsupported"
-        : "unknown";
-
   if (isPaid) {
     return (
       <div className="dashboard-content narrow-content">
-        <NearReconciliationLiveSync invoiceId={invoice.id} />
         <PaidInvoiceDetailView
           invoice={invoice}
           seller={{
@@ -186,10 +138,6 @@ export default async function InvoiceDetailPage({
           primaryReceipt={primaryReceipt}
           primarySettlement={primarySettlement}
           primaryAttempt={primaryAttempt}
-          primaryNearEntry={primaryNearEntryForView}
-          nearSettlementEligibility={nearSettlementEligibility}
-          nearOutboxError={!!nearOutboxError}
-          nearInvoiceRegistration={nearInvoiceRegistration}
           receipts={receipts}
           settlements={settlements}
         />
