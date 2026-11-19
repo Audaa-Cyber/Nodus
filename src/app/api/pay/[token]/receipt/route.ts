@@ -37,7 +37,7 @@ export async function GET(_request:Request,{params}:{params:Promise<{token:strin
   const destination=destinationResult.data?.find(record=>record.receipt_number===receipt.receipt_number);
   if(!destination?.recipient_address)return NextResponse.json({error:"Verified receipt is not ready yet."},{status:409,headers});
   const receiptData={receiptNumber:receipt.receipt_number,invoiceNumber:receipt.invoice_number,businessName,
-    amount:`${received} ${receipt.destination_asset_id?.endsWith(":usdc")?"USDC":receipt.destination_asset_id??"asset"}`,
+    amount:`${received} ${receipt.destination_asset_id?.split(":").pop()?.toUpperCase()??"asset"}`,
     issuedAt:receipt.issued_at,network:networkLabel(receipt.destination_network),transactions,
     recipient:destination.recipient_address,sellerDetails:details,
     items:parseInvoiceItems(invoice.line_items).map(item=>`${item.description} (${item.quantity} x ${formatDesignMoney(item.unitPriceMinor,invoice.currency??"USD")}) - ${formatDesignMoney(item.lineTotalMinor,invoice.currency??"USD")}`)};
