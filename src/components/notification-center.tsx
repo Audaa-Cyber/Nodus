@@ -62,7 +62,7 @@ export function NotificationCenter({ recipientUserId }: NotificationCenterProps)
     setErrorMessage(null);
 
     try {
-      const supabase = getSupabaseBrowserClient();
+      const supabase = getSupabaseBrowserClient(accessToken);
 
       // 1. Fetch latest 20 notifications
       const { data, error } = await supabase
@@ -139,7 +139,7 @@ export function NotificationCenter({ recipientUserId }: NotificationCenterProps)
 
     const setupRealtime = async () => {
       try {
-        const supabase = getSupabaseBrowserClient();
+        const supabase = getSupabaseBrowserClient(accessToken);
 
         await supabase.realtime.setAuth(accessToken);
 
@@ -229,7 +229,7 @@ export function NotificationCenter({ recipientUserId }: NotificationCenterProps)
       isCancelled = true;
       if (channel) {
         try {
-          const supabase = getSupabaseBrowserClient();
+          const supabase = getSupabaseBrowserClient(accessToken);
           supabase.removeChannel(channel);
         } catch {
           // ignore cleanup error
@@ -268,13 +268,14 @@ export function NotificationCenter({ recipientUserId }: NotificationCenterProps)
 
   // Mark a single notification as read
   const markAsRead = async (id: string) => {
+    if (!accessToken) return;
     setNotifications((prev) =>
       prev.map((n) => (n.id === id ? { ...n, read_at: n.read_at || new Date().toISOString() } : n))
     );
     setUnreadCount((c) => Math.max(0, c - 1));
 
     try {
-      const supabase = getSupabaseBrowserClient();
+      const supabase = getSupabaseBrowserClient(accessToken);
       await supabase
         .from("notifications")
         .update({ read_at: new Date().toISOString() })
@@ -287,6 +288,7 @@ export function NotificationCenter({ recipientUserId }: NotificationCenterProps)
 
   // Mark all unread notifications as read
   const markAllAsRead = async () => {
+    if (!accessToken) return;
     if (unreadCount === 0 || isMarkingAll) return;
     setIsMarkingAll(true);
 
@@ -295,7 +297,7 @@ export function NotificationCenter({ recipientUserId }: NotificationCenterProps)
     setUnreadCount(0);
 
     try {
-      const supabase = getSupabaseBrowserClient();
+      const supabase = getSupabaseBrowserClient(accessToken);
       await supabase
         .from("notifications")
         .update({ read_at: nowIso })
