@@ -1,9 +1,14 @@
+import type { Metadata } from "next";
 import Link from "next/link";
-import { getPublishedCmsDocuments } from "@/lib/cms/public";
-import { cmsMetadata } from "@/lib/cms/metadata";
+import { getPublishedCmsDocuments, getPublicCmsSettings } from "@/lib/cms/public";
 
 export const dynamic = "force-dynamic";
-export async function generateMetadata() { const docs=await getPublishedCmsDocuments("feature"); return cmsMetadata(docs[0],{title:"Features | Nodus",description:"Explore Nodus invoice, QR checkout, and payment workflow features."}); }
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getPublicCmsSettings();
+  const title = "Features | " + settings.seoDefaultTitle;
+  const description = "Explore Nodus invoice, QR checkout, and payment workflow features.";
+  return { title, description, openGraph: { title, description, ...(settings.seoDefaultSocialImage ? { images: [settings.seoDefaultSocialImage] } : {}) } };
+}
 
 export default async function FeaturesPage() {
   const items=await getPublishedCmsDocuments("feature");
