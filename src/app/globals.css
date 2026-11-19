@@ -5644,3 +5644,12 @@ body {
   .demo-printer-mouth { animation: none !important; }
   .demo-receipt-feed-window.is-tearing::after { animation-duration: .01ms !important; }
 }
+
+
+/* Keep the checkout section compact on desktop as well as mobile. */
+@media (min-width: 701px) {
+  .checkout-section {
+    padding-top: clamp(32px, 3.5vw, 48px) !important;
+    padding-bottom: clamp(52px, 5vw, 76px) !important;
+  }
+}
