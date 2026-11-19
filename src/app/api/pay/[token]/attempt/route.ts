@@ -97,15 +97,22 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
     p_token_hash: tokenHash,
   });
   const context = contexts?.[0];
-  if (contextError || !context || !context.receiving_address || !context.receiving_network
+  const { data: optionRows, error: optionsError } = await supabaseAdmin.rpc("lookup_shared_payment_networks", {
+    p_token_hash: tokenHash,
+  });
+  const paymentOptions = optionRows?.[0];
+  const destinationAddress = paymentOptions?.receiving_address ?? context?.receiving_address ?? null;
+  const availableDestinationNetworks = paymentOptions?.receiving_networks ?? [];
+  if (contextError || optionsError || !context || !destinationAddress
+      || !Array.isArray(availableDestinationNetworks) || !availableDestinationNetworks.includes(destinationNetwork)
       || !["open", "overdue"].includes(context.invoice_status)
       || String(context.currency).toUpperCase() !== "USD") {
     return NextResponse.json({ error: "invoice_unavailable" }, { status: 404 });
   }
   const amountBaseUnits = (BigInt(context.amount_minor) * 10_000n).toString();
   const { getCircleChain } = await import("@/lib/server/circle");
-  const destinationNetworkOption = circleTestnetUsdcNetworks.find((network) => network.key === context.receiving_network);
-  const destinationCircle = destinationNetworkOption ? getCircleChain(context.receiving_network, true) : null;
+  const destinationNetworkOption = circleTestnetUsdcNetworks.find((network) => network.key === destinationNetwork);
+  const destinationCircle = destinationNetworkOption ? getCircleChain(destinationNetwork, true) : null;
   if (!destinationCircle) {
     return NextResponse.json({ error: "invoice_payment_terms_mismatch" }, { status: 409 });
   }
@@ -117,8 +124,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
     const sourceNetworkOption = circleTestnetUsdcNetworks.find((network) => network.key === sourceNetwork);
     const sourceCircle = sourceNetworkOption ? getCircleChain(sourceNetwork, true) : null;
     if (!sourceCircle || sourceNetwork === destinationNetwork
-        || destinationNetwork !== context.receiving_network
-        || requestedRecipient.toLowerCase() !== context.receiving_address.toLowerCase()
+        || destinationNetwork !== destinationNetwork
+        || requestedRecipient.toLowerCase() !== destinationAddress.toLowerCase()
         || expectedReceivedAmount !== amountBaseUnits || destinationAssetId !== `${context.receiving_network}:usdc`
         || sourceAssetId !== `${sourceNetwork}:usdc`) {
       return NextResponse.json({ error: "invoice_payment_terms_mismatch" }, { status: 409 });
