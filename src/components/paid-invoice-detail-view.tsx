@@ -31,9 +31,6 @@ export type PaidInvoiceProps = {
     discount_minor?: number | null;
     seller_snapshot?: unknown;
     invoice_footer?: string | null;
-    near_registration_status?: string | null;
-    near_registration_transaction_hash?: string | null;
-    near_registration_failure_reason?: string | null;
   };
   seller: {
     business_name: string;
@@ -81,25 +78,6 @@ export type PaidInvoiceProps = {
     quote_snapshot?: unknown;
     created_at: string;
     updated_at: string;
-  } | null;
-  primaryNearEntry?: {
-    id: string;
-    status: "pending" | "processing" | "retrying" | "submitted" | "blocked";
-    near_transaction_hash: string | null;
-    last_error_code: string | null;
-    submitted_at: string | null;
-    created_at: string;
-    attempt_count: number;
-  } | null;
-  nearSettlementEligibility?: "eligible" | "not_applicable" | "unsupported" | "unknown";
-  nearOutboxError?: boolean;
-  nearInvoiceRegistration?: {
-    id: string;
-    status: string;
-    attempt_count: number;
-    near_transaction_hash?: string | null;
-    failure_reason?: string | null;
-    registered_at?: string | null;
   } | null;
   receipts?: Array<{
     id: string;
