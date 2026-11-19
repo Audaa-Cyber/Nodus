@@ -66,7 +66,7 @@ function shortHash(hash: string): string {
 
 function getRouteDiscoveryErrorMessage(code: unknown): string {
   if (code === "unsupported_circle_testnet_destination_network") {
-    return "This invoice's receiving network is not enabled for testnet checkout. The merchant must choose one of the four supported networks in their business profile.";
+    return "This invoice's receiving network is not enabled for testnet checkout. The merchant must choose one of the five supported networks in their business profile.";
   }
   if (code === "unsupported_circle_testnet_source_asset") {
     return "The selected token is not a supported Circle testnet USDC asset. Choose USDC on one of the supported testnet networks.";
