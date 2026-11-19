@@ -1,21 +1,34 @@
 import "server-only";
 import { createCmsServiceClient } from "@/lib/cms/admin";
 
-export async function getPublishedCmsDocument(slug: string) {
+export type PublishedCmsDocument = {
+  id: string;
+  kind: string;
+  slug: string;
+  title: string;
+  status: "published";
+  content: Record<string, unknown>;
+  seo: Record<string, unknown> | null;
+  excerpt?: string | null;
+  updated_at: string;
+  published_at: string | null;
+};
+
+export async function getPublishedCmsDocument(slug: string): Promise<PublishedCmsDocument | null> {
   try {
     const db = createCmsServiceClient();
     const { data, error } = await db.from("cms_documents").select("*").eq("slug", slug).eq("status", "published").maybeSingle();
-    return error ? null : data;
+    return error || !data ? null : data as unknown as PublishedCmsDocument;
   } catch {
     return null;
   }
 }
 
-export async function getPublishedCmsDocuments(kind: string) {
+export async function getPublishedCmsDocuments(kind: string): Promise<PublishedCmsDocument[]> {
   try {
     const db = createCmsServiceClient();
     const { data, error } = await db.from("cms_documents").select("*").eq("kind", kind).eq("status", "published").order("updated_at", { ascending: false }).limit(100);
-    return error ? [] : data ?? [];
+    return error || !data ? [] : data as unknown as PublishedCmsDocument[];
   } catch {
     return [];
   }
