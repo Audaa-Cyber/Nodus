@@ -28,6 +28,7 @@ interface LivePaymentFlowProps {
   invoiceNumber: string;
   amountMinor: number;
   currency: string;
+  destinationNetwork: string;
   selectedAsset: WalletAsset | null;
   activeAddress: string | null;
   onPaymentSuccess?: (receipts?: Array<{ receipt_number: string; issued_at: string; [key: string]: unknown }>) => void;
@@ -97,6 +98,7 @@ export function LivePaymentFlow({
   invoiceNumber,
   amountMinor,
   currency,
+  destinationNetwork,
   selectedAsset,
   activeAddress,
   onPaymentSuccess,
@@ -161,7 +163,7 @@ export function LivePaymentFlow({
       const response = await fetch(`/api/pay/${encodeURIComponent(shareToken)}/routes`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(buildPaymentRoutesRequest(selectedAsset, activeAddress)),
+        body: JSON.stringify(buildPaymentRoutesRequest(selectedAsset, activeAddress, destinationNetwork)),
       });
 
       const data = await response.json();
@@ -181,7 +183,7 @@ export function LivePaymentFlow({
     } finally {
       if (requestId === routeRequest.current) setLoadingRoutes(false);
     }
-  }, [selectedAsset, activeAddress, shareToken, attemptId]);
+  }, [selectedAsset, activeAddress, shareToken, attemptId, destinationNetwork]);
 
   useEffect(() => {
     void fetchRoutes();
