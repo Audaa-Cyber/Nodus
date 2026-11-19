@@ -32,7 +32,7 @@ export default function Home() {
   const total = subtotal + tax;
   const formatUsd = (amount: number) => "$" + amount.toFixed(2);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [cmsHome, setCmsHome] = useState<{title:string;content:{body?:string;ctaLabel?:string;ctaHref?:string}} | null>(null);
+  const [cmsHome, setCmsHome] = useState<{title:string;content:{heroTitle?:string;heroDescription?:string;ctaLabel?:string;ctaHref?:string}} | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -221,7 +221,7 @@ export default function Home() {
         </nav>
 
         <div className="hero-copy shell">
-          <h1>{cmsHome?.title ?? <>Itemized invoices.<br /><span>Payments made clear.</span></>}</h1>
+          <h1>{cmsHome?.content?.heroTitle ?? cmsHome?.title ?? <>Itemized invoices.<br /><span>Payments made clear.</span></>}</h1>
           <div className="hero-bottom">
             <p className="hero-lede">
               Nodus turns an itemized invoice into a QR checkout. Guests scan,
