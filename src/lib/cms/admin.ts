@@ -19,9 +19,9 @@ export type CmsAdmin = {
 
 export async function getCmsAdmin(): Promise<CmsAdmin | null> {
   const user = await getVerifiedUser();
-  if (!user) return null;
+  if (!user || !user.emailConfirmed) return null;
 
-  // Role assignments live in Supabase. The environment allowlist is only a
+  // Role assignments live in Supabase. A verified email allowlist is only a
   // one-time bootstrap gate for the first owner, never a permanent bypass.
   let db: ReturnType<typeof createCmsServiceClient>;
   try { db = createCmsServiceClient(); } catch { return null; }
