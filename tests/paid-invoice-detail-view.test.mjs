@@ -16,7 +16,7 @@ test("invalid hashes cannot become destination explorer links", () => {
   assert.match(html, /Destination transaction hash<\/dt><dd>Unavailable/);
 });
 
-test("source proof, Circle fees and collapsed audit details remain available", () => {
+test("source proof, Quoted route difference and collapsed audit details remain available", () => {
   const payer = `0x${"11".repeat(20)}`;
   const html = render({
     primarySettlement: { ...props.primarySettlement, evidence: { ...props.primarySettlement.evidence, sourceProof: { payer } } },
@@ -24,7 +24,7 @@ test("source proof, Circle fees and collapsed audit details remain available", (
   });
   assert.match(html, /<details class="card"><summary>Technical payment details/);
   assert.doesNotMatch(html, /<details[^>]*open/);
-  assert.match(html, /Circle fees<\/dt><dd>1\.000000/);
+  assert.match(html, /Quoted route difference<\/dt><dd>1\.000000/);
   assert.match(html, new RegExp(payer));
   assert.match(html, /sepolia\.basescan\.org\/tx\//);
 });
