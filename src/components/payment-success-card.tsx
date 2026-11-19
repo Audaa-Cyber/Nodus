@@ -153,7 +153,7 @@ export function PaymentSuccessCard({
   const chain = evmWalletChains.find(candidate => candidate.id === network?.chainId);
   const explorerUrl = txHash && chain?.blockExplorers?.default.url ? `${chain.blockExplorers.default.url}/tx/${txHash}` : null;
   const explorerName = chain?.blockExplorers?.default.name || "Explorer";
-  const note = sellerFooter?.trim() || `Your payment of ${amount} ${currency} has settled on ${networkName}, and all of us at ${merchant} are deeply grateful for your trust. Your invoice is now sealed on-chain, and we look forward to making something remarkable together.`;
+  const note = sellerFooter?.trim() || `Your payment of ${amount} ${currency} to ${merchant} is confirmed. Thank you for your business.`;
 
   function say(message: string) {
     setNotice(message);
@@ -205,18 +205,18 @@ export function PaymentSuccessCard({
         <div className="paper" ref={paperRef}>
           <section className="sheet" ref={sheetRef} inert aria-label={`Thank you from ${merchant}`}>
             <header className="top">
-              <div><div className="logo">nodus<b>.</b></div><div className="cap"><u>•</u> Decentralized Settlement Protocol</div></div>
-              <div className="pill">● ON-CHAIN VERIFIED</div>
+              <div><div className="logo">nodus<b>.</b></div><div className="cap">PAYMENT RECEIPT</div></div>
+              <div className="pill">PAYMENT VERIFIED</div>
             </header>
             <h1>Thank You!</h1>
             <p className="note">{note}</p>
             <div className="dossier">
-              <h2>{merchant} <span>Business owner dossier</span></h2>
+              <h2>{merchant} <span>Business details</span></h2>
               <div className="rows">
                 <div className="row"><span className="ico">{icon("mail")}</span><div><small>Email</small>{sellerDetails?.email || "Unavailable"}</div></div>
                 <div className="row"><span className="ico">{icon("phone")}</span><div><small>Phone</small>{sellerDetails?.phone || "Unavailable"}</div></div>
                 <div className="row"><span className="ico">{icon("pin")}</span><div><small>Address</small>{sellerDetails?.address || "Unavailable"}</div></div>
-                <div className="row"><span className="ico">{icon("shield")}</span><div><small>Tax ID / EIN</small>{sellerDetails?.taxId || "Unavailable"} <em>|</em> Payee: {shortValue(activeReceipt?.recipient_address ?? recipientAddress)}</div></div>
+                <div className="row"><span className="ico">{icon("shield")}</span><div><small>Tax ID</small>{sellerDetails?.taxId || "Unavailable"}</div></div>
               </div>
             </div>
             <div className="amt"><strong>{amount} {currency}</strong><i>•</i><span>Invoice: {invoiceNumber}</span><i>•</i><span>{date.day}</span><i>•</i><span>{date.time}</span></div>
@@ -224,7 +224,7 @@ export function PaymentSuccessCard({
             {reviewSlot}
             <div className="sign">
               <div className="cur"><div className="s1">With warmest appreciation,</div><div className="s2">{sellerDetails?.founderName || merchant}</div><div className="s3">{sellerDetails?.founderTitle || "Authorized Signatory"}</div></div>
-              <div className="tx">Settlement transaction<br />{explorerUrl ? <a href={explorerUrl} target="_blank" rel="noopener noreferrer">{shortValue(txHash)} ↗ {explorerName}</a> : <span>{txHash ? shortValue(txHash) : "Unavailable"}</span>}</div>
+              <div className="tx">Transaction hash<br />{explorerUrl ? <a href={explorerUrl} target="_blank" rel="noopener noreferrer">{shortValue(txHash)} ↗ {explorerName}</a> : <span>{txHash ? shortValue(txHash) : "Unavailable"}</span>}</div>
             </div>
             <div className="acts">
               <button className="btn pri" type="button" onClick={() => void downloadOfficialReceipt()} disabled={preparing}>{icon("dl")}<span>{preparing ? "Preparing receipt…" : "Download Official Receipt (PDF)"}</span></button>
@@ -235,7 +235,7 @@ export function PaymentSuccessCard({
         </div>
         <div className="spindle" ref={rightRef} style={{ left: "var(--sp)" }}><div className="rod"><div className="shine" /></div>{finials}</div>
       </div>
-      <div className="hint">Payment confirmed. Click the scroll to unroll your thank-you card.</div>
+      <div className="hint">Payment confirmed. Open the receipt to view your payment details.</div>
     </main>
     <div className={`toast${notice ? " on" : ""}`} role="status" aria-live="polite">{notice}</div>
   </div>;
