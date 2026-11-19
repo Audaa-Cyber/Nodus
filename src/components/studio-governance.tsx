@@ -5,7 +5,7 @@ import { Activity, Check, Plus, RefreshCw, Save, Shield } from "lucide-react";
 type CmsAdminRole = "owner" | "admin" | "editor" | "analyst";
 
 type GovernanceSection = "team" | "activity" | "settings";
-type AdminRecord = { id:string; workos_user_id:string; email:string; display_name:string|null; role:CmsAdminRole; is_active:boolean; created_at:string; last_seen_at:string|null };
+type AdminRecord = { id:string; supabase_user_id:string; email:string; display_name:string|null; role:CmsAdminRole; is_active:boolean; created_at:string; last_seen_at:string|null };
 type AuditRecord = { id:string; actor_email:string|null; action:string; resource_type:string; summary:string; created_at:string };
 type SettingRecord = { key:string; value:unknown; description:string|null; updated_at:string; updated_by:string|null };
 
@@ -22,7 +22,7 @@ export function StudioGovernance({ section, role }: { section:GovernanceSection;
   const [admins,setAdmins] = useState<AdminRecord[]>([]);
   const [events,setEvents] = useState<AuditRecord[]>([]);
   const [settings,setSettings] = useState<SettingRecord[]>([]);
-  const [workosUserId,setWorkosUserId] = useState("");
+  const [supabaseUserId,setWorkosUserId] = useState("");
   const [email,setEmail] = useState("");
   const [displayName,setDisplayName] = useState("");
   const [newRole,setNewRole] = useState<"admin"|"editor"|"analyst">("editor");
@@ -46,11 +46,11 @@ export function StudioGovernance({ section, role }: { section:GovernanceSection;
   const addAdmin = async (event:FormEvent<HTMLFormElement>) => {
     event.preventDefault(); setBusy(true); setError(""); setNotice("");
     try {
-      const response=await fetch("/api/studio/team",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({workosUserId,email,displayName,role:newRole})});
+      const response=await fetch("/api/studio/team",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({supabaseUserId,email,displayName,role:newRole})});
       const data=await response.json().catch(()=>({}));
       if(!response.ok) throw new Error(data.error??"Could not grant access.");
       setWorkosUserId("");setEmail("");setDisplayName("");setNewRole("editor");
-      setNotice("Access granted. The new admin can sign in with their existing WorkOS account.");
+      setNotice("Access granted. The new admin can sign in with their existing Supabase account.");
       await load();
     } catch(e) { setError(e instanceof Error?e.message:"Could not grant access."); }
     finally { setBusy(false); }
@@ -86,9 +86,9 @@ export function StudioGovernance({ section, role }: { section:GovernanceSection;
     {notice&&<p className="studio-notice" role="status">{notice}</p>}
     {section==="team"&&<section className="studio-panel">
       <div className="studio-panel-head"><div><span className="studio-overline">GOVERNANCE / RBAC</span><h3>Access & roles</h3></div><span className="studio-role-pill"><Shield size={13}/> {role.toUpperCase()}</span></div>
-      <p className="studio-muted">Add existing WorkOS accounts. This grants Nodus Studio access only, not access to customer invoices or payment records.</p>
+      <p className="studio-muted">Add existing Supabase accounts. This grants Nodus Studio access only, not access to customer invoices or payment records.</p>
       <form className="studio-admin-form" onSubmit={addAdmin}>
-        <label>WorkOS user ID<input value={workosUserId} onChange={e=>setWorkosUserId(e.target.value)} placeholder="user_..." required/></label>
+        <label>Supabase user ID<input value={supabaseUserId} onChange={e=>setWorkosUserId(e.target.value)} placeholder="UUID" required/></label>
         <label>Email<input type="email" value={email} onChange={e=>setEmail(e.target.value)} required/></label>
         <label>Display name<input value={displayName} onChange={e=>setDisplayName(e.target.value)} placeholder="Optional"/></label>
         <label>Role<select value={newRole} onChange={e=>setNewRole(e.target.value as "admin"|"editor"|"analyst")}><option value="admin">Admin</option><option value="editor">Editor</option><option value="analyst">Analyst</option></select></label>
@@ -127,7 +127,7 @@ function AdminRow({admin,busy,onSave}:{admin:AdminRecord;busy:boolean;onSave:(ad
   const [active,setActive]=useState(admin.is_active);
   useEffect(()=>{setRole(admin.role);setActive(admin.is_active)},[admin.role,admin.is_active]);
   return <div className="studio-admin-row">
-    <div className="studio-admin-person"><span className="studio-admin-avatar">{(admin.display_name??admin.email).charAt(0).toUpperCase()}</span><span><strong>{admin.display_name||admin.email}</strong><small>{admin.email} · {admin.workos_user_id}</small></span></div>
+    <div className="studio-admin-person"><span className="studio-admin-avatar">{(admin.display_name??admin.email).charAt(0).toUpperCase()}</span><span><strong>{admin.display_name||admin.email}</strong><small>{admin.email} · {admin.supabase_user_id}</small></span></div>
     <select value={role} onChange={e=>setRole(e.target.value as CmsAdminRole)} aria-label={"Role for "+admin.email}><option value="owner">Owner</option><option value="admin">Admin</option><option value="editor">Editor</option><option value="analyst">Analyst</option></select>
     <select value={String(active)} onChange={e=>setActive(e.target.value==="true")} aria-label={"Access for "+admin.email}><option value="true">Active</option><option value="false">Disabled</option></select>
     <button className="studio-quiet" disabled={busy||role===admin.role&&active===admin.is_active} onClick={()=>onSave(admin,role,active)}><Save size={13}/>Save</button>
