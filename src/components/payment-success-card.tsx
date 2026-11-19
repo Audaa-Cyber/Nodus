@@ -112,7 +112,7 @@ function ScrollDefinitions({ prefix }: { prefix: string }) {
 }
 
 export function PaymentSuccessCard({
-  invoiceNumber, amountMinor, businessName, destinationNetwork, recipientAddress,
+  invoiceNumber, amountMinor, currency, businessName, destinationNetwork, recipientAddress,
   receipt, receipts, sellerFooter, sellerDetails, reviewSlot, shareToken,
 }: PaymentSuccessCardProps) {
   const prefix = useId().replace(/:/g, "");
@@ -153,7 +153,7 @@ export function PaymentSuccessCard({
   const chain = evmWalletChains.find(candidate => candidate.id === network?.chainId);
   const explorerUrl = txHash && chain?.blockExplorers?.default.url ? `${chain.blockExplorers.default.url}/tx/${txHash}` : null;
   const explorerName = chain?.blockExplorers?.default.name || "Explorer";
-  const note = sellerFooter?.trim() || `Your payment of ${amount} USDC has settled on ${networkName}, and all of us at ${merchant} are deeply grateful for your trust. Your invoice is now sealed on-chain, and we look forward to making something remarkable together.`;
+  const note = sellerFooter?.trim() || `Your payment of ${amount} ${currency} has settled on ${networkName}, and all of us at ${merchant} are deeply grateful for your trust. Your invoice is now sealed on-chain, and we look forward to making something remarkable together.`;
 
   function say(message: string) {
     setNotice(message);
@@ -219,7 +219,7 @@ export function PaymentSuccessCard({
                 <div className="row"><span className="ico">{icon("shield")}</span><div><small>Tax ID / EIN</small>{sellerDetails?.taxId || "Unavailable"} <em>|</em> Payee: {shortValue(activeReceipt?.recipient_address ?? recipientAddress)}</div></div>
               </div>
             </div>
-            <div className="amt"><strong>${amount} USDC</strong><i>•</i><span>Invoice: {invoiceNumber}</span><i>•</i><span>{date.day}</span><i>•</i><span>{date.time}</span></div>
+            <div className="amt"><strong>{amount} {currency}</strong><i>•</i><span>Invoice: {invoiceNumber}</span><i>•</i><span>{date.day}</span><i>•</i><span>{date.time}</span></div>
             <InvoiceRating shareToken={shareToken} invoiceNumber={invoiceNumber} reviewUrl={sellerDetails?.reviewUrl ?? undefined} />
             {reviewSlot}
             <div className="sign">
