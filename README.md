@@ -35,6 +35,9 @@ A merchant can configure one wallet address and enable any combination of the fi
 9. Run `npm run dev`.
 
 
+
+In each WorkOS environment, keep the Password Reset URL on AuthKit's hosted default. Nodus uses the hosted UI for password reset and does not implement a custom reset form.
+
 ### Production environment
 
 In Vercel, use the Production WorkOS client ID `client_01M7T841Y5D7AJZHVW8YSTJ9EG`. `WORKOS_API_KEY` can remain unset because Nodus uses PKCE public-client mode. Also set `WORKOS_COOKIE_PASSWORD`, `NEXT_PUBLIC_WORKOS_REDIRECT_URI=https://nodus.pro.et/auth/callback`, `NEXT_PUBLIC_APP_URL=https://nodus.pro.et`, the Supabase URL and publishable key, and the server-only `SUPABASE_SERVICE_ROLE_KEY`. Do not expose either API key or the service-role key to browser code.
