@@ -206,7 +206,7 @@ export default function Home() {
 
           <div className="nav-right">
             <Link href="/login?next=%2Fdashboard" prefetch={true} className="nav-login">Log in</Link>
-            <Link href="/register?mode=signup" prefetch={true} className="nav-cta nav-register">Sign up <ArrowUpRight size={14} strokeWidth={1.7} aria-hidden="true" /></Link>
+            <Link href="/register?mode=signup" prefetch={true} className="nav-cta nav-register">Sign up</Link>
             <button
               className="menu-toggle"
               type="button"
@@ -228,7 +228,7 @@ export default function Home() {
               choose a supported stablecoin, and approve payment from their wallet.
             </p>
             <div className="hero-actions">
-              <Link href="#checkout" className="button button-dark">View demo <ArrowUpRight size={15} strokeWidth={1.7} aria-hidden="true" /></Link>
+              <Link href="/login?next=%2Fdashboard" prefetch={true} className="button button-dark">Log in</Link>
             </div>
           </div>
         </div>
