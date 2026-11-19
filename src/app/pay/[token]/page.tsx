@@ -7,7 +7,7 @@ import { parseInvoiceItems } from "@/lib/invoice-design";
 import { getWalletNetwork } from "@/lib/wallet/networks";
 import { PayerInvoiceFrame } from "@/components/payer-invoice-frame";
 import { PayerInvoiceSheet } from "@/components/payer-invoice-sheet";
-import { PaymentSuccessCard, type LineItem } from "@/components/payment-success-card";
+import type { LineItem } from "@/components/payment-success-card";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -103,38 +103,7 @@ export default async function PublicInvoicePage({ params }: { params: Promise<{ 
     founderTitle: typeof seller.founder_title === "string" ? seller.founder_title : null,
     reviewUrl: typeof seller.review_url === "string" ? seller.review_url : null };
 
-  if (status === "paid") {
-    const { data: receiptDestinations } = await supabase.rpc("lookup_shared_receipt_destinations", { p_token_hash: tokenHash });
-    const historicalRecipients = new Map(receiptDestinations?.map(entry => [entry.receipt_number, entry.recipient_address]) ?? []);
-    const receiptDetails = receipts?.map(entry => ({ ...entry, recipient_address: historicalRecipients.get(entry.receipt_number) ?? null })) ?? [];
-    return (
-      <main>
-        <PaymentSuccessCard
-          shareToken={token}
-          invoiceNumber={invoice.invoice_number}
-          amountMinor={invoice.amount_minor}
-          currency={invoice.currency}
-          businessName={sellerName}
-          logoUrl={sellerLogo}
-          issueDate={invoice.issue_date}
-          dueDate={invoice.due_date}
-          destinationNetwork={destinationNetwork}
-          recipientAddress={receiptDetails[0]?.recipient_address ?? null}
-          receipt={receiptDetails[0] ?? null}
-          receipts={receiptDetails}
-          lineItems={Array.isArray(invoice.line_items) ? (invoice.line_items as unknown as LineItem[]) : null}
-          subtotalMinor={invoice.subtotal_minor}
-          taxRateBps={invoice.tax_rate_bps}
-          discountMinor={invoice.discount_minor}
-          sellerFooter={typeof seller.invoice_footer === "string" ? seller.invoice_footer : invoice.invoice_footer}
-          sellerDetails={sellerDetails}
-        />
-      </main>
-    );
-  }
-  const statusMessage = (status as string) === "paid"
-    ? "This invoice has already been paid."
-    : status === "cancelled"
+  const statusMessage = status === "cancelled"
       ? "This invoice has been cancelled and is no longer payable."
       : status === "overdue"
         ? "The due date has passed. Contact the business if you need help with this invoice."
@@ -155,7 +124,7 @@ export default async function PublicInvoicePage({ params }: { params: Promise<{ 
     lineItems: items, subtotalMinor, taxRateBps: invoice.tax_rate_bps, discountMinor: invoice.discount_minor, sellerDetails,
   } : null;
 
-  return <PayerInvoiceFrame checkout={checkout}>
+  return <PayerInvoiceFrame checkout={checkout} isPaid={status === "paid"} shareToken={token}>
     <PayerInvoiceSheet
       invoiceNumber={invoice.invoice_number} status={status} businessName={sellerName} logoUrl={sellerLogo}
       email={sellerEmail} phone={sellerPhone} address={sellerAddress} taxId={sellerTaxId}
@@ -169,21 +138,7 @@ export default async function PublicInvoicePage({ params }: { params: Promise<{ 
       signature={sellerDetails.founderName} signatureTitle={sellerDetails.founderTitle}
       items={items.map((item) => ({ ...item, price: safeFormatMoney(item.unitPriceMinor, invoice.currency!), total: safeFormatMoney(item.lineTotalMinor, invoice.currency!) }))}
     />
-    {status !== "open" && <p className={`public-invoice-status public-status-${status}`} role="status">{statusMessage}</p>}
-    {receipts && receipts.length > 0 && <section className="done" aria-labelledby="payment-receipt-title">
-      <h2 id="payment-receipt-title">Payment receipt</h2><ul>{receipts.map((receipt) => {
-        const outcome = receipt.outcome === "VERIFIED" ? "Verified settlement"
-          : receipt.outcome === "PARTIAL" ? "Verified partial payment"
-            : receipt.outcome === "OVERPAID" ? "Verified payment; overpayment review required"
-              : "Payment received; reconciliation review required";
-        const hashes = Array.isArray(receipt.destination_tx_hashes)
-          ? receipt.destination_tx_hashes.filter((hash): hash is string => typeof hash === "string" && /^0x[0-9a-fA-F]{64}$/.test(hash)) : [];
-        return <li key={receipt.receipt_number}><strong>{receipt.receipt_number}</strong><p>{outcome}</p>
-          <p>{formatBaseUnits(receipt.received_amount_base_units, receipt.received_asset_decimals)} {receipt.destination_asset_id ?? "asset"} on {receipt.destination_network ?? "network"}</p>
-          {hashes.map((hash) => <p key={hash}>Destination transaction: <code>{hash}</code></p>)}
-        </li>;
-      })}</ul><p>This receipt reflects payment verification and is not a separate invoice.</p>
-    </section>}
-    {!checkout && <p className="public-invoice-note">Wallet setup is unavailable for this invoice. No payment can be prepared.</p>}
+    {status !== "open" && status !== "paid" && <p className={`public-invoice-status public-status-${status}`} role="status">{statusMessage}</p>}
+    {!checkout && status !== "paid" && <p className="public-invoice-note">Wallet setup is unavailable for this invoice. No payment can be prepared.</p>}
   </PayerInvoiceFrame>;
 }
