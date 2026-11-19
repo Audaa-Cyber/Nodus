@@ -19,7 +19,6 @@ jobs:
       NEXT_PUBLIC_APP_URL: http://localhost:3000
       NEXT_PUBLIC_WORKOS_REDIRECT_URI: http://localhost:3000/auth/callback
       WORKOS_CLIENT_ID: client_ci_placeholder
-      WORKOS_API_KEY: sk_test_ci_placeholder
       WORKOS_COOKIE_PASSWORD: ci-only-cookie-password-0123456789012345
       WORKOS_ISSUER: https://api.workos.com/user_management/client_ci_placeholder
       NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
