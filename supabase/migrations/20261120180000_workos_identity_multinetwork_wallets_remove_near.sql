@@ -311,6 +311,126 @@ alter table public.invoices
 end;
 $;
 
+-- Replace remaining ownership-aware RPCs that previously depended on auth.uid() UUIDs.
+create or replace function public.allocate_invoice_number(p_business_id uuid)
+returns text
+language plpgsql security definer set search_path = '' as $
+declare v_prefix text; v_sequence bigint; v_user_id text;
+begin
+  v_user_id := auth.jwt() ->> 'sub';
+  if v_user_id is null or v_user_id = '' then
+    raise exception 'Not authorized to allocate invoice number';
+  end if;
+  update public.business_profiles
+  set next_invoice_number = next_invoice_number + 1
+  where id = p_business_id and owner_user_id = v_user_id
+  returning invoice_prefix, next_invoice_number - 1 into v_prefix, v_sequence;
+  if v_sequence is null then raise exception 'Business profile not found'; end if;
+  return v_prefix || '-' || to_char(current_date, 'YYYY') || '-' || lpad(v_sequence::text, 4, '0');
+end;
+$;
+
+create or replace function public.merchant_nodus_received_by_chain()
+returns table(destination_network text, total_base_units text, payment_count bigint)
+language sql stable set search_path = '' as $
+  with eligible_settlements as (
+    select distinct on (ps.id)
+      ps.id, ps.destination_network, ps.received_amount_base_units
+    from public.business_profiles bp
+    join public.invoices i on i.business_id = bp.id
+    join public.payment_attempts pa on pa.invoice_id = i.id and pa.business_id = bp.id
+    join public.payment_settlements ps on ps.invoice_id = i.id
+      and ps.business_id = bp.id and ps.payment_attempt_id = pa.id
+    where bp.owner_user_id = (auth.jwt() ->> 'sub')
+      and i.status = 'paid'
+      and pa.mode = 'live'
+      and pa.status = 'SUCCESS'
+      and ps.provider_status = 'SUCCESS'
+      and ps.outcome = 'VERIFIED'
+      and ps.destination_network = pa.destination_network
+      and ps.destination_asset_id = pa.destination_asset_id
+      and ps.destination_asset_id = ps.destination_network || ':usdc'
+      and ps.received_asset_decimals = 6
+      and ps.received_amount_base_units ~ '^[0-9]+
+drop table if exists public.near_reconciliation_status cascade;
+drop table if exists public.near_invoice_registration_outbox cascade;
+drop table if exists public.near_settlement_outbox cascade;
+drop function if exists public.cctp_near_settlement_evidence_eligible(public.payment_settlements, public.payment_attempts) cascade;
+drop function if exists public.near_settlement_evidence_eligible(public.payment_settlements, public.payment_attempts) cascade;
+drop function if exists public.block_near_settlement_outbox(uuid, uuid, text) cascade;
+drop function if exists public.claim_near_invoice_registration_outbox(integer) cascade;
+drop function if exists public.claim_near_settlement_outbox(integer) cascade;
+drop function if exists public.enqueue_near_invoice_registration() cascade;
+drop function if exists public.enqueue_verified_near_settlement() cascade;
+drop function if exists public.fail_near_invoice_registration(uuid, uuid, text) cascade;
+drop function if exists public.finish_near_invoice_registration(uuid, uuid, text, text) cascade;
+drop function if exists public.finish_near_settlement_outbox(uuid, uuid, text) cascade;
+drop function if exists public.mark_near_invoice_registration_submitted(uuid, uuid, text) cascade;
+drop function if exists public.record_near_settlement_submission(uuid, uuid, text) cascade;
+drop function if exists public.requeue_near_invoice_registration(uuid) cascade;
+drop function if exists public.requeue_near_settlement_outbox(uuid) cascade;
+drop function if exists public.retry_near_invoice_registration(uuid, uuid, text) cascade;
+drop function if exists public.retry_near_settlement_outbox(uuid, uuid, text) cascade;
+drop function if exists public.sync_near_reconciliation_status() cascade;
+alter table public.invoices
+  drop column if exists near_registration_status,
+  drop column if exists near_registration_transaction_hash,
+  drop column if exists near_invoice_reference,
+  drop column if exists near_registered_at,
+  drop column if exists near_registration_failure_reason;
+
+      and ps.received_amount_base_units::numeric > 0
+      and ps.destination_network in ('sepolia','base-sepolia','arbitrum-sepolia','optimism-sepolia')
+    order by ps.id
+  )
+  select eligible.destination_network,
+    sum(eligible.received_amount_base_units::numeric)::text,
+    count(*)::bigint
+  from eligible_settlements eligible
+  group by eligible.destination_network
+  order by eligible.destination_network;
+$;
+
+create or replace function public.create_invoice_paid_notification()
+returns trigger
+language plpgsql security definer set search_path = '' as $
+declare
+  v_recipient_user_id text;
+  v_business_id uuid;
+  v_title text;
+  v_message text;
+  v_amount_text text;
+  v_url text;
+begin
+  begin
+    if old.status is distinct from 'paid' and new.status = 'paid' then
+      select bp.owner_user_id, bp.id into v_recipient_user_id, v_business_id
+      from public.business_profiles bp where bp.id = new.business_id;
+
+      if v_recipient_user_id is not null then
+        if new.amount_minor is not null and new.currency is not null then
+          v_amount_text := trim(to_char(new.amount_minor::numeric / 100.0, 'FM999,999,999,990.00')) || ' ' || new.currency;
+        else
+          v_amount_text := 'amount confirmed';
+        end if;
+        v_title := 'Payment received for ' || coalesce(new.invoice_number, 'invoice');
+        v_message := 'Invoice ' || coalesce(new.invoice_number, '') || ' was paid (' || v_amount_text || ').';
+        v_url := '/dashboard/invoices/' || new.id::text;
+        insert into public.notifications (
+          recipient_user_id, business_id, type, title, message, invoice_id, destination_url
+        ) values (
+          v_recipient_user_id, v_business_id, 'invoice_paid', v_title, v_message, new.id, v_url
+        ) on conflict (recipient_user_id, invoice_id, type) do nothing;
+      end if;
+    end if;
+  exception when others then
+    raise warning 'create_invoice_paid_notification failed for invoice %: % (%)',
+      new.id, sqlerrm, sqlstate;
+  end;
+  return new;
+end;
+$;
+
 -- NEAR invoice registration and settlement were not part of Nodus's required invoice flow.
 drop table if exists public.near_reconciliation_status cascade;
 drop table if exists public.near_invoice_registration_outbox cascade;
