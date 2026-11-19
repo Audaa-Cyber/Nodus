@@ -3,6 +3,8 @@
 import { redirect, RedirectType } from "next/navigation";
 import { signOut } from "@workos-inc/authkit-nextjs";
 
+export type FormState = { error?: string; success?: string };
+
 // Legacy form entry points hand off to AuthKit's hosted screens.
 export async function signUpAction(): Promise<never> {
   redirect("/sign-up", RedirectType.replace);
