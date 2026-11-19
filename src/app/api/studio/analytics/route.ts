@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createHash, createHmac, randomBytes } from "node:crypto";
+import { createHmac, randomUUID } from "node:crypto";
 import { getCmsAdmin, createCmsServiceClient } from "@/lib/cms/admin";
 
 export const dynamic = "force-dynamic";
@@ -7,10 +7,11 @@ export const dynamic = "force-dynamic";
 function visitorHash(request: NextRequest) {
   const cookieName = "nodus_analytics";
   const existing = request.cookies.get(cookieName)?.value;
-  const token = existing && /^[a-f0-9-]{36}$/.test(existing) ? existing : randomBytes(18).toString("hex");
+  const valid = !!existing && /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(existing);
+  const token = valid ? existing! : randomUUID();
   const secret = process.env.CMS_ANALYTICS_SECRET || process.env.WORKOS_COOKIE_PASSWORD || "";
-  const hash = secret ? createHmac("sha256", secret).update(token).digest("hex") : createHash("sha256").update(token).digest("hex");
-  return { token, hash, isNew: !existing };
+  const hash = secret ? createHmac("sha256", secret).update(token).digest("hex") : "";
+  return { token, hash, isNew: !valid };
 }
 
 export async function POST(request: NextRequest) {
@@ -31,7 +32,7 @@ export async function POST(request: NextRequest) {
 
   const db = createCmsServiceClient();
   await db.from("cms_analytics_events").insert({
-    event_name: eventName, path, visitor_hash: hash, referrer_host: referrerHost, cta_id: ctaId,
+    event_id: randomUUID(), event_name: eventName, path, session_id: token, visitor_hash: hash, referrer_host: referrerHost, cta_id: ctaId,
   });
 
   const response = new NextResponse(null, { status: 204 });
