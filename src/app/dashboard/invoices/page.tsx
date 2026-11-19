@@ -37,16 +37,18 @@ export default async function InvoicesPage({ searchParams }: { searchParams: Pro
   const dateColumn = params.dateBy === "due" ? "due_date" : "created_at";
   if (dateColumn === "due_date") { if (from) query = query.gte("due_date", from); if (to) query = query.lte("due_date", to); }
   else { if (from) query = query.gte("created_at", from + "T00:00:00.000Z"); if (to) query = query.lt("created_at", nextDay(to)); }
-  const currency = (params.currency ?? "").toUpperCase(); if (/^[A-Z]{3,8}$/.test(currency)) query = query.eq("currency", currency);
+  const currency = (params.currency ?? "").toUpperCase();
+  const hasCurrency = /^[A-Z]{3,8}$/.test(currency);
+  if (hasCurrency) query = query.eq("currency", currency);
   const min = params.min?.trim() ? Number(params.min) : NaN; const max = params.max?.trim() ? Number(params.max) : NaN;
-  if (currency) {
+  if (hasCurrency) {
     if (Number.isFinite(min) && min >= 0) query = query.gte("amount_minor", Math.round(min * 100));
     if (Number.isFinite(max) && max >= 0) query = query.lte("amount_minor", Math.round(max * 100));
   }
   const sort = ["oldest", "amount-high", "amount-low", "updated", "due"].includes(params.sort ?? "") ? params.sort! : "newest";
   if (sort === "oldest") query = query.order("created_at", { ascending: true });
-  else if (sort === "amount-high") query = query.order("amount_minor", { ascending: false }).order("created_at", { ascending: false });
-  else if (sort === "amount-low") query = query.order("amount_minor", { ascending: true }).order("created_at", { ascending: false });
+  else if (sort === "amount-high" && hasCurrency) query = query.order("amount_minor", { ascending: false }).order("created_at", { ascending: false });
+  else if (sort === "amount-low" && hasCurrency) query = query.order("amount_minor", { ascending: true }).order("created_at", { ascending: false });
   else if (sort === "updated") query = query.order("updated_at", { ascending: false });
   else if (sort === "due") query = query.order("due_date", { ascending: true, nullsFirst: false }).order("created_at", { ascending: false });
   else query = query.order("created_at", { ascending: false });
