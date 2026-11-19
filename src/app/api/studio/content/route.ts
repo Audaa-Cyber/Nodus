@@ -55,14 +55,14 @@ export async function POST(request: NextRequest) {
     const update = await db.from("cms_documents").update({
       kind, slug, title, status, content, seo,
       published_at: status === "published" ? timestamp : null,
-      updated_by: admin.id, updated_at: timestamp,
+      updated_by: admin.workosUserId, updated_at: timestamp,
     }).eq("id", id);
     if (update.error) return NextResponse.json({ error: update.error.message }, { status: 400 });
   } else {
     const insert = await db.from("cms_documents").insert({
       kind, slug, title, status, content, seo,
       published_at: status === "published" ? timestamp : null,
-      created_by: admin.id, updated_by: admin.id,
+      created_by: admin.workosUserId, updated_by: admin.workosUserId,
     }).select("id").single();
     if (insert.error || !insert.data) return NextResponse.json({ error: insert.error?.message ?? "Could not create entry." }, { status: 400 });
     documentId = insert.data.id;
@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
 
   const revision = await db.from("cms_revisions").insert({
     document_id: documentId, version, title, status, content, seo,
-    changed_by: admin.id, change_note: changeNote,
+    changed_by: admin.workosUserId, change_note: changeNote,
   });
   if (revision.error) return NextResponse.json({ error: "Entry saved, but its revision snapshot failed. Contact support." }, { status: 500 });
 
@@ -84,7 +84,7 @@ export async function DELETE(request: NextRequest) {
   const id = request.nextUrl.searchParams.get("id");
   if (!id) return NextResponse.json({ error: "Missing content ID." }, { status: 400 });
   const db = createCmsServiceClient();
-  const result = await db.from("cms_documents").update({ status: "archived", updated_by: admin.id, updated_at: new Date().toISOString() }).eq("id", id);
+  const result = await db.from("cms_documents").update({ status: "archived", updated_by: admin.workosUserId, updated_at: new Date().toISOString() }).eq("id", id);
   if (result.error) return NextResponse.json({ error: "Could not archive this entry." }, { status: 400 });
   return NextResponse.json({ ok: true });
 }
