@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getPublishedCmsDocument, getPublicCmsSettings } from "@/lib/cms/public";
 import { CmsPublicPage } from "@/components/cms-public-page";
-import { cmsMetadata } from "@/lib/cms/metadata";
 
 
 export const dynamic = "force-dynamic";
@@ -82,8 +81,6 @@ const sections = [
     ]
   }
 ];
-
-export async function generateMetadata() { return cmsMetadata(await getPublishedCmsDocument("privacy"), { title: "Privacy policy | Nodus", description: "How Nodus handles account, invoice, wallet, and payment information." }); }
 
 export default async function PrivacyPage() {
   const cmsDocument = await getPublishedCmsDocument("privacy");
