@@ -57,14 +57,9 @@ export async function GET(request: NextRequest) {
   const previousStart = new Date(now - range * 2 * 24 * 60 * 60 * 1000);
   const db = createCmsServiceClient();
 
-  const [eventResult, merchantResult, currentInvoiceResult, previousInvoiceResult] = await Promise.all([
-    db.from("cms_analytics_events")
-      .select("event_name,path,visitor_hash,referrer_host,cta_id,created_at")
-      .gte("created_at", previousStart.toISOString()).order("created_at", { ascending: false }).limit(20000),
-    db.from("business_profiles").select("id", { count: "exact", head: true }),
-    db.from("invoices").select("id", { count: "exact", head: true }).gte("created_at", currentStart.toISOString()),
-    db.from("invoices").select("id", { count: "exact", head: true }).gte("created_at", previousStart.toISOString()).lt("created_at", currentStart.toISOString()),
-  ]);
+  const eventResult = await db.from("cms_analytics_events")
+    .select("event_name,path,visitor_hash,referrer_host,cta_id,created_at")
+    .gte("created_at", previousStart.toISOString()).order("created_at", { ascending: false }).limit(20000);
   if (eventResult.error) return NextResponse.json({ error: "Analytics could not be loaded." }, { status: 500 });
 
   const allEvents = eventResult.data ?? [];
@@ -101,11 +96,6 @@ export async function GET(request: NextRequest) {
       pageViews: percentageChange(views.length, previousViews.length),
       uniqueVisitors: percentageChange(currentVisitors, previousVisitors),
       ctaClicks: percentageChange(currentCtaClicks, previousCtaClicks),
-    },
-    product: {
-      merchantWorkspaces: merchantResult.count ?? 0,
-      invoicesCreated: currentInvoiceResult.count ?? 0,
-      previousInvoicesCreated: previousInvoiceResult.count ?? 0,
     },
     topPages: rank(byPath),
     referrers: rank(byReferrer),
