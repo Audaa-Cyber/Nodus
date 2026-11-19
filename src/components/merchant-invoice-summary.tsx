@@ -10,6 +10,7 @@ export function MerchantInvoiceSummary({ invoice, seller, paid = false }: Pick<P
   const subtotal = invoice.subtotal_minor ?? invoice.amount_minor;
   const taxRate = invoice.tax_rate_bps ?? 0;
   const tax = Math.round(subtotal * taxRate / 10000);
+  const hasCustomerDetails = Boolean(invoice.customer_name || invoice.customer_email || invoice.customer_company || invoice.customer_phone || invoice.customer_address);
   return <section className="card cd invoice-print-sheet">
     <div className="top"><h2 style={{ margin: 0 }}>Invoice summary &amp; items</h2><span className="chip">#{invoice.invoice_number}</span></div>
     <div className="parties">
@@ -18,12 +19,12 @@ export function MerchantInvoiceSummary({ invoice, seller, paid = false }: Pick<P
         {seller.tax_id && <p className="m"><b>Tax ID / EIN</b> {seller.tax_id}</p>}
         <p className="m"><b>Receiving wallet</b> {shortAddress(seller.receiving_address)}</p>
       </div>
-      <div><h3 className="lab">Billed to</h3><p className="nm">{invoice.customer_name || "Customer"}</p>
+      {hasCustomerDetails && <div><h3 className="lab">Billed to</h3>{invoice.customer_name && <p className="nm">{invoice.customer_name}</p>}
         {invoice.customer_company && <p>{invoice.customer_company}</p>}
         {invoice.customer_email && <p>{invoice.customer_email}</p>}
         {invoice.customer_phone && <p>{invoice.customer_phone}</p>}
         {invoice.customer_address && <p>{invoice.customer_address}</p>}
-      </div>
+      </div>}
     </div>
     <div className="tw"><table>
       <colgroup><col /><col className="q" /><col className="u" /><col className="t" /></colgroup>
