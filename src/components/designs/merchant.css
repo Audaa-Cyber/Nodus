@@ -103,3 +103,94 @@
 @media (prefers-reduced-motion:reduce){.merchant-design .sync i{animation:none}}
 @media print{.merchant-design .rv,.merchant-design .acts,.merchant-design .toast,.merchant-design .sh,.merchant-design .back,.merchant-design .wallet-copy-button{display:none!important}.merchant-design{background:#fff}.merchant-design .card{box-shadow:none}}
 
+
+
+/* Nodus invoice refinement: compact document header, decisive amount, quiet monochrome details. */
+.merchant-design {
+  --bg: #fff;
+  --card: #fff;
+  --line: #e5e5e5;
+  --ink: #0a0a0a;
+  --mute: #737373;
+  --soft: #f5f5f5;
+  --blue: #525252;
+  --blue-bg: #f5f5f5;
+  --blue-ln: #e5e5e5;
+  --green: #171717;
+  --green-bg: #f5f5f5;
+  --green-ln: #d4d4d4;
+  --red: #171717;
+}
+.merchant-design :focus-visible { outline-color: #737373; }
+.merchant-design .page { gap: 14px; padding-top: 20px; }
+.merchant-design .card { border-radius: 12px; box-shadow: none; }
+.merchant-design .hd { padding: 17px 20px; gap: 12px; align-items: center; }
+.merchant-design .hd h1 { font-size: clamp(22px, 3.8vw, 29px); gap: 10px; }
+.merchant-design .hd .sub { font-size: 13px; }
+.merchant-design .st,
+.merchant-design .st.o,
+.merchant-design .st.p { color: #404040; background: #f5f5f5; border-color: #e5e5e5; }
+.merchant-design .st i,
+.merchant-design .st.o i,
+.merchant-design .st.p i { background: #737373; }
+.merchant-design .acts { gap: 6px; }
+.merchant-design .btn { border-radius: 8px; box-shadow: none; }
+.merchant-design .btn.x,
+.merchant-design .btn.x:hover { color: #404040; border-color: #e5e5e5; background: #fff; }
+.merchant-design .amt {
+  min-height: 154px;
+  padding: 25px 26px;
+  align-items: center;
+  background: #0a0a0a;
+  border-color: #0a0a0a;
+  color: #fff;
+}
+.merchant-design .amt .lab { color: #a3a3a3; margin-bottom: 9px; }
+.merchant-design .big { font-size: clamp(40px, 7.5vw, 62px); color: #fff; }
+.merchant-design .big small { color: #a3a3a3; }
+.merchant-design .net { color: #e5e5e5; background: #171717; border-color: #404040; }
+.merchant-design .net i { background: #a3a3a3; }
+.merchant-design .sh { gap: 20px; }
+.merchant-design .ban {
+  color: #262626;
+  background: #f5f5f5;
+  border-color: #e5e5e5;
+}
+.merchant-design .ban .c { color: #171717; border-color: #d4d4d4; }
+.merchant-design .cd { padding: 22px; }
+.merchant-design .cd .top { margin-bottom: 15px; padding-bottom: 13px; }
+.merchant-design .parties { gap: 24px; padding-bottom: 18px; }
+.merchant-design .parties p { color: #525252; }
+.merchant-design .tw { margin-top: 16px; }
+.merchant-design th { color: #737373; }
+.merchant-design td { border-bottom-color: #ededed; }
+.merchant-design .sum {
+  width: min(360px, 100%);
+  margin-top: 16px;
+  padding: 4px 0 0;
+  border: 0;
+  border-top: 1px solid #d4d4d4;
+  border-radius: 0;
+  background: transparent;
+}
+.merchant-design .sum p { border-bottom: 0; padding: 7px 0; color: #525252; }
+.merchant-design .sum p.t {
+  margin-top: 5px;
+  padding: 13px 0 4px;
+  border-top: 1px solid #171717;
+  color: #0a0a0a;
+  font-size: 16px;
+}
+.merchant-design .sum p.t span:last-child { font-size: 17px; }
+.merchant-design .cp.ok,
+.merchant-design .ib.ok { color: #171717; background: #f5f5f5; border-color: #d4d4d4; }
+.merchant-design .kv .ib.ok { color: #171717; }
+.merchant-design .sync i { background: #737373; animation: none; }
+.merchant-design .net i { background: #a3a3a3; }
+@media (max-width: 720px) {
+  .merchant-design .page { gap: 12px; padding: 16px 12px 48px; }
+  .merchant-design .hd { padding: 15px 16px; }
+  .merchant-design .amt { min-height: 132px; padding: 20px; }
+  .merchant-design .cd { padding: 18px 16px; }
+  .merchant-design .sum { margin-left: 0; }
+}
