@@ -5341,3 +5341,18 @@ body {
 .payer-design .pill .dot {
   background: #16845b;
 }
+
+
+.status-paid,
+.status-open,
+.status-overdue,
+.status-cancelled,
+.status-draft,
+.overview-status-paid,
+.overview-status-open,
+.overview-status-overdue,
+.overview-status-cancelled {
+  border-color: #e5e5e5;
+  background: #fff;
+  color: #525252;
+}
