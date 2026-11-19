@@ -54,7 +54,7 @@ const sections = [
   {
     title: "5. Service providers and disclosures",
     body: [
-      "Nodus relies on infrastructure and payment technology providers to operate account authentication, database services, wallet/payment workflows, and supported blockchain integrations. The current application code uses Supabase for authentication and database access and Circle-related tooling for supported payment and wallet flows.",
+      "Nodus relies on infrastructure and payment technology providers to operate account authentication, database services, wallet/payment workflows, and supported blockchain integrations. The current application code uses WorkOS for account authentication, Supabase for database access, and Circle-related tooling for supported payment and wallet flows.",
       "Information may be processed by those providers as needed to deliver the features you use, and may be disclosed where required by law, to protect the service and its users, or to investigate fraud, abuse, or security incidents. Provider-specific processing is also subject to the providers' own terms and privacy notices."
     ]
   },
