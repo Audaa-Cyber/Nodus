@@ -73,7 +73,6 @@ export function InvoiceRealtimeProvider({
     hasSubscribedInitialRef.current = false;
     let isCancelled = false;
     let channel: ReturnType<ReturnType<typeof getSupabaseBrowserClient>["channel"]> | null = null;
-    let authListener: { unsubscribe: () => void } | null = null;
     let refreshDebounceTimeout: ReturnType<typeof setTimeout> | null = null;
 
     const triggerRefresh = () => {
@@ -191,16 +190,9 @@ export function InvoiceRealtimeProvider({
       window.removeEventListener("focus", refreshWhenVisible);
       document.removeEventListener("visibilitychange", refreshWhenVisible);
       if (refreshDebounceTimeout) clearTimeout(refreshDebounceTimeout);
-      if (authListener) {
-        try {
-          authListener.unsubscribe();
-        } catch {
-          // ignore
-        }
-      }
       if (channel) {
         try {
-          const supabase = getSupabaseBrowserClient();
+          const supabase = getSupabaseBrowserClient(accessToken);
           supabase.removeChannel(channel);
         } catch {
           // ignore cleanup error
