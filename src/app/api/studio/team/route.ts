@@ -3,13 +3,15 @@ import { canManageAdmins, createCmsServiceClient, getCmsAdmin } from "@/lib/cms/
 
 export const dynamic = "force-dynamic";
 
+const isUuid = (value: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+
 export async function GET() {
   const admin = await getCmsAdmin();
   if (!admin) return new NextResponse(null, { status: 404 });
   if (!canManageAdmins(admin.role)) return NextResponse.json({ error: "Owner access required." }, { status: 403 });
   const db = createCmsServiceClient();
   const { data, error } = await db.from("cms_admin_users")
-    .select("id,workos_user_id,email,display_name,role,is_active,created_at,last_seen_at")
+    .select("id,supabase_user_id,email,display_name,role,is_active,created_at,last_seen_at")
     .order("created_at", { ascending: true });
   if (error) return NextResponse.json({ error: "Could not load the admin team." }, { status: 500 });
   return NextResponse.json({ admins: data ?? [] });
@@ -22,20 +24,24 @@ export async function POST(request: NextRequest) {
 
   let body: Record<string, unknown>;
   try { body = await request.json(); } catch { return NextResponse.json({ error: "Invalid request body." }, { status: 400 }); }
-  const workosUserId = typeof body.workosUserId === "string" ? body.workosUserId.trim() : "";
+  const supabaseUserId = typeof body.supabaseUserId === "string" ? body.supabaseUserId.trim() : "";
   const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
   const displayName = typeof body.displayName === "string" ? body.displayName.trim().slice(0, 120) : null;
   const role = String(body.role ?? "editor");
-  if (!/^user_[A-Za-z0-9]+$/.test(workosUserId) || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !["admin","editor","analyst"].includes(role)) {
-    return NextResponse.json({ error: "Enter a valid WorkOS user ID, email, and non-owner role." }, { status: 400 });
+  if (!isUuid(supabaseUserId) || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !["admin","editor","analyst"].includes(role)) {
+    return NextResponse.json({ error: "Enter a valid Supabase user UUID, email, and non-owner role." }, { status: 400 });
   }
 
   const db = createCmsServiceClient();
+  const { data: authUser, error: authUserError } = await db.auth.admin.getUserById(supabaseUserId);
+  if (authUserError || !authUser.user || authUser.user.email?.toLowerCase() !== email) {
+    return NextResponse.json({ error: "The Supabase user ID and verified account email do not match." }, { status: 400 });
+  }
   const { error } = await db.from("cms_admin_users").insert({
-    workos_user_id: workosUserId, email, display_name: displayName || null,
-    role, is_active: true, invited_by: admin.workosUserId,
+    supabase_user_id: supabaseUserId, email, display_name: displayName || null,
+    role, is_active: true, invited_by: admin.supabaseUserId,
   });
-  if (error) return NextResponse.json({ error: error.code === "23505" ? "This WorkOS user already has an admin record." : "Could not grant access." }, { status: 400 });
+  if (error) return NextResponse.json({ error: error.code === "23505" ? "This Supabase user already has an admin record." : "Could not grant access." }, { status: 400 });
   return NextResponse.json({ ok: true });
 }
 
@@ -54,9 +60,9 @@ export async function PATCH(request: NextRequest) {
   }
 
   const db = createCmsServiceClient();
-  const { data: target } = await db.from("cms_admin_users").select("id,workos_user_id,role,is_active").eq("id", id).maybeSingle();
+  const { data: target } = await db.from("cms_admin_users").select("id,supabase_user_id,role,is_active").eq("id", id).maybeSingle();
   if (!target) return NextResponse.json({ error: "Admin record not found." }, { status: 404 });
-  if (target.workos_user_id === admin.workosUserId && (role !== "owner" || !isActive)) {
+  if (target.supabase_user_id === admin.supabaseUserId && (role !== "owner" || !isActive)) {
     return NextResponse.json({ error: "You cannot remove or demote your own owner account." }, { status: 400 });
   }
   if (target.role === "owner" && (role !== "owner" || !isActive)) {
@@ -65,7 +71,7 @@ export async function PATCH(request: NextRequest) {
   }
 
   const { error } = await db.from("cms_admin_users").update({
-    role, is_active: isActive, updated_by: admin.workosUserId, updated_at: new Date().toISOString(),
+    role, is_active: isActive, updated_by: admin.supabaseUserId, updated_at: new Date().toISOString(),
   }).eq("id", id);
   if (error) return NextResponse.json({ error: "Could not update admin access." }, { status: 400 });
   return NextResponse.json({ ok: true });
