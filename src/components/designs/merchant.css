@@ -75,6 +75,10 @@
 .merchant-design .parties p{margin:2px 0;font-size:14px;color:#3b3d38;overflow-wrap:anywhere}
 .merchant-design .parties p.m{font-size:13px}
 .merchant-design .parties p b{font-weight:500;color:var(--mute)}
+.merchant-design .wallet-address-copy{display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap}
+.merchant-design .wallet-copy-button{min-height:24px;padding:1px 7px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--ink);font:500 11px/1.2 "DM Sans",sans-serif}
+.merchant-design .wallet-copy-button:hover{background:var(--soft);border-color:#c9c9c0}
+.merchant-design .tw td:first-child{overflow-wrap:anywhere;word-break:break-word}
 .merchant-design .tw{margin-top:20px}
 .merchant-design table{width:100%;border-collapse:collapse}
 .merchant-design th{font:600 12px 'DM Sans',sans-serif;letter-spacing:.05em;text-transform:uppercase;color:var(--mute);text-align:right;padding:0 0 10px;border-bottom:1px solid var(--line)}
@@ -97,5 +101,5 @@
  .merchant-design td:not(:first-child)::before{display:block;font:500 12px 'DM Sans',sans-serif;color:var(--mute);margin-bottom:1px}
  .merchant-design td:nth-child(2)::before{content:"Qty"}.merchant-design td:nth-child(3)::before{content:"Unit price"}.merchant-design td:nth-child(4)::before{content:"Line total"}}
 @media (prefers-reduced-motion:reduce){.merchant-design .sync i{animation:none}}
-@media print{.merchant-design .rv,.merchant-design .acts,.merchant-design .toast,.merchant-design .sh,.merchant-design .back{display:none!important}.merchant-design{background:#fff}.merchant-design .card{box-shadow:none}}
+@media print{.merchant-design .rv,.merchant-design .acts,.merchant-design .toast,.merchant-design .sh,.merchant-design .back,.merchant-design .wallet-copy-button{display:none!important}.merchant-design{background:#fff}.merchant-design .card{box-shadow:none}}
 
