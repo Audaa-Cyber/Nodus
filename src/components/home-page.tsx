@@ -32,7 +32,7 @@ export function HomePage() {
   const total = subtotal + tax;
   const formatUsd = (amount: number) => "$" + amount.toFixed(2);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [cmsHome, setCmsHome] = useState<{title:string;content:{heroTitle?:string;heroDescription?:string;ctaLabel?:string;ctaHref?:string}} | null>(null);
+  const [cmsHome, setCmsHome] = useState<{title:string;content:{heroTitle?:string;heroDescription?:string;ctaLabel?:string;ctaHref?:string;sections?:{eyebrow?:string;title:string;body:string;ctaLabel?:string;ctaHref?:string}[]}} | null>(null);
   const cmsCtaHref = cmsHome?.content?.ctaHref;
   const safeCmsCtaHref = cmsCtaHref && cmsCtaHref.startsWith("/") && !cmsCtaHref.startsWith("//") ? cmsCtaHref : "/login?next=%2Fdashboard";
 
@@ -226,8 +226,7 @@ export function HomePage() {
           <h1>{cmsHome?.content?.heroTitle ?? cmsHome?.title ?? <>Itemized invoices.<br /><span>Payments made clear.</span></>}</h1>
           <div className="hero-bottom">
             <p className="hero-lede">
-              Nodus turns an itemized invoice into a QR checkout. Guests scan,
-              choose a supported stablecoin, and approve payment from their wallet.
+              {cmsHome?.content?.heroDescription || "Nodus turns an itemized invoice into a QR checkout. Guests scan, choose a supported stablecoin, and approve payment from their wallet."}
             </p>
             <div className="hero-actions">
               <Link href={safeCmsCtaHref} prefetch={true} className="button button-dark" data-analytics-cta="homepage-primary">{cmsHome?.content?.ctaLabel || "Log in"}</Link>
@@ -235,6 +234,24 @@ export function HomePage() {
           </div>
         </div>
       </section>
+
+      {Boolean(cmsHome?.content?.sections?.length) && (
+        <section className="cms-managed-sections section-pad" aria-label="Additional Nodus information">
+          <div className="shell cms-managed-inner">
+            {cmsHome?.content.sections?.map((section, index) => {
+              const href = section.ctaHref && section.ctaHref.startsWith("/") && !section.ctaHref.startsWith("//") ? section.ctaHref : null;
+              return (
+                <article className="cms-managed-item" key={index}>
+                  {section.eyebrow && <p className="eyebrow">{section.eyebrow}</p>}
+                  <h2>{section.title}</h2>
+                  <p>{section.body}</p>
+                  {section.ctaLabel && href && <Link className="button button-dark" href={href} data-analytics-cta={`homepage-section-${index + 1}`}>{section.ctaLabel}<ArrowUpRight size={15}/></Link>}
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       <section className="checkout-section section-pad" id="checkout">
         <div className="shell checkout-layout">
