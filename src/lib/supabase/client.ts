@@ -10,20 +10,12 @@ let clientAccessToken: string | null = null;
 export function getSupabaseBrowserClient(accessToken: string): SupabaseClient<Database> {
   if (!accessToken) throw new Error("A WorkOS access token is required for authenticated Supabase access.");
   if (clientInstance && clientAccessToken === accessToken) return clientInstance;
-
   const env = getClientEnv();
-  if (!isClientSupabaseConfigured()) {
-    throw new Error("Supabase is not configured.");
-  }
-
+  if (!isClientSupabaseConfigured()) throw new Error("Supabase is not configured.");
   clientAccessToken = accessToken;
-  clientInstance = createClient<Database>(
-    env.NEXT_PUBLIC_SUPABASE_URL,
-    env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    {
-      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
-      accessToken: async () => accessToken,
-    },
-  );
+  clientInstance = createClient<Database>(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+    accessToken: async () => accessToken,
+  });
   return clientInstance;
 }
