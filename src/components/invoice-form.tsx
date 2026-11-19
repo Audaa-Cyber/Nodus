@@ -23,6 +23,7 @@ export default function InvoiceForm({invoice,defaultCurrency="USD",paymentTermsD
  const today=new Date().toISOString().slice(0,10);
  const oldItems=(invoice?.line_items as unknown as Array<{description?:string;quantity?:number;unitPriceMinor?:number}>|null)?.map(i=>({description:i.description??"",quantity:String(i.quantity??1),unitPrice:((i.unitPriceMinor??0)/100).toFixed(2)}));
  const [items,setItems]=useState<Line[]>(oldItems?.length?oldItems:invoice?[{description:invoice.description??"",quantity:"1",unitPrice:((invoice.amount_minor??0)/100).toFixed(2)}]:[blank()]);
+ const [customerName,setCustomerName]=useState(invoice?.customer_name??""),[customerEmail,setCustomerEmail]=useState(invoice?.customer_email??"");
  const [currency,setCurrency]=useState(invoice?.currency??defaultCurrency),[tax,setTax]=useState(String((invoice?.tax_rate_bps??0)/100)),[discount,setDiscount]=useState(String((invoice?.discount_minor??0)/100));
  const [issueDate,setIssueDate]=useState(invoice?.issue_date??today),[dueDate,setDueDate]=useState(invoice?.due_date??(paymentTermsDays?addDays(today,paymentTermsDays):"")),[footer,setFooter]=useState(invoice?.invoice_footer??defaultFooter);
  const subtotal=useMemo(()=>items.reduce((s,i)=>{const q=Number(i.quantity),u=Math.round(Number(i.unitPrice)*100);return s+(q>0&&Number.isFinite(q)&&Number.isSafeInteger(u)&&u>=0?Math.round(q*u):0)},0),[items]);
@@ -33,6 +34,8 @@ export default function InvoiceForm({invoice,defaultCurrency="USD",paymentTermsD
  {!invoice && <input type="hidden" name="clientDraftId" value={clientDraftId} />}
  <input type="hidden" name="lineItems" value={JSON.stringify(rows)}/><input type="hidden" name="taxRateBps" value={String(taxBps)}/><input type="hidden" name="discountMinor" value={String(discountMinor)}/>
  <div className="form-grid">
+ <label>Customer name <span>(optional)</span><input name="customerName" type="text" autoComplete="name" maxLength={120} value={customerName} onChange={e=>setCustomerName(e.target.value)} placeholder="Customer or recipient name"/></label>
+ <label>Customer email <span>(optional)</span><input name="customerEmail" type="email" autoComplete="email" maxLength={254} value={customerEmail} onChange={e=>setCustomerEmail(e.target.value)} placeholder="customer@example.com"/></label>
  <label>Currency<select name="currency" value={currency} onChange={e=>setCurrency(e.target.value)}>{["USD","EUR","GBP","ETB","KES"].map(c=><option key={c}>{c}</option>)}</select></label>
  <label>Issue date<input name="issueDate" type="date" required value={issueDate} onChange={e=>{setIssueDate(e.target.value);if(dueDate&&dueDate<e.target.value)setDueDate(e.target.value)}}/></label>
  <label>Due date <span>(optional)</span><input name="dueDate" type="date" value={dueDate} onChange={e=>setDueDate(e.target.value)}/></label>
