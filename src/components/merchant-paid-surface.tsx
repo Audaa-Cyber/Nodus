@@ -102,7 +102,7 @@ export function MerchantPaidSurface({ invoice, seller, primaryReceipt, primarySe
       <div><dt>Destination asset</dt><dd>{primarySettlement?.destination_asset_id ?? "Unavailable"}</dd><span /></div>
       <div><dt>Destination network</dt><dd>{networkName}</dd><span /></div>
       <div><dt>Payer debit</dt><dd>{sourceUsdc ? usdcBaseAmount(primaryAttempt?.requested_amount) ? `${usdcBaseAmount(primaryAttempt?.requested_amount)} USDC` : "Unavailable" : primaryAttempt?.requested_amount ? `${primaryAttempt.requested_amount} base units` : "Unavailable"}</dd><span /></div>
-      <div><dt>Circle fees</dt><dd>{circleFee ? `${circleFee} USDC` : "Unavailable"}</dd><span /></div>
+      <div><dt>Quoted route difference</dt><dd>{circleFee ? `${circleFee} USDC` : "Unavailable"}</dd><span /></div>
       <div><dt>Payer wallet address</dt><dd>{payer ?? "Unavailable"}</dd>{payer ? valueActions(payer, "payer wallet address") : <span />}</div>
       <div><dt>Merchant wallet address</dt><dd>{primarySettlement?.recipient_address ?? "Unavailable"}</dd><span /></div>
       <div><dt>Source transaction</dt><dd>{sourceHash ? sourceHref ? <a href={sourceHref} target="_blank" rel="noopener noreferrer">{shortHash(sourceHash)}</a> : sourceHash : "Unavailable"}</dd><span /></div>
