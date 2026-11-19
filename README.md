@@ -23,13 +23,14 @@ A merchant can configure one wallet address and enable any combination of the fi
 
 1. Install dependencies with `npm install`.
 2. Copy `.env.example` to `.env.local`.
-3. Set `WORKOS_CLIENT_ID` to the WorkOS staging client ID.
+3. Set `WORKOS_CLIENT_ID` and `WORKOS_API_KEY` to the Staging environment credentials.
 4. Generate a 32+ character `WORKOS_COOKIE_PASSWORD`.
 5. Set `NEXT_PUBLIC_WORKOS_REDIRECT_URI=http://localhost:3000/auth/callback`.
-6. Set the Supabase project URL and publishable key.
-7. Add the WorkOS staging issuer as a third-party auth provider in Supabase and set its JWT role claim to `authenticated`.
-8. Configure the required HTTPS RPC URLs for live payment verification. Circle CCTP itself does not require an API key.
-9. Run `npm run dev`.
+6. Set `WORKOS_ISSUER` to the trusted Staging and Production issuer URLs shown in `.env.example`.
+7. Set the Supabase project URL and publishable key.
+8. In Supabase Dashboard → Authentication → Third-Party Auth, trust both WorkOS issuers and map the JWT role to `authenticated`. If the WorkOS integration accepts only one issuer, add the other as a Custom OIDC provider.
+9. Configure the required HTTPS RPC URLs for live payment verification. Circle CCTP itself does not require an API key.
+10. Run `npm run dev`.
 
 ## Security notes
 
