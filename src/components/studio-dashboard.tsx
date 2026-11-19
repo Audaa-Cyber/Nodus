@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Activity, ArrowUpRight, BarChart3, BookOpen, ChevronDown, Clock3, FileText, Globe2, LayoutDashboard, LogOut, Plus, Search, Settings2, ShieldCheck, Sparkles } from "lucide-react";
+import { Activity, ArrowUpRight, BarChart3, BookOpen, Clock3, FileText, Globe2, LayoutDashboard, LogOut, Plus, Search, Settings2, ShieldCheck, Sparkles, Users, ScrollText } from "lucide-react";\nimport { StudioGovernance } from "@/components/studio-governance";
 
 type DocumentKind = "homepage" | "feature" | "faq" | "announcement" | "changelog" | "legal";
 type CmsDocument = { id: string; kind: DocumentKind; slug: string; title: string; status: "draft" | "published" | "archived"; content: Record<string, unknown>; seo: Record<string, unknown>; updated_at: string; published_at: string | null };
@@ -15,8 +15,8 @@ const kinds: {value:DocumentKind;label:string}[] = [
 ];
 const blank = (): Partial<CmsDocument> => ({kind:"feature",slug:"new-page",title:"Untitled entry",status:"draft",content:{body:""},seo:{title:"",description:"",socialImage:""}});
 
-export function StudioDashboard({adminEmail}:{adminEmail:string}) {
-  const [section,setSection] = useState<"overview"|"content"|"analytics"|"history">("overview");
+export function StudioDashboard({adminEmail,adminRole}:{adminEmail:string;adminRole:"owner"|"admin"|"editor"|"analyst"}) {
+  const [section,setSection] = useState<"overview"|"content"|"analytics"|"history"|"team"|"activity"|"settings">("overview");
   const [documents,setDocuments] = useState<CmsDocument[]>([]);
   const [revisions,setRevisions] = useState<Revision[]>([]);
   const [analytics,setAnalytics] = useState<Analytics|null>(null);
@@ -66,6 +66,9 @@ export function StudioDashboard({adminEmail}:{adminEmail:string}) {
         <button className={section==="content"?"active":""} onClick={()=>{setSection("content");setActive(null)}}><FileText/>Content</button>
         <button className={section==="analytics"?"active":""} onClick={()=>{setSection("analytics");setActive(null)}}><BarChart3/>Analytics</button>
         <button className={section==="history"?"active":""} onClick={()=>{setSection("history");setActive(null)}}><Clock3/>History</button>
+        {adminRole==="owner"&&<button className={section==="team"?"active":""} onClick={()=>{setSection("team");setActive(null)}}><Users/>Access & roles</button>}
+        <button className={section==="activity"?"active":""} onClick={()=>{setSection("activity");setActive(null)}}><ScrollText/>Audit activity</button>
+        {(adminRole==="owner"||adminRole==="admin")&&<button className={section==="settings"?"active":""} onClick={()=>{setSection("settings");setActive(null)}}><Settings2/>Settings</button>}
       </nav>
       <div className="studio-sidebar-bottom"><ShieldCheck size={15}/><span>Restricted workspace</span></div>
     </aside>
@@ -89,6 +92,7 @@ export function StudioDashboard({adminEmail}:{adminEmail:string}) {
         {section==="content"&&<div className="studio-panel"><div className="studio-panel-head"><div><span className="studio-overline">CONTENT LIBRARY</span><h3>Public website content</h3></div><button className="studio-primary" onClick={()=>setActive(blank())}><Plus size={16}/>New entry</button></div><div className="studio-toolbar"><div className="studio-search"><Search size={15}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search content"/></div><select value={filter} onChange={e=>setFilter(e.target.value)}><option value="all">All types</option>{kinds.map(k=><option key={k.value} value={k.value}>{k.label}</option>)}</select></div><DocumentList documents={visible} onEdit={setActive}/></div>}
         {section==="analytics"&&<><div className="studio-analytics-tools"><span>Privacy-conscious website analytics</span><select value={range} onChange={e=>setRange(Number(e.target.value) as 7|30)}><option value={7}>Last 7 days</option><option value={30}>Last 30 days</option></select></div><div className="studio-metrics">{metric("PAGE VIEWS",String(analytics?.pageViews??"—"),"All tracked public pages",<Activity/>)}{metric("UNIQUE VISITORS",String(analytics?.uniqueVisitors??"—"),"Anonymous visitor tokens",<Globe2/>)}{metric("CTA CLICKS",String(analytics?.ctaClicks??"—"),"Tracked call-to-actions",<ArrowUpRight/>)}{metric("CONTENT ITEMS",String(documents.length),"Drafts and published entries",<BookOpen/>)}</div><div className="studio-two-col"><div className="studio-panel"><div className="studio-panel-head"><h3>Top pages</h3></div><RankList items={analytics?.topPages??[]}/></div><div className="studio-panel"><div className="studio-panel-head"><h3>Referrers</h3></div><RankList items={analytics?.referrers??[]}/></div><div className="studio-panel"><div className="studio-panel-head"><h3>CTA performance</h3></div><RankList items={analytics?.topCtas??[]}/></div><div className="studio-panel"><div className="studio-panel-head"><h3>Daily traffic</h3></div><RankList items={(analytics?.daily??[]).map(d=>({label:d.date,count:d.count}))}/></div></div></>}
         {section==="history"&&<div className="studio-panel"><div className="studio-panel-head"><div><span className="studio-overline">AUDIT TRAIL</span><h3>Version history</h3></div></div><div className="studio-history">{revisions.map(revision=><div key={revision.id}><span className="studio-version">V{revision.version}</span><div><strong>{revision.title}</strong><small>{revision.status} · {new Date(revision.created_at).toLocaleString()} · {revision.changed_by}</small>{revision.change_note&&<p>{revision.change_note}</p>}</div></div>)}</div></div>}
+        {(section==="team"||section==="activity"||section==="settings")&&<StudioGovernance section={section} role={adminRole}/>}
       </>}
       <footer className="studio-footer"><span>NODUS STUDIO · PRIVATE</span><span>Content operations, not customer financial records.</span></footer>
     </section>
