@@ -30,7 +30,8 @@ export function StudioDashboard({adminEmail,adminRole}:{adminEmail:string;adminR
   const [busy,setBusy] = useState(false);
   const [message,setMessage] = useState("");
   const [error,setError] = useState("");
-  const [previewOpen,setPreviewOpen] = useState(false);\n  const canEdit = adminRole === "owner" || adminRole === "admin" || adminRole === "editor";
+  const [previewOpen,setPreviewOpen] = useState(false);
+  const canEdit = adminRole === "owner" || adminRole === "admin" || adminRole === "editor";
 
   const load = useCallback(async () => {
     const [contentResponse,analyticsResponse] = await Promise.all([fetch("/api/studio/content",{cache:"no-store"}),fetch("/api/studio/analytics?range="+range,{cache:"no-store"})]);
