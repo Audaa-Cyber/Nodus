@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
     p_status: status,
     p_content: content,
     p_seo: seo,
-    p_actor: admin.workosUserId,
+    p_actor: admin.supabaseUserId,
     p_change_note: changeNote,
   });
 
@@ -96,7 +96,7 @@ export async function DELETE(request: NextRequest) {
     p_status: "archived",
     p_content: document.content,
     p_seo: document.seo,
-    p_actor: admin.workosUserId,
+    p_actor: admin.supabaseUserId,
     p_change_note: "Archived from Nodus Studio",
   });
   if (error) return NextResponse.json({ error: "Could not archive this entry." }, { status: 400 });
