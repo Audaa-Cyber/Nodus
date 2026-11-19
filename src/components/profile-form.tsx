@@ -164,7 +164,7 @@ export default function ProfileForm({
                   )}
                 </span>
               </div>
-              {/* Circle User-Controlled Wallet Option */}
+              {/* Circle wallet */}
               <MerchantCircleWalletCard
                 currentReceivingAddress={receivingAddress}
                 onAddressConnected={(addr, net) => {
@@ -189,7 +189,7 @@ export default function ProfileForm({
                   >
                     {!receivingNetwork && <option value="">Choose a network</option>}
                     {receivingNetwork && !isCircleTestnetNetwork && (
-                      <option value={receivingNetwork}>Current setting: {receivingNetwork} (not enabled for testnet checkout)</option>
+                      <option value={receivingNetwork}>Current: {receivingNetwork} (unsupported)</option>
                     )}
                     {circleTestnetUsdcNetworks.map((network) => (
                       <option key={network.key} value={network.key}>{network.label}</option>
@@ -197,7 +197,7 @@ export default function ProfileForm({
                   </select>
                 </div>
                 {receivingNetwork && !isCircleTestnetNetwork && (
-                  <p className="mt-2 text-xs text-amber-700" role="status">
+                  <p className="mt-2 text-xs text-neutral-600" role="status">
   This network is not supported. Choose a listed testnet.
                   </p>
                 )}
