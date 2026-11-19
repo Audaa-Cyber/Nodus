@@ -1,7 +1,22 @@
+import type { Metadata } from "next";
 import Link from "next/link";
-import { getPublishedCmsDocument } from "@/lib/cms/public";
+import { getPublishedCmsDocument, getPublicCmsSettings } from "@/lib/cms/public";
 import { CmsPublicPage } from "@/components/cms-public-page";
 import { cmsMetadata } from "@/lib/cms/metadata";
+
+
+export const dynamic = "force-dynamic";
+export async function generateMetadata(): Promise<Metadata> {
+  const [document, settings] = await Promise.all([
+    getPublishedCmsDocument("privacy"),
+    getPublicCmsSettings(),
+  ]);
+  const seo = (document?.seo ?? {}) as Record<string, unknown>;
+  const title = typeof seo.title === "string" && seo.title.trim() ? seo.title : document?.title || "Privacy policy | Nodus";
+  const description = typeof seo.description === "string" && seo.description.trim() ? seo.description : settings.seoDefaultDescription;
+  const image = typeof seo.socialImage === "string" && /^https:\/\//.test(seo.socialImage) ? seo.socialImage : settings.seoDefaultSocialImage;
+  return { title, description, openGraph: { title, description, ...(image ? { images: [image] } : {}) }, twitter: { card: image ? "summary_large_image" : "summary", title, description, ...(image ? { images: [image] } : {}) } };
+}
 
 const sections = [
   {
