@@ -43,7 +43,6 @@ const CHAIN_ID_TO_BRIDGE_CHAIN: Record<number, string> = {
   421614: "Arbitrum_Sepolia",
   10: "Optimism",
   11155420: "Optimism_Sepolia",
-  5042002: "Arc_Testnet",
 };
 
 function formatUnits(baseUnits: string, decimals: number): string {
