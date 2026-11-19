@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { AuthKitProvider } from "@workos-inc/authkit-nextjs/components";
-import { AuthKitProvider } from "@workos-inc/authkit-nextjs/components";
 import "./globals.css";
 import "@/components/designs/merchant.css";
 import "@/components/designs/payer.css";
