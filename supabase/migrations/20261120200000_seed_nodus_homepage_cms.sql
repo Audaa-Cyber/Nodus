@@ -1,3 +1,9 @@
+-- Repair the slug constraint: the previous character class accidentally treated
+-- the final hyphen as a range. Hyphens are allowed explicitly at the start.
+alter table public.cms_documents drop constraint if exists cms_documents_slug_check;
+alter table public.cms_documents add constraint cms_documents_slug_check
+  check (slug ~ '^[a-z0-9][-a-z0-9/_]{0,118}$');
+
 -- Seed the current Nodus homepage into the CMS so the first admin can edit it immediately.
 insert into public.cms_documents (
   kind, slug, title, status, content, seo, published_at, created_by, updated_by
