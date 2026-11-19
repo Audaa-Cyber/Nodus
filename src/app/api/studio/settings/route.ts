@@ -5,11 +5,11 @@ export const dynamic = "force-dynamic";
 
 const allowedKeys = new Set([
   "public_site.announcement_banner",
-  "public_site.maintenance_mode",
   "features.faq_enabled",
   "features.changelog_enabled",
   "seo.default_title",
   "seo.default_description",
+  "seo.default_social_image",
 ]);
 
 export async function GET() {
