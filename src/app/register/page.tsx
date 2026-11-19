@@ -1,10 +1,5 @@
-import { Suspense } from "react";
-import { ExecutiveLoginCard } from "@/components/executive-login-card";
+import { redirect } from "next/navigation";
 
 export default function RegisterPage() {
-  return (
-    <Suspense fallback={<div className="login-executive-page bg-grid" />}>
-      <ExecutiveLoginCard initialMode="signup" />
-    </Suspense>
-  );
+  redirect("/sign-up");
 }
