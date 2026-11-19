@@ -26,7 +26,6 @@ export type PayerInvoiceSheetProps = {
   dueDate: string;
   network: string;
   recipient: string;
-  escrowContract: string;
   signature?: string | null;
   signatureTitle?: string | null;
   items: Array<LineItem & { note?: string; price: string; total: string }>;
@@ -47,7 +46,7 @@ export function PayerInvoiceSheet(invoice: PayerInvoiceSheetProps) {
         <span className="pill"><span className="dot" />{invoice.status.toUpperCase()}{invoice.dueDate !== "—" ? ` · DUE ${invoice.dueDate.toUpperCase()}` : ""}</span>
       </div>
       <section className="dos" aria-label="Merchant business dossier">
-        <h2>Business dossier</h2>
+        <h2>Business details</h2>
         <dl className="d">
           <div><PayerIcon name="phone" /><dd style={{ margin: 0 }}>{invoice.phone || "—"}</dd></div>
           <div><PayerIcon name="mail" /><dd style={{ margin: 0 }}>{invoice.email || "—"}</dd></div>
@@ -81,15 +80,15 @@ export function PayerInvoiceSheet(invoice: PayerInvoiceSheetProps) {
     </div>
     <div className="sum">
       <p><span>Subtotal</span><span>{invoice.subtotal}</span></p>
-      <p><span>Tax / Protocol VAT ({invoice.taxPercent}%)</span><span>{invoice.tax}</span></p>
-      <p><span>Discount</span><span>{invoice.discount}</span></p>
-      <div className="tot"><span>Total Due:</span><span>{invoice.amount} USDC</span></div>
+      <p><span>Tax ({invoice.taxPercent}%)</span><span>{invoice.tax}</span></p>
+      {invoice.discount !== "0.00 " + currency && <p><span>Discount</span><span>{invoice.discount}</span></p>}
+      <div className="tot"><span>Total due</span><span>{invoice.amount} {currency}</span></div>
     </div>
     <footer className="foot">
       <section>
-        <h3>Payment method &amp; escrow terms</h3>
-        <dl className="kv"><dt>Asset</dt><dd>{currency}</dd><dt>Network</dt><dd>{invoice.network}</dd><dt>Escrow Contract</dt><dd>{invoice.escrowContract}</dd><dt>Payee</dt><dd>{invoice.recipient}</dd></dl>
-        <p className="guar"><PayerIcon name="lock" /><span>Your deposit is held by the Nodus Escrow Contract, never by {invoice.businessName} or Nodus. Funds release to the payee on-chain after settlement is verified, and no intermediary can move them.</span></p>
+        <h3>Payment details</h3>
+        <dl className="kv"><dt>Asset</dt><dd>{currency}</dd><dt>Network</dt><dd>{invoice.network}</dd><dt>Payee address</dt><dd className="payer-payee-address">{invoice.recipient}</dd></dl>
+        <p className="guar"><PayerIcon name="lock" /><span>Before paying, confirm the token and network in checkout match the payment details shown by your wallet.</span></p>
       </section>
       <section className="sig"><span className="cv">{invoice.signature || invoice.businessName}</span><svg viewBox="0 0 200 20" aria-hidden="true"><path d="M4 14C40 4 72 18 104 9s60-6 92 3" /></svg><p><b>Authorized Signatory</b>{invoice.signatureTitle ? ` / ${invoice.signatureTitle}` : ""}</p></section>
     </footer>
