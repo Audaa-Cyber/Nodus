@@ -397,7 +397,6 @@ export async function GET(
         },
       });
       if (recError || !recResult) throw new Error(recError?.message ?? "payment_reconciliation_failed");
-      // PostgreSQL reconciliation is authoritative; NEAR settlement delivery is not part of Nodus checkout.
       await saveRecovery(supabaseAdmin, id, "SETTLED", {
         nonce: sourceProof.nonce, messageHash: sourceProof.messageHash,
         destinationTxHashes: destinationProof.transactionHashes,
