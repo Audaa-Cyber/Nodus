@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import DotMatrixHands from "@/components/dot-matrix-hands";
 
-const methods = ["USDC · Ethereum", "USDC · Solana", "USDT · Ethereum"];
+const methods = ["USDC · Arc Testnet", "USDC · Ethereum Sepolia", "USDC · Base Sepolia", "USDC · Arbitrum Sepolia", "USDC · Optimism Sepolia"];
 
 export default function Home() {
   const [method, setMethod] = useState(methods[0]);
@@ -243,120 +243,88 @@ export default function Home() {
               Guests see exactly what they are paying for, then choose a supported
               network and approve the transaction in their own wallet.
             </p>
-            <p className="demo-disclaimer">INTERACTIVE PREVIEW · SIMULATED PAYMENT · NO REAL FUNDS MOVE</p>
           </div>
 
           <div className="invoice-stage">
-            <div className="invoice-stage-heading">
-              <span>GUEST CHECKOUT PREVIEW</span>
-              <span>MAISON CAFÉ / TABLE 08</span>
-            </div>
-            <div className="invoice-card">
-              <div className="invoice-top">
-                <div>
-                  <span className="micro-label">YOUR BILL FROM</span>
-                  <h3>Maison Café</h3>
-                  <p>Table 08 · Addis Ababa</p>
-                </div>
-                <div className="invoice-logo" aria-hidden="true">m.</div>
-              </div>
-              <div className="invoice-meta">
-                <span>INVOICE <b>N° 0248</b></span>
-                <button onClick={handleCopy} className="copy-id" type="button" aria-label="Copy invoice ID">
-                  {copied ? <Check size={12} /> : <Copy size={12} />}
-                  {copied ? "Copied" : "Copy ID"}
-                </button>
-              </div>
-              <div className="invoice-lines invoice-editable-lines">
-                {items.map((item) => (
-                  <div className="invoice-editable-row" key={item.id}>
-                    <span className="invoice-item-name">{item.name}<small>{formatUsd(item.price)} each</small></span>
-                    <div className="quantity-control" aria-label={item.name + " quantity"}>
-                      <button type="button" onClick={() => updateQuantity(item.id, -1)} disabled={item.quantity <= 1} aria-label={"Decrease " + item.name + " quantity"}>−</button>
-                      <span>{item.quantity}</span>
-                      <button type="button" onClick={() => updateQuantity(item.id, 1)} disabled={item.quantity >= 9} aria-label={"Increase " + item.name + " quantity"}>+</button>
-                    </div>
-                    <b>{formatUsd(item.price * item.quantity)}</b>
+            <div className="invoice-card demo-invoice-card">
+              <div className="demo-invoice-document">
+                <header className="demo-invoice-header">
+                  <div className="demo-merchant">
+                    <span className="demo-merchant-mark">m.</span>
+                    <div><strong>Maison Café</strong><small>ADDIS ABABA · ETHIOPIA</small></div>
                   </div>
-                ))}
-              </div>
-              <button
-                className="breakdown-toggle"
-                type="button"
-                onClick={() => setShowBreakdown((open) => !open)}
-                aria-expanded={showBreakdown}
-                aria-controls="invoice-breakdown"
-              >
-                <span>Subtotal and tax</span>
-                <ChevronDown size={14} className={showBreakdown ? "rotate" : ""} />
-              </button>
-              <div
-                id="invoice-breakdown"
-                className={showBreakdown ? "breakdown-clip is-open" : "breakdown-clip"}
-                aria-hidden={!showBreakdown}
-              >
-                <div className="breakdown-detail">
-                  <span>Subtotal <b>{formatUsd(subtotal)}</b></span>
-                  <span>Tax · 15% <b>{formatUsd(tax)}</b></span>
+                  <div className="demo-invoice-number"><span>INVOICE</span><strong>N° 0248</strong><small>ISSUED {new Date().toLocaleDateString()}</small></div>
+                </header>
+                <div className="demo-invoice-parties">
+                  <div><span className="demo-field-label">BILLED BY</span><strong>Maison Café</strong><small>Bole Road, Addis Ababa</small><small>billing@maisoncafe.example</small></div>
+                  <div><span className="demo-field-label">BILLED TO</span><strong>Walk-in customer</strong><small>Customer checkout</small></div>
                 </div>
+                <div className="demo-invoice-table-wrap">
+                  <table className="demo-invoice-table">
+                    <thead><tr><th>DESCRIPTION</th><th>QTY</th><th>UNIT PRICE</th><th>AMOUNT</th></tr></thead>
+                    <tbody>{items.map((item) => (
+                      <tr key={item.id}>
+                        <td><strong>{item.name}</strong></td>
+                        <td>{item.quantity}</td>
+                        <td>{formatUsd(item.price)}</td>
+                        <td><strong>{formatUsd(item.price * item.quantity)}</strong></td>
+                      </tr>
+                    ))}</tbody>
+                  </table>
+                </div>
+                <div className="demo-invoice-totals">
+                  <div><span>Subtotal</span><strong>{formatUsd(subtotal)}</strong></div>
+                  <div><span>Tax (15%)</span><strong>{formatUsd(tax)}</strong></div>
+                  <div className="demo-invoice-total"><span>Total due</span><strong>{formatUsd(total)} USD</strong></div>
+                </div>
+                <footer className="demo-invoice-footer"><span>Thank you for your business.</span><span>nodus.</span></footer>
               </div>
-              <div className="invoice-total">
-                <span>Total due</span>
-                <strong>{formatUsd(total)} <small>USD</small></strong>
-              </div>
-              <div className="pay-label">
-                <span>PAY WITH</span>
-                <span className="secure-label"><LockKeyhole size={11} /> PREVIEW ONLY</span>
-              </div>
-              <div className="method-select">
-                <select
-                  aria-label="Choose payment network"
-                  value={method}
-                  onChange={(event) => {
+
+              <div className="demo-payment-panel">
+                <div className="pay-label">
+                  <span>PAYMENT</span>
+                  <span className="secure-label"><LockKeyhole size={11} /> DEMO</span>
+                </div>
+                <div className="method-select">
+                  <select aria-label="Choose payment network" value={method} onChange={(event) => {
                     if (paymentTimer.current) clearTimeout(paymentTimer.current);
                     setMethod(event.target.value);
                     setPaymentState("idle");
-                  }}
-                >
-                  {methods.map((item) => <option key={item} value={item}>{item}</option>)}
-                </select>
-                <ChevronDown size={14} aria-hidden="true" />
-              </div>
-              <button className={paymentState === "paid" ? "pay-button is-paid" : "pay-button"} type="button" onClick={runDemoPayment} disabled={paymentState !== "idle"}>
-                {paymentState === "processing" ? <><span className="demo-spinner" /> Processing payment…</> : paymentState === "paid" ? <><Check size={16} /> Payment successful</> : "Pay " + formatUsd(total)}
-              </button>
-              <div className={"payment-feedback " + (paymentState !== "idle" ? "is-visible" : "")} aria-live="polite">
-                <span className="success-pulse" />
-                {paymentState === "processing" ? "Checking the simulated transaction…" : paymentState === "paid" ? "Payment confirmed. Your receipt is ready." : "Demo only. No wallet is connected and no funds will move."}
-              </div>
-              {paymentState === "paid" && (
-                <div className="demo-receipt-area">
-                  <div className="receipt-printer-heading"><span>PAYMENT RECEIPT</span><span className="receipt-paid-chip"><Check size={11} /> PAID</span></div>
-                  <div className="receipt-printer is-printing">
-                    <div className="receipt-printer-mouth"><span /></div>
-                    <div className="receipt-paper">
-                      <div className="receipt-stamp">PAID</div>
-                      <h4>Maison Café</h4><p>PAYMENT RECEIPT · N° 0248</p>
-                      <div className="receipt-paper-rule" />
-                      {items.map((item) => <div className="receipt-line" key={item.id}><span>{item.name} × {item.quantity}</span><b>{formatUsd(item.price * item.quantity)}</b></div>)}
-                      <div className="receipt-line"><span>Subtotal</span><b>{formatUsd(subtotal)}</b></div>
-                      <div className="receipt-line"><span>Tax · 15%</span><b>{formatUsd(tax)}</b></div>
-                      <div className="receipt-paper-rule" />
-                      <div className="receipt-line receipt-grand-total"><strong>TOTAL PAID</strong><strong>{formatUsd(total)}</strong></div>
-                      <div className="receipt-payment-meta"><span>{method}</span><span>REF NODUS-DEMO-0248-7F3A</span><span>{new Date().toLocaleString()}</span></div>
-                      <p className="receipt-thanks">Thank you for visiting.</p>
-                    </div>
-                    <div className="receipt-printer-lower"><span /></div>
-                  </div>
-                  <div className="receipt-actions">
-                    <button type="button" onClick={downloadReceipt}>Download receipt</button>
-                  </div>
-                  <p className="receipt-demo-note">Simulated transaction · No real funds transferred</p>
+                  }}>
+                    {methods.map((item) => <option key={item} value={item}>{item}</option>)}
+                  </select>
+                  <ChevronDown size={14} aria-hidden="true" />
                 </div>
-              )}
-              <div className="invoice-foot">
-                <ShieldCheck size={13} />
-                A real invoice should close only after settlement is verified.
+                <button className={paymentState === "paid" ? "pay-button is-paid" : "pay-button"} type="button" onClick={runDemoPayment} disabled={paymentState !== "idle"}>
+                  {paymentState === "processing" ? <><span className="demo-spinner" /> Processing payment…</> : paymentState === "paid" ? <><Check size={16} /> Payment successful</> : "Pay " + formatUsd(total)}
+                </button>
+                <div className={"payment-feedback " + (paymentState !== "idle" ? "is-visible" : "")} aria-live="polite">
+                  <span className="success-pulse" />
+                  {paymentState === "processing" ? "Checking the simulated transaction…" : paymentState === "paid" ? "Payment confirmed. The invoice is marked paid." : "Demo transaction. No wallet is connected and no funds move."}
+                </div>
+                {paymentState === "paid" && (
+                  <div className="demo-printer-overlay" aria-live="polite">
+                    <div className="demo-printer-shell">
+                      <div className="demo-printer-slot"><span /></div>
+                      <div className="demo-printer-paper">
+                        <div className="demo-paid-stamp">PAID</div>
+                        <div className="demo-paper-brand"><strong>Maison Café</strong><span>PAYMENT RECEIPT</span></div>
+                        <div className="demo-paper-meta"><span>Invoice N° 0248</span><span>{new Date().toLocaleString()}</span></div>
+                        <div className="demo-paper-rule" />
+                        {items.map((item) => <div className="demo-paper-line" key={item.id}><span>{item.name} × {item.quantity}</span><strong>{formatUsd(item.price * item.quantity)}</strong></div>)}
+                        <div className="demo-paper-line"><span>Subtotal</span><strong>{formatUsd(subtotal)}</strong></div>
+                        <div className="demo-paper-line"><span>Tax · 15%</span><strong>{formatUsd(tax)}</strong></div>
+                        <div className="demo-paper-rule" />
+                        <div className="demo-paper-line demo-paper-total"><strong>TOTAL PAID</strong><strong>{formatUsd(total)} USD</strong></div>
+                        <div className="demo-paper-meta demo-paper-settlement"><span>{method}</span><span>Demo reference · NODUS-0248</span><span>Payment simulated for preview</span></div>
+                        <p>Thank you for your business.</p>
+                      </div>
+                      <div className="demo-printer-base"><span /></div>
+                    </div>
+                    <button className="demo-download-receipt" type="button" onClick={downloadReceipt}>Download receipt</button>
+                  </div>
+                )}
+                <div className="invoice-foot"><ShieldCheck size={13} /> A real invoice is marked paid only after settlement is verified.</div>
               </div>
             </div>
             <p className="invoice-note">A preview of the guest experience. Network options are illustrative.</p>
