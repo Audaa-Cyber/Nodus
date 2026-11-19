@@ -95,21 +95,7 @@ export function MerchantPaidSurface({ invoice, seller, primaryReceipt, primarySe
     </dl></section>
     <CustomerFeedback invoiceId={invoice.id} customerName={invoice.customer_name} />
     <MerchantInvoiceSummary invoice={invoice} seller={{ ...seller, receiving_address: primarySettlement?.recipient_address ?? seller.receiving_address }} paid />
-    <details className="card"><summary>Technical payment details</summary><dl className="kv">
-      <div><dt>Payment mode</dt><dd>{primaryAttempt?.mode === "mock" ? "Mock / Demo" : primaryAttempt?.mode === "live" ? "Live" : "Unavailable"}</dd><span /></div>
-      <div><dt>Source asset</dt><dd>{primaryAttempt?.source_asset_id ?? "Unavailable"}</dd><span /></div>
-      <div><dt>Source network</dt><dd>{primaryAttempt?.source_network ? getWalletNetwork(primaryAttempt.source_network)?.label ?? primaryAttempt.source_network : "Unavailable"}</dd><span /></div>
-      <div><dt>Destination asset</dt><dd>{primarySettlement?.destination_asset_id ?? "Unavailable"}</dd><span /></div>
-      <div><dt>Destination network</dt><dd>{networkName}</dd><span /></div>
-      <div><dt>Payer debit</dt><dd>{sourceUsdc ? usdcBaseAmount(primaryAttempt?.requested_amount) ? `${usdcBaseAmount(primaryAttempt?.requested_amount)} USDC` : "Unavailable" : primaryAttempt?.requested_amount ? `${primaryAttempt.requested_amount} base units` : "Unavailable"}</dd><span /></div>
-      <div><dt>Quoted route difference</dt><dd>{circleFee ? `${circleFee} USDC` : "Unavailable"}</dd><span /></div>
-      <div><dt>Payer wallet address</dt><dd>{payer ?? "Unavailable"}</dd>{payer ? valueActions(payer, "payer wallet address") : <span />}</div>
-      <div><dt>Merchant wallet address</dt><dd>{primarySettlement?.recipient_address ?? "Unavailable"}</dd><span /></div>
-      <div><dt>Source transaction</dt><dd>{sourceHash ? sourceHref ? <a href={sourceHref} target="_blank" rel="noopener noreferrer">{shortHash(sourceHash)}</a> : sourceHash : "Unavailable"}</dd><span /></div>
-      <div><dt>Destination transaction</dt><dd>{hashes.length ? hashes.map(hash => <p key={hash}>{hash}</p>) : "Unavailable"}</dd><span /></div>
-      <div><dt>Settlement timestamp</dt><dd>{dateTime(paidAt)}</dd><span /></div>
-      <div><dt>Settlement outcome</dt><dd>{primarySettlement?.outcome ?? "Unavailable"}</dd><span /></div>
-    </dl></details>
+
     {receipts && receipts.length > 1 && <MerchantReceiptHistory receipts={receipts} settlements={settlements} title="All payment receipts" />}
   </main><div className={`toast${notice ? " on" : ""}`} role="status" aria-live="polite">{notice}</div></div>;
 }
