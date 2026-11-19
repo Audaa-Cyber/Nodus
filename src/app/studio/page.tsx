@@ -8,5 +8,5 @@ export const metadata = { title: "Nodus Studio", robots: { index: false, follow:
 export default async function StudioPage() {
   const admin = await getCmsAdmin();
   if (!admin) notFound();
-  return <StudioDashboard adminEmail={admin.email ?? "Nodus administrator"} />;
+  return <StudioDashboard adminEmail={admin.email ?? "Nodus administrator"} adminRole={admin.role} />;
 }
