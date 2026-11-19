@@ -23,7 +23,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const contentRoutes = [
     ...features.map((doc) => ({ doc, prefix: "/features/" })),
     ...faqs.map((doc) => ({ doc, prefix: "/faq/" })),
-    ...announcements.map((doc: any) => ({ doc, prefix: "/updates/" })),
+    ...announcements.map((doc) => ({ doc, prefix: "/updates/" })),
     ...(settings.changelogEnabled ? changelog.map((doc: any) => ({ doc, prefix: "/updates/" })) : []),
   ].map(({ doc, prefix }) => ({
     url: base + prefix + String(doc.slug).split("/").map(encodeURIComponent).join("/"),
