@@ -27,7 +27,6 @@ export default async function InvoiceDetailPage({
     { data: receipts },
     { data: settlements },
     { data: attempts },
-    { data: nearInvoiceRegistration },
   ] = await Promise.all([
       supabase
         .from("invoices")
@@ -60,11 +59,6 @@ export default async function InvoiceDetailPage({
         .eq("business_id", business.id)
         .order("created_at", { ascending: false }),
 
-      supabase
-        .from("near_invoice_registration_outbox")
-        .select("id,status,attempt_count,near_transaction_hash,failure_reason,registered_at")
-        .eq("invoice_id", id)
-        .maybeSingle(),
     ]);
 
   if (error || !invoice) notFound();
@@ -144,5 +138,5 @@ export default async function InvoiceDetailPage({
     );
   }
 
-  return <MerchantOpenSurface invoice={invoice} seller={{ business_name: invoiceSellerName, logo_url: invoiceSellerLogo, phone: invoiceSellerPhone, address: invoiceSellerAddress, website: invoiceSellerWebsite, tax_id: invoiceSellerTaxId, email: typeof sellerSnapshot.email === "string" ? sellerSnapshot.email : business.email, invoice_footer: invoiceSellerFooter, receiving_address: business.receiving_address }} receivingNetwork={business.receiving_network} status={status} query={query} canEdit={canEdit} canCancel={canCancel} canShare={canShare} isCancelled={isCancelled} shareState={shareState} initialPayUrl={initialPayUrl} nearInvoiceRegistration={nearInvoiceRegistration} receipts={receipts} settlements={settlements} />;
+  return <MerchantOpenSurface invoice={invoice} seller={{ business_name: invoiceSellerName, logo_url: invoiceSellerLogo, phone: invoiceSellerPhone, address: invoiceSellerAddress, website: invoiceSellerWebsite, tax_id: invoiceSellerTaxId, email: typeof sellerSnapshot.email === "string" ? sellerSnapshot.email : business.email, invoice_footer: invoiceSellerFooter, receiving_address: business.receiving_address }} receivingNetwork={business.receiving_network} status={status} query={query} canEdit={canEdit} canCancel={canCancel} canShare={canShare} isCancelled={isCancelled} shareState={shareState} initialPayUrl={initialPayUrl} receipts={receipts} settlements={settlements} />;
 }
