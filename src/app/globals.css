@@ -5204,3 +5204,12 @@ main > section button {
 @media (prefers-reduced-motion: reduce) {
   .demo-printer-overlay, .demo-printer-paper { animation: none !important; }
 }
+
+.demo-quantity-control { display: inline-flex; align-items: center; justify-content: center; gap: 4px; }
+.demo-quantity-control button { display: grid; place-items: center; width: 18px; height: 18px; padding: 0; border: 1px solid #deded8; border-radius: 2px; background: #fff; color: #171816; font-size: 12px; line-height: 1; }
+.demo-quantity-control button:disabled { opacity: .35; cursor: not-allowed; }
+.demo-quantity-control span { min-width: 12px; text-align: center; color: #171816; font: 500 8px var(--mono); }
+@media (max-width: 520px) {
+  .demo-quantity-control { gap: 2px; }
+  .demo-quantity-control button { width: 16px; height: 16px; }
+}
