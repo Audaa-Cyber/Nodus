@@ -29,7 +29,7 @@ export async function saveInvoiceAction(_previous: FormState, formData: FormData
   const intent: "open" | "draft" = formData.get("intent") === "issue" ? "open" : "draft";
   const selectedPaymentNetworks = [...new Set(formData.getAll("paymentNetworks").map((value) => String(value).trim().toLowerCase()))];
   const configuredNetworks = new Set(business.receiving_networks ?? []);
-  if (selectedPaymentNetworks.length > 4) return { error: "Choose no more than four payment networks." };
+  if (selectedPaymentNetworks.length > 5) return { error: "Choose no more than five payment networks." };
   const clientDraftId = String(formData.get("clientDraftId") ?? "").trim();
   const invoiceId = String(formData.get("invoiceId") ?? "");
 
