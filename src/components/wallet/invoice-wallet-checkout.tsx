@@ -192,7 +192,7 @@ function InvoiceWalletCheckoutContent({
   const selectedSourceNetwork = useMemo(
     () => sourceNetworkManuallySelected
       ? circleTestnetUsdcNetworks.find((network) => network.key === selectedSourceNetworkKey) ?? resolveCheckoutSource(evmChainId, selectedDestinationNetwork)
-      : resolveCheckoutSource(isEvmConnected ? evmChainId : undefined, destinationNetwork),
+      : resolveCheckoutSource(isEvmConnected ? evmChainId : undefined, selectedDestinationNetwork),
     [selectedSourceNetworkKey, sourceNetworkManuallySelected, isEvmConnected, evmChainId, selectedDestinationNetwork],
   );
   const selectedSourceWalletNetwork = getWalletNetwork(selectedSourceNetwork.key) ?? null;
@@ -815,7 +815,7 @@ function InvoiceWalletCheckoutContent({
                 </div>
                 <div>
                   <dt>Receiving network</dt>
-                  <dd>{currency} on {formatNetworkLabel(destinationNetwork ?? null)}</dd>
+                  <dd>{currency} on {formatNetworkLabel(selectedDestinationNetwork ?? null)}</dd>
                 </div>
                 {recipientAddress && (
                   <div>
