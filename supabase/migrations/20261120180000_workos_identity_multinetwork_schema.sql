@@ -14,6 +14,7 @@ drop policy if exists "Business owners can view payment attempts" on public.paym
 drop policy if exists "Business owners can view payment settlements" on public.payment_settlements;
 drop policy if exists "Business owners can view payment receipts" on public.payment_receipts;
 drop policy if exists "Business owners can upload invoice logos" on storage.objects;
+drop policy if exists "Business owners can view NEAR reconciliation status" on public.near_reconciliation_status;
 
 alter table public.business_profiles drop constraint if exists business_profiles_owner_user_id_fkey;
 alter table public.notifications drop constraint if exists notifications_recipient_user_id_fkey;
