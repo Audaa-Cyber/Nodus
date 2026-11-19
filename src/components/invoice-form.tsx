@@ -8,7 +8,7 @@ type Line={description:string;quantity:string;unitPrice:string};
 const blank=():Line=>({description:"",quantity:"1",unitPrice:""});
 const fmt=(minor:number,currency:string)=>{try{return new Intl.NumberFormat("en-US",{style:"currency",currency}).format(minor/100)}catch{return (minor/100).toFixed(2)+" "+currency}};
 function addDays(date:string,days:number){const d=new Date(date+"T00:00:00Z");d.setUTCDate(d.getUTCDate()+days);return d.toISOString().slice(0,10)}
-export default function InvoiceForm({invoice,defaultCurrency="USD",paymentTermsDays=14,businessName="Your business",logoUrl="",businessEmail="",businessPhone="",businessAddress="",websiteUrl="",taxRegistrationNumber="",defaultFooter="Thank you for your business."}:{invoice?:Invoice;defaultCurrency?:string;paymentTermsDays?:number;businessName?:string;logoUrl?:string;businessEmail?:string;businessPhone?:string;businessAddress?:string;websiteUrl?:string;taxRegistrationNumber?:string;defaultFooter?:string}){
+export default function InvoiceForm({invoice,defaultCurrency="USDC",paymentTermsDays=14,businessName="Your business",logoUrl="",businessEmail="",businessPhone="",businessAddress="",websiteUrl="",taxRegistrationNumber="",defaultFooter="Thank you for your business."}:{invoice?:Invoice;defaultCurrency?:string;paymentTermsDays?:number;businessName?:string;logoUrl?:string;businessEmail?:string;businessPhone?:string;businessAddress?:string;websiteUrl?:string;taxRegistrationNumber?:string;defaultFooter?:string}){
  const [state,action,pending]=useActionState<FormState,FormData>(saveInvoiceAction,{});
  const [clientDraftId] = useState(() => invoice?.id ?? (typeof crypto !== "undefined" ? crypto.randomUUID() : ""));
  const [isSubmitting, setIsSubmitting] = useState(false);
@@ -36,17 +36,17 @@ export default function InvoiceForm({invoice,defaultCurrency="USD",paymentTermsD
  <div className="form-grid">
  <label>Customer name <span>(optional)</span><input name="customerName" type="text" autoComplete="name" maxLength={120} value={customerName} onChange={e=>setCustomerName(e.target.value)} placeholder="Customer or recipient name"/></label>
  <label>Customer email <span>(optional)</span><input name="customerEmail" type="email" autoComplete="email" maxLength={254} value={customerEmail} onChange={e=>setCustomerEmail(e.target.value)} placeholder="customer@example.com"/></label>
- <label>Currency<select name="currency" value={currency} onChange={e=>setCurrency(e.target.value)}>{["USD","EUR","GBP","ETB","KES"].map(c=><option key={c}>{c}</option>)}</select></label>
+ <label>Currency<select name="currency" value={currency} onChange={e=>setCurrency(e.target.value)}>{["USDC","USDT","EURC"].map(c=><option key={c}>{c}</option>)}</select></label>
  <label>Issue date<input name="issueDate" type="date" required value={issueDate} onChange={e=>{setIssueDate(e.target.value);if(dueDate&&dueDate<e.target.value)setDueDate(e.target.value)}}/></label>
  <label>Due date <span>(optional)</span><input name="dueDate" type="date" value={dueDate} onChange={e=>setDueDate(e.target.value)}/></label>
- <div className="form-wide" style={{marginTop:8}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,marginBottom:12}}><strong>Items</strong><button type="button" className="button button-outline" onClick={()=>setItems(v=>[...v,blank()])}>+ Add item</button></div>
+ <div className="form-wide" style={{marginTop:8}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,marginBottom:12}}><strong>Items</strong><button type="button" className="button button-outline" onClick={()=>setItems(v=>[blank(),...v])}>+ Add item</button></div>
  {items.map((item,index)=><div key={index} className="form-grid" style={{borderTop:"1px solid var(--card-border)",paddingTop:14,marginBottom:14}}>
  <label className="form-wide">Item description<input required maxLength={500} value={item.description} onChange={e=>setItems(all=>all.map((v,i)=>i===index?{...v,description:e.target.value}:v))} placeholder="Product or service"/></label>
  <label>Quantity<input type="number" min="0.01" max="1000000" step="0.01" required value={item.quantity} onChange={e=>setItems(all=>all.map((v,i)=>i===index?{...v,quantity:e.target.value}:v))}/></label>
  <label>Unit price<input type="number" min="0" max="9999999999.99" step="0.01" required value={item.unitPrice} onChange={e=>setItems(all=>all.map((v,i)=>i===index?{...v,unitPrice:e.target.value}:v))}/></label>
  <div style={{display:"flex",alignItems:"end",justifyContent:"space-between",gap:12}}><span className="form-help">Line total <strong>{fmt(Math.round((Number(item.quantity)||0)*(Number(item.unitPrice)||0)*100),currency)}</strong></span>{items.length>1&&<button type="button" className="button button-outline" onClick={()=>setItems(all=>all.filter((_,i)=>i!==index))} aria-label={`Remove item ${index+1}`}>Remove</button>}</div>
  </div>)}</div>
- <label>Tax (%) <span>(optional)</span><input type="number" min="0" max="100" step="0.01" value={tax} onChange={e=>setTax(e.target.value)}/></label>
+ <label>Tax (%)<input type="number" min="0" max="100" step="0.01" required value={tax} onChange={e=>setTax(e.target.value)}/></label>
  <label>Discount ({currency}) <span>(optional)</span><input type="number" min="0" step="0.01" value={discount} onChange={e=>setDiscount(e.target.value)}/></label>
  <label className="form-wide">Thank-you note <span>(optional)</span><textarea name="invoiceFooter" rows={2} maxLength={1000} value={footer} onChange={e=>setFooter(e.target.value)} placeholder="Thank you for your business."/></label></div>
  <section aria-label="Invoice totals" style={{marginTop:20,marginLeft:"auto",maxWidth:340,borderTop:"1px solid var(--card-border)",paddingTop:14}}>
