@@ -13,7 +13,7 @@ import { getWalletNetwork } from "@/lib/wallet/networks";
 type MerchantOpenProps = {
   invoice: PaidInvoiceProps["invoice"] & { status: string; share_token_expires_at: string | null };
   seller: PaidInvoiceProps["seller"];
-  receivingNetwork: string | null;
+  receivingNetworks: string[];
   status: string;
   query: { cancelled?: string; error?: string; issued?: string };
   canEdit: boolean;
@@ -26,7 +26,8 @@ type MerchantOpenProps = {
   settlements: PaidInvoiceProps["settlements"];
 };
 
-export function MerchantOpenSurface({ invoice, seller, receivingNetwork, status, query, canEdit, canCancel, canShare, isCancelled, shareState, initialPayUrl, receipts, settlements }: MerchantOpenProps) {
+export function MerchantOpenSurface({ invoice, seller, receivingNetworks, status, query, canEdit, canCancel, canShare, isCancelled, shareState, initialPayUrl, receipts, settlements }: MerchantOpenProps) {
+  const receivingNetworkLabels = receivingNetworks.map((network) => getWalletNetwork(network)?.label ?? network);
   const id = invoice.id;
   const isPaid = invoice.status === "paid";
   return <div className="merchant-design" data-state="open"><main className="page">
@@ -43,7 +44,7 @@ export function MerchantOpenSurface({ invoice, seller, receivingNetwork, status,
     {(query.issued === "1" || query.issued) && <section className="ban" role="status"><span className="c"><MerchantIcon name="check" /></span><div><b>Invoice issued successfully. Ready for customer payment.</b></div></section>}
     {query.cancelled && <p className="sub" role="status">Invoice cancelled. It can no longer be payable.</p>}
     {query.error && <p className="sub" role="alert">Invoice could not be cancelled.</p>}
-    <section className="card amt"><div><p className="lab">Amount due</p><div className="big">{formatMoney(invoice.amount_minor, invoice.currency)}<small>USDC</small></div></div><span className="net"><i />{receivingNetwork ? getWalletNetwork(receivingNetwork)?.label ?? receivingNetwork : "Unavailable"}</span></section>
+    <section className="card amt"><div><p className="lab">Amount due</p><div className="big">{formatMoney(invoice.amount_minor, invoice.currency)}<small>USDC</small></div></div><span className="net"><i />{receivingNetworkLabels.length ? receivingNetworkLabels.join(" · ") : "Unavailable"}</span></section>
     {!isPaid && !isCancelled && <InvoiceSharePanel invoiceId={id} invoiceNumber={invoice.invoice_number} shareState={shareState} expiresAt={invoice.share_token_expires_at} canShare={canShare} initialUrl={initialPayUrl ?? undefined} />}
     <MerchantInvoiceSummary invoice={invoice} seller={seller} />
     <MerchantReceiptHistory receipts={receipts} settlements={settlements} />
