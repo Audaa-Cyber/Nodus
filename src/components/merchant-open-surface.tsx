@@ -29,17 +29,13 @@ type MerchantOpenProps = {
   settlements: PaidInvoiceProps["settlements"];
 };
 
-function dateTime(value: string) {
-  return `${formatUtcDate(value)} · ${new Date(value).toLocaleTimeString("en-GB", { timeZone: "UTC" })} UTC`;
-}
-
 export function MerchantOpenSurface({ invoice, seller, receivingNetwork, status, query, canEdit, canCancel, canShare, isCancelled, shareState, initialPayUrl, nearInvoiceRegistration, receipts, settlements }: MerchantOpenProps) {
   const id = invoice.id;
   const isPaid = invoice.status === "paid";
   return <div className="merchant-design" data-state="open"><main className="page">
     <InvoiceDetailLiveSync invoiceId={id} currentStatus={invoice.status} />
     <NearReconciliationLiveSync invoiceId={id} />
-    <div className="nav"><Link className="back" href="/dashboard/invoices"><MerchantIcon name="back" />Back to invoices</Link><span className="sync" role="status"><i /><span>Live · updated {dateTime(invoice.updated_at)}</span></span></div>
+    <div className="nav"><Link className="back" href="/dashboard/invoices"><MerchantIcon name="back" />Back to invoices</Link></div>
     <section className="card hd"><div>
       <h1><span className="n">#{invoice.invoice_number}</span><span className="st o" data-s="open"><i />{status === "open" ? "Open" : status === "overdue" ? "Overdue" : status === "draft" ? "Draft" : "Cancelled"}</span></h1>
       <p className="sub" data-s="open">Issued {formatUtcDate(invoice.issue_date)}{invoice.due_date && <> · Due {formatUtcDate(invoice.due_date)}</>} · {isCancelled ? "Payment link disabled" : status === "draft" ? "Ready to issue" : "Waiting for the customer to pay"}</p>
