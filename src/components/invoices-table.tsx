@@ -9,6 +9,8 @@ import { applyInvoiceUpdate, mergeInvoiceSnapshot, type InvoiceRealtimeUpdate } 
 export interface InvoiceListItem {
   id: string;
   invoice_number: string;
+  customer_name?: string | null;
+  customer_email?: string | null;
   amount_minor: number;
   currency: string;
   status: InvoiceStatus;
@@ -22,6 +24,7 @@ export interface InvoicesTableProps {
   page: number;
   pageSize: number;
   totalPages: number;
+  queryString?: string;
   hasError?: boolean;
 }
 
@@ -31,6 +34,7 @@ export function InvoicesTable({
   page,
   pageSize,
   totalPages,
+  queryString = "",
   hasError,
 }: InvoicesTableProps) {
   const [invoices, setInvoices] = useState<InvoiceListItem[]>(initialInvoices);
@@ -117,6 +121,7 @@ export function InvoicesTable({
                     >
                       {invoice.invoice_number}
                     </Link>
+                    {(invoice.customer_name || invoice.customer_email) && <span className="mt-1 block text-[10px] font-normal leading-relaxed text-slate-500">{invoice.customer_name}{invoice.customer_name && invoice.customer_email ? " · " : ""}{invoice.customer_email}</span>}
                     <span className="mt-1 block text-[10px] font-normal leading-relaxed text-slate-500 sm:hidden">
                       Created {formatUtcDate(invoice.created_at)} · Due{" "}
                       {invoice.due_date ? formatUtcDate(invoice.due_date) : "—"}
@@ -158,7 +163,7 @@ export function InvoicesTable({
         <div className="flex items-center gap-2">
           {page > 1 && (
             <Link
-              href={`/dashboard/invoices?page=${page - 1}`}
+              href={`/dashboard/invoices?${queryString ? `${queryString}&` : ""}page=${page - 1}`}
               className="py-1 px-2.5 rounded-lg border text-xs font-medium hover:bg-slate-500/5 transition-colors"
               style={{ borderColor: "var(--card-border)" }}
             >
@@ -167,7 +172,7 @@ export function InvoicesTable({
           )}
           {page * pageSize < (count ?? 0) && (
             <Link
-              href={`/dashboard/invoices?page=${page + 1}`}
+              href={`/dashboard/invoices?${queryString ? `${queryString}&` : ""}page=${page + 1}`}
               className="py-1 px-2.5 rounded-lg border text-xs font-medium hover:bg-slate-500/5 transition-colors"
               style={{ borderColor: "var(--card-border)" }}
             >
