@@ -22,7 +22,7 @@ export function StudioGovernance({ section, role }: { section:GovernanceSection;
   const [admins,setAdmins] = useState<AdminRecord[]>([]);
   const [events,setEvents] = useState<AuditRecord[]>([]);
   const [settings,setSettings] = useState<SettingRecord[]>([]);
-  const [supabaseUserId,setWorkosUserId] = useState("");
+  const [supabaseUserId,setSupabaseUserId] = useState("");
   const [email,setEmail] = useState("");
   const [displayName,setDisplayName] = useState("");
   const [newRole,setNewRole] = useState<"admin"|"editor"|"analyst">("editor");
@@ -49,7 +49,7 @@ export function StudioGovernance({ section, role }: { section:GovernanceSection;
       const response=await fetch("/api/studio/team",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({supabaseUserId,email,displayName,role:newRole})});
       const data=await response.json().catch(()=>({}));
       if(!response.ok) throw new Error(data.error??"Could not grant access.");
-      setWorkosUserId("");setEmail("");setDisplayName("");setNewRole("editor");
+      setSupabaseUserId("");setEmail("");setDisplayName("");setNewRole("editor");
       setNotice("Access granted. The new admin can sign in with their existing Supabase account.");
       await load();
     } catch(e) { setError(e instanceof Error?e.message:"Could not grant access."); }
@@ -88,7 +88,7 @@ export function StudioGovernance({ section, role }: { section:GovernanceSection;
       <div className="studio-panel-head"><div><span className="studio-overline">GOVERNANCE / RBAC</span><h3>Access & roles</h3></div><span className="studio-role-pill"><Shield size={13}/> {role.toUpperCase()}</span></div>
       <p className="studio-muted">Add existing Supabase accounts. This grants Nodus Studio access only, not access to customer invoices or payment records.</p>
       <form className="studio-admin-form" onSubmit={addAdmin}>
-        <label>Supabase user ID<input value={supabaseUserId} onChange={e=>setWorkosUserId(e.target.value)} placeholder="UUID" required/></label>
+        <label>Supabase user ID<input value={supabaseUserId} onChange={e=>setSupabaseUserId(e.target.value)} placeholder="UUID" required/></label>
         <label>Email<input type="email" value={email} onChange={e=>setEmail(e.target.value)} required/></label>
         <label>Display name<input value={displayName} onChange={e=>setDisplayName(e.target.value)} placeholder="Optional"/></label>
         <label>Role<select value={newRole} onChange={e=>setNewRole(e.target.value as "admin"|"editor"|"analyst")}><option value="admin">Admin</option><option value="editor">Editor</option><option value="analyst">Analyst</option></select></label>
