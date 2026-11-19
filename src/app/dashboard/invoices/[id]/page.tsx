@@ -4,7 +4,6 @@ import { createHash } from "node:crypto";
 import { PaidInvoiceDetailView } from "@/components/paid-invoice-detail-view";
 import { getBusinessContext } from "@/lib/auth/business-context";
 import { effectiveStatus } from "@/lib/invoices";
-import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export default async function InvoiceDetailPage({
   params,
