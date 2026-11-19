@@ -33,6 +33,8 @@ export function HomePage() {
   const formatUsd = (amount: number) => "$" + amount.toFixed(2);
   const [menuOpen, setMenuOpen] = useState(false);
   const [cmsHome, setCmsHome] = useState<{title:string;content:{heroTitle?:string;heroDescription?:string;ctaLabel?:string;ctaHref?:string}} | null>(null);
+  const cmsCtaHref = cmsHome?.content?.ctaHref;
+  const safeCmsCtaHref = cmsCtaHref && cmsCtaHref.startsWith("/") && !cmsCtaHref.startsWith("//") ? cmsCtaHref : "/login?next=%2Fdashboard";
 
   useEffect(() => {
     let active = true;
@@ -228,7 +230,7 @@ export function HomePage() {
               choose a supported stablecoin, and approve payment from their wallet.
             </p>
             <div className="hero-actions">
-              <Link href={cmsHome?.content?.ctaHref || "/login?next=%2Fdashboard"} prefetch={true} className="button button-dark" data-analytics-cta="homepage-primary">{cmsHome?.content?.ctaLabel || "Log in"}</Link>
+              <Link href={safeCmsCtaHref} prefetch={true} className="button button-dark" data-analytics-cta="homepage-primary">{cmsHome?.content?.ctaLabel || "Log in"}</Link>
             </div>
           </div>
         </div>
@@ -435,9 +437,9 @@ export function HomePage() {
           </div>
           <div className="footer-nav-group">
             <span className="footer-label">THE PRODUCT</span>
-            <span>Itemized invoices</span>
-            <span>QR checkout</span>
-            <span>Payment verification</span>
+            <Link href="/features">Features</Link>
+            <Link href="/faq">FAQs</Link>
+            <Link href="/updates">Announcements & changelog</Link>
           </div>
           <div className="footer-nav-group footer-legal-group">
             <span className="footer-label">LEGAL</span>
