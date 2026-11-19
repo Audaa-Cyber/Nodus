@@ -8,7 +8,7 @@ function visitorHash(request: NextRequest) {
   const cookieName = "nodus_analytics";
   const existing = request.cookies.get(cookieName)?.value;
   const token = existing && /^[a-f0-9-]{36}$/.test(existing) ? existing : randomBytes(18).toString("hex");
-  const secret = process.env.CMS_ANALYTICS_SECRET || process.env.CMS_ANALYTICS_SECRET || "";
+  const secret = process.env.CMS_ANALYTICS_SECRET || "";
   const hash = secret ? createHmac("sha256", secret).update(token).digest("hex") : createHash("sha256").update(token).digest("hex");
   return { token, hash, isNew: !existing };
 }
