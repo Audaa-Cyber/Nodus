@@ -66,11 +66,11 @@ export async function PUT(request: NextRequest) {
   const db = createCmsServiceClient();
   const timestamp = new Date().toISOString();
   const { error } = await db.from("cms_settings").upsert({
-    key, value: body.value, description, updated_by: admin.workosUserId, updated_at: timestamp,
+    key, value: body.value, description, updated_by: admin.supabaseUserId, updated_at: timestamp,
   }, { onConflict: "key" });
   if (error) return NextResponse.json({ error: "Could not save this setting." }, { status: 400 });
   const { error: auditError } = await db.from("cms_audit_logs").insert({
-    actor_user_id: admin.workosUserId, actor_email: admin.email,
+    actor_user_id: admin.supabaseUserId, actor_email: admin.email,
     action: "setting.updated", resource_type: "cms_setting", resource_id: key,
     summary: "Updated system setting: " + key, metadata: { key },
   });
