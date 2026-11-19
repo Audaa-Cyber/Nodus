@@ -1,48 +1,26 @@
 import "server-only";
-import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
-import { cookies } from "next/headers";
 import { getClientEnv } from "@/config/env.client";
 import type { Database } from "@/types/database";
 
 /**
- * Creates an SSR-safe Supabase server client bound to the current request's cookies.
- *
- * CRITICAL SECURITY INVARIANT:
- * Enforced by "server-only". Cannot be bundled into client components.
- * Uses only public anon key with user session cookies, respecting Row Level Security (RLS).
+ * Create a Supabase client authenticated by the WorkOS access token.
+ * The token is supplied per request and verified by Supabase's WorkOS
+ * third-party-auth integration. Never use a service-role key here.
  */
-export async function createSupabaseServerClient() {
-  const cookieStore = await cookies();
+export async function createSupabaseServerClient(accessToken?: string) {
   const env = getClientEnv();
-
-  return createServerClient<Database>(
+  return createClient<Database>(
     env.NEXT_PUBLIC_SUPABASE_URL || "https://unconfigured.supabase.co",
     env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "unconfigured-anon-key",
     {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll(cookiesToSet) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            );
-          } catch {
-            // The `setAll` method was called from a Server Component.
-            // This can be ignored if middleware is refreshing user sessions.
-          }
-        },
-      },
-    }
+      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+      ...(accessToken ? { accessToken: async () => accessToken } : {}),
+    },
   );
 }
 
-/** Creates a request-independent anon client for public share-token RPCs.
- * Cookie-bound sessions can have the `authenticated` database role, while
- * narrowly scoped public invoice RPCs are intentionally granted to `anon`.
- */
+/** Anonymous client for narrowly scoped public invoice/share RPCs. */
 export function createSupabaseAnonymousServerClient() {
   const env = getClientEnv();
   return createClient<Database>(
@@ -51,4 +29,3 @@ export function createSupabaseAnonymousServerClient() {
     { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } },
   );
 }
-
