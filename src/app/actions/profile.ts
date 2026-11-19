@@ -13,8 +13,8 @@ export async function updateBusinessProfileAction(_previous: FormState, formData
   const receivingNetworks = [...new Set(formData.getAll("receivingNetworks").map((value) => String(value).trim().toLowerCase()))];
   const receivingAddress = String(formData.get("receivingAddress") ?? "").trim();
   const supported = new Set(circleTestnetUsdcNetworks.map((network) => network.key));
-  if (receivingNetworks.length > 4 || receivingNetworks.some((network) => !supported.has(network))) {
-    return { error: "Choose up to four supported networks." };
+  if (receivingNetworks.length > 5 || receivingNetworks.some((network) => !supported.has(network))) {
+    return { error: "Choose up to five supported networks." };
   }
   if (receivingNetworks.length > 0 && !receivingAddress) return { error: "Paste your wallet address for the selected networks." };
   if (receivingNetworks.length === 0 && receivingAddress) return { error: "Select at least one network for this wallet address." };
