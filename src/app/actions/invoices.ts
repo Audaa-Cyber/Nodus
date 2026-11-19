@@ -2,26 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect, RedirectType } from "next/navigation";
-import { after } from "next/server";
 import { createHash, randomBytes } from "node:crypto";
 import { getBusinessContext } from "@/lib/auth/business-context";
-import { getSupabaseAdminClient } from "@/lib/supabase/admin";
-import { processNearInvoiceRegistrationOutbox } from "@/lib/server/near-invoice-registration-outbox";
 import { parseInvoiceForm } from "@/lib/invoices";
 import type { FormState } from "./auth";
 
 const LINK_LIFETIME_MS = 365 * 24 * 60 * 60 * 1000;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-function triggerBackgroundNearRegistration(): void {
-  after(async () => {
-    try {
-      await processNearInvoiceRegistrationOutbox(1);
-    } catch {
-      // Durable outbox in PostgreSQL is drained by scheduled worker or retry action
-    }
-  });
-}
 
 function createPayLinkCredentials(): { token: string; tokenHash: string; expiresAt: string } {
   const token = randomBytes(32).toString("base64url");
@@ -40,13 +27,16 @@ export async function saveInvoiceAction(_previous: FormState, formData: FormData
   if (!business) return { error: "Business profile is unavailable. Contact support if the problem continues." };
   values.invoice_footer = values.invoice_footer || business.invoice_footer || "Thank you for your business.";
   const intent: "open" | "draft" = formData.get("intent") === "issue" ? "open" : "draft";
+  const selectedPaymentNetworks = [...new Set(formData.getAll("paymentNetworks").map((value) => String(value).trim().toLowerCase()))];
+  const configuredNetworks = new Set(business.receiving_networks ?? []);
+  if (selectedPaymentNetworks.length > 4) return { error: "Choose no more than four payment networks." };
   const clientDraftId = String(formData.get("clientDraftId") ?? "").trim();
   const invoiceId = String(formData.get("invoiceId") ?? "");
 
   if (invoiceId) {
     const { data: existing, error: lookupError } = await supabase
       .from("invoices")
-      .select("id,status,amount_minor,currency,invoice_number,share_token_hash")
+      .select("id,status,amount_minor,currency,invoice_number,share_token_hash,payment_networks")
       .eq("id", invoiceId)
       .eq("business_id", business.id)
       .maybeSingle();
@@ -57,7 +47,13 @@ export async function saveInvoiceAction(_previous: FormState, formData: FormData
       return { error: "Issued invoice amount and currency cannot be changed. Cancel this invoice and create a replacement." };
     }
 
+    if (existing.status === "draft" && selectedPaymentNetworks.some((network) => !configuredNetworks.has(network))) {
+      return { error: "Choose payment networks enabled in your business profile." };
+    }
     const isTransitioningToOpen = intent === "open" && existing.status === "draft";
+    if (isTransitioningToOpen && (!business.receiving_address || selectedPaymentNetworks.length < 1)) {
+      return { error: "Set your wallet address and choose at least one payment network before issuing this invoice." };
+    }
     const status = isTransitioningToOpen ? "open" : existing.status;
 
     let shareTokenUpdate: { share_token_hash?: string; share_token_expires_at?: string } = {};
@@ -75,6 +71,8 @@ export async function saveInvoiceAction(_previous: FormState, formData: FormData
     const updateValues = {
       ...values,
       ...shareTokenUpdate,
+      ...(existing.status === "draft" ? { payment_networks: selectedPaymentNetworks } : {}),
+      ...(isTransitioningToOpen ? { payment_receiving_address: business.receiving_address } : {}),
       invoice_number: existing.invoice_number,
       seller_snapshot: isTransitioningToOpen ? {
         business_name: business.business_name,
@@ -86,6 +84,7 @@ export async function saveInvoiceAction(_previous: FormState, formData: FormData
         tax_registration_number: business.tax_registration_number ?? null,
         receiving_address: business.receiving_address,
         receiving_network: business.receiving_network,
+        receiving_networks: business.receiving_networks ?? [],
         invoice_footer: values.invoice_footer,
       } : undefined,
       status,
@@ -93,10 +92,6 @@ export async function saveInvoiceAction(_previous: FormState, formData: FormData
 
     const { error } = await supabase.from("invoices").update(updateValues).eq("id", invoiceId).eq("business_id", business.id);
     if (error) return { error: error.code === "23505" ? "That invoice number is already in use." : "Could not save the invoice. Check the details and try again." };
-
-    if (isTransitioningToOpen) {
-      triggerBackgroundNearRegistration();
-    }
 
     revalidatePath("/dashboard/invoices");
     revalidatePath(`/dashboard/invoices/${invoiceId}`);
@@ -113,6 +108,13 @@ export async function saveInvoiceAction(_previous: FormState, formData: FormData
   let shareTokenFields: { share_token_hash?: string; share_token_expires_at?: string } = {};
   let issuedRedirectToken: string | null = null;
 
+  if (intent === "open" && (!business.receiving_address || selectedPaymentNetworks.length < 1)) {
+    return { error: "Set your wallet address and choose at least one payment network before issuing this invoice." };
+  }
+  if (selectedPaymentNetworks.some((network) => !configuredNetworks.has(network))) {
+    return { error: "Choose payment networks enabled in your business profile." };
+  }
+
   if (intent === "open") {
     const creds = createPayLinkCredentials();
     shareTokenFields = {
@@ -128,6 +130,8 @@ export async function saveInvoiceAction(_previous: FormState, formData: FormData
     invoice_number: allocatedNumber,
     business_id: business.id,
     status: intent,
+    payment_networks: selectedPaymentNetworks,
+    payment_receiving_address: intent === "open" ? business.receiving_address : null,
     seller_snapshot: {
       business_name: business.business_name,
       email: business.email,
@@ -138,6 +142,7 @@ export async function saveInvoiceAction(_previous: FormState, formData: FormData
       tax_registration_number: business.tax_registration_number ?? null,
       receiving_address: business.receiving_address,
       receiving_network: business.receiving_network,
+      receiving_networks: business.receiving_networks ?? [],
       invoice_footer: values.invoice_footer,
     },
     ...shareTokenFields,
@@ -162,10 +167,6 @@ export async function saveInvoiceAction(_previous: FormState, formData: FormData
     return { error: error.code === "23505" ? "That invoice number is already in use." : "Could not create the invoice. Check the details and try again." };
   }
   if (!invoice) return { error: "Could not create the invoice. Check the details and try again." };
-
-  if (intent === "open") {
-    triggerBackgroundNearRegistration();
-  }
 
   revalidatePath("/dashboard/invoices");
   revalidatePath(`/dashboard/invoices/${invoice.id}`);
@@ -195,15 +196,3 @@ export async function cancelInvoiceAction(formData: FormData) {
   redirect(`/dashboard/invoices/${invoiceId}?cancelled=1`, RedirectType.replace);
 }
 
-export async function retryNearInvoiceRegistrationAction(formData: FormData) {
-  const invoiceId = String(formData.get("invoiceId") ?? "");
-  const { supabase, user, business } = await getBusinessContext();
-  if (!user) redirect("/login", RedirectType.replace);
-  if (!business || !/^[0-9a-f-]{36}$/i.test(invoiceId)) redirect("/dashboard", RedirectType.replace);
-  const { data: invoice } = await supabase.from("invoices").select("id")
-    .eq("id", invoiceId).eq("business_id", business.id).maybeSingle();
-  if (!invoice) redirect("/dashboard", RedirectType.replace);
-  await getSupabaseAdminClient().rpc("requeue_near_invoice_registration", { p_invoice_id: invoiceId });
-  revalidatePath(`/dashboard/invoices/${invoiceId}`);
-  redirect(`/dashboard/invoices/${invoiceId}`, RedirectType.replace);
-}
