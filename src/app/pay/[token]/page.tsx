@@ -124,7 +124,7 @@ export default async function PublicInvoicePage({ params }: { params: Promise<{ 
     lineItems: items, subtotalMinor, taxRateBps: invoice.tax_rate_bps, discountMinor: invoice.discount_minor, sellerDetails,
   } : null;
 
-  return <PayerInvoiceFrame checkout={checkout} isPaid={status === "paid"} shareToken={token}>
+  return <PayerInvoiceFrame checkout={checkout} isPaid={status === "paid"} shareToken={token} paidAt={receipts?.[0]?.issued_at ?? null}>
     <PayerInvoiceSheet
       invoiceNumber={invoice.invoice_number} status={status} businessName={sellerName} logoUrl={sellerLogo}
       email={sellerEmail} phone={sellerPhone} address={sellerAddress} taxId={sellerTaxId}
