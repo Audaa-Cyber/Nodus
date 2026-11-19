@@ -20,7 +20,7 @@ export function OverviewRecentInvoices({ invoices, today }: { invoices: RecentIn
     <div className="overview-empty">
       <FileText size={28} strokeWidth={1.3} aria-hidden="true" />
       <h3>No invoices recorded yet</h3>
-      <p>Create an invoice to accept USDC payments.</p>
+      <p>Create an invoice to accept stablecoin payments.</p>
       <Link href="/dashboard/invoices/new" className="overview-text-link">Create invoice <ArrowRight size={14} aria-hidden="true" /></Link>
     </div>
   );
