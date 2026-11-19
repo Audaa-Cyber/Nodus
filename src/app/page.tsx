@@ -6,11 +6,8 @@ import { useEffect, useRef, useState } from "react";
 import {
   ArrowUpRight,
   Check,
-  ChevronDown,
   CircleHelp,
   Clock3,
-  Copy,
-  LockKeyhole,
   Menu,
   QrCode,
   ShieldCheck,
@@ -19,30 +16,24 @@ import {
 } from "lucide-react";
 import DotMatrixHands from "@/components/dot-matrix-hands";
 
-const methods = ["USDC · Arc Testnet", "USDC · Ethereum Sepolia", "USDC · Base Sepolia", "USDC · Arbitrum Sepolia", "USDC · Optimism Sepolia"];
-
 export default function Home() {
-  const [method, setMethod] = useState(methods[0]);
+  const method = "USDC · Arc Testnet";
   const [paymentState, setPaymentState] = useState<"idle" | "processing" | "paid">("idle");
   const [demoPrinted, setDemoPrinted] = useState(false);
   const [demoTearing, setDemoTearing] = useState(false);
-  const [items, setItems] = useState([
+  const items = [
     { id: 1, name: "House espresso", price: 4.5, quantity: 1 },
     { id: 2, name: "Almond croissant", price: 6, quantity: 1 },
     { id: 3, name: "Still water", price: 2.5, quantity: 1 },
-  ]);
+  ];
   const paymentTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const tax = subtotal * 0.15;
   const total = subtotal + tax;
   const formatUsd = (amount: number) => "$" + amount.toFixed(2);
-  const [showBreakdown, setShowBreakdown] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => () => {
-    if (copyTimer.current) clearTimeout(copyTimer.current);
     if (paymentTimer.current) clearTimeout(paymentTimer.current);
   }, []);
 
@@ -60,24 +51,7 @@ export default function Home() {
     return () => window.removeEventListener("keydown", closeOnEscape);
   }, [menuOpen]);
 
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText("NODUS-INV-0248");
-      setCopied(true);
-      if (copyTimer.current) clearTimeout(copyTimer.current);
-      copyTimer.current = setTimeout(() => setCopied(false), 2500);
-    } catch {
-      setCopied(false);
-    }
-  };
-
   const closeMenu = () => setMenuOpen(false);
-
-  const updateQuantity = (id: number, delta: number) => {
-    if (paymentTimer.current) clearTimeout(paymentTimer.current);
-    setItems((current) => current.map((item) => item.id === id ? { ...item, quantity: Math.max(1, Math.min(9, item.quantity + delta)) } : item));
-    setPaymentState("idle");
-  };
 
   const runDemoPayment = () => {
     if (paymentState !== "idle") return;
@@ -116,13 +90,13 @@ export default function Home() {
     context.save();
     context.translate(300, 78);
     context.rotate(0.22);
-    context.strokeStyle = "#27804a";
+    context.strokeStyle = "#555555";
     context.lineWidth = 3;
     context.globalAlpha = 0.8;
     context.beginPath();
     context.ellipse(0, 0, 39, 20, 0, 0, Math.PI * 2);
     context.stroke();
-    context.fillStyle = "#27804a";
+    context.fillStyle = "#555555";
     context.font = "800 16px Arial";
     context.textAlign = "center";
     context.fillText("PAID", 0, 5);
