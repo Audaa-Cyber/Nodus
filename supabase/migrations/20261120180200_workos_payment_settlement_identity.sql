@@ -15,7 +15,7 @@ begin
   v_user_id := auth.jwt() ->> 'sub';
   v_issuer := auth.jwt() ->> 'iss';
   if v_user_id is null or v_user_id = ''
-    or v_issuer not in (
+    or coalesce(v_issuer, '') not in (
       'https://api.workos.com/user_management/client_01M7T841PNMYSWF6CYPTWWK7MH',
       'https://api.workos.com/user_management/client_01M7T841Y5D7AJZHVW8YSTJ9EG'
     ) then
