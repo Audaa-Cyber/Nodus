@@ -73,8 +73,8 @@ export function MerchantPaidSurface({ invoice, seller, primaryReceipt, primarySe
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => { setCopiedKey(""); setNotice(""); }, 2600);
   }
-  function valueActions(value: string, key: string, kind?: "tx" | "address") {
-    const href = kind ? explorer(network, kind, value) : null;
+  function valueActions(value: string, key: string, kind?: "tx" | "address", networkOverride?: string | null) {
+    const href = kind ? explorer(networkOverride ?? network, kind, value) : null;
     return <span className="ac"><button className={`ib${copiedKey === key ? " ok" : ""}`} type="button" onClick={() => void copy(value, key)} aria-label={`Copy ${key}`} title="Copy"><MerchantIcon name={copiedKey === key ? "check" : "copy"} /></button>
       {href && <a className="ib" href={href} target="_blank" rel="noopener noreferrer" aria-label={`View ${key} on explorer`} title={network === "arbitrum-sepolia" ? "View on Arbiscan" : "View on explorer"}><MerchantIcon name="ext" /></a>}</span>;
   }
@@ -87,19 +87,14 @@ export function MerchantPaidSurface({ invoice, seller, primaryReceipt, primarySe
     <section className="card amt"><div><p className="lab" data-s="paid">Amount received</p><div className="big">{receivedAmount(primarySettlement?.received_amount_base_units, primarySettlement?.received_asset_decimals)}<small>{asset}</small></div></div><span className="net"><i />{networkName}</span></section>
     <section className="ban" data-s="paid" role="status"><span className="c"><MerchantIcon name="check" style={{ width: 18, height: 18, strokeWidth: 2.2 }} /></span><div><b>{verified ? "Payment Verified On-Chain" : "Payment receipt unavailable"}</b><span>{verified ? `Destination settlement independently confirmed on ${networkName}. Funds are in your receiving wallet.` : "Paid status is recorded only after verified settlement. Receipt data may still be loading."}</span></div></section>
     <section className="card" data-s="paid"><h2 style={{ margin: "0 0 14px", fontSize: 18, fontWeight: 700 }}>On-chain settlement verification</h2><dl className="kv">
-      <div><dt>Cryptographic receipt number</dt><dd>{primaryReceipt?.receipt_number ? `#${primaryReceipt.receipt_number}` : "Unavailable"}</dd>{primaryReceipt?.receipt_number ? valueActions(primaryReceipt.receipt_number, "receipt number") : <span />}</div>
+      <div><dt>Receipt number</dt><dd>{primaryReceipt?.receipt_number ? `#${primaryReceipt.receipt_number}` : "Unavailable"}</dd>{primaryReceipt?.receipt_number ? valueActions(primaryReceipt.receipt_number, "receipt number") : <span />}</div>
       <div><dt>Settlement timestamp</dt><dd>{dateTime(paidAt)}</dd><span /></div>
+      {payer && <div><dt>Paid from wallet</dt><dd>{shortHash(payer)}</dd>{valueActions(payer, "payer wallet address", "address", primaryAttempt?.source_network ?? network)}</div>}
       {hashes.length ? hashes.map((hash, index) => <div key={hash}><dt>Destination transaction hash{index > 0 ? ` ${index + 1}` : ""}</dt><dd>{shortHash(hash)}</dd>{valueActions(hash, "transaction hash", "tx")}</div>) : <div><dt>Destination transaction hash</dt><dd>Unavailable</dd><span /></div>}
-      <div><dt>Escrow smart contract</dt><dd>{contract ? shortHash(contract) : "Unavailable"}</dd>{contract ? valueActions(contract, "contract address", "address") : <span />}</div>
+      {contract && <div><dt>Escrow smart contract</dt><dd>{shortHash(contract)}</dd>{valueActions(contract, "contract address", "address")}</div>}
     </dl></section>
     <CustomerFeedback invoiceId={invoice.id} customerName={invoice.customer_name} />
     <MerchantInvoiceSummary invoice={invoice} seller={{ ...seller, receiving_address: primarySettlement?.recipient_address ?? seller.receiving_address }} paid />
-    <section className="card" aria-labelledby="near-reconciliation-title"><h2 id="near-reconciliation-title" style={{ margin: "0 0 14px", fontSize: 18, fontWeight: 700 }}>NEAR reconciliation</h2>
-      <p className="sub">Decentralized audit trail recorded on NEAR Protocol. Settlement on EVM destination chain is verified independently.</p>
-      <p role="status">{nearOutboxError ? "NEAR reconciliation status is temporarily unavailable." : !primaryNearEntry ? nearSettlementEligibility === "not_applicable" ? "NEAR settlement recording is not applicable to this direct or same-chain payment." : nearSettlementEligibility === "eligible" ? "NEAR reconciliation outbox job is missing for this eligible payment. The EVM payment remains verified." : nearSettlementEligibility === "unsupported" ? "NEAR reconciliation is not configured for this payment route. The EVM payment is verified." : "NEAR reconciliation status is not available for this payment. The EVM payment is verified." : primaryNearEntry.status === "submitted" && primaryNearEntry.near_transaction_hash ? "Reconciliation confirmed on NEAR" : primaryNearEntry.status === "blocked" ? `NEAR reconciliation blocked. Error: ${primaryNearEntry.last_error_code ?? "Unknown error"}` : primaryNearEntry.near_transaction_hash ? "Submitted to NEAR; awaiting contract confirmation. The outbox will retry contract readback without resubmitting this transaction." : primaryNearEntry.status === "submitted" ? "NEAR confirmation evidence is incomplete. The outbox is marked submitted but has no transaction hash to verify." : `NEAR reconciliation ${primaryNearEntry.status === "processing" ? "in progress" : primaryNearEntry.status === "retrying" ? "retrying" : "pending"}. Attempt ${primaryNearEntry.attempt_count ?? 0}. EVM settlement verification is already complete and unaffected.`}</p>
-      {primaryNearEntry?.near_transaction_hash && <p><a href={`https://nearblocks.io/txns/${encodeURIComponent(primaryNearEntry.near_transaction_hash)}`} target="_blank" rel="noopener noreferrer">NEAR Transaction: {shortHash(primaryNearEntry.near_transaction_hash)}</a>{primaryNearEntry.submitted_at && ` · ${dateTime(primaryNearEntry.submitted_at)}`}</p>}
-      {nearInvoiceRegistration && invoice.near_registration_status === "registered" && invoice.near_registration_transaction_hash && <p><a href={`https://nearblocks.io/txns/${encodeURIComponent(invoice.near_registration_transaction_hash)}`} target="_blank" rel="noopener noreferrer">Registered on NEAR ({shortHash(invoice.near_registration_transaction_hash)})</a></p>}
-    </section>
     <details className="card"><summary>Technical payment details</summary><dl className="kv">
       <div><dt>Payment mode</dt><dd>{primaryAttempt?.mode === "mock" ? "Mock / Demo" : primaryAttempt?.mode === "live" ? "Live" : "Unavailable"}</dd><span /></div>
       <div><dt>Source asset</dt><dd>{primaryAttempt?.source_asset_id ?? "Unavailable"}</dd><span /></div>
