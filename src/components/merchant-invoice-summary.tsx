@@ -40,7 +40,7 @@ export function MerchantInvoiceSummary({ invoice, seller, paid = false }: Pick<P
       <p><span>Subtotal</span><span>{formatMoney(subtotal, invoice.currency)}</span></p>
       <p><span>Tax ({taxRate / 100}%)</span><span>{formatMoney(tax, invoice.currency)}</span></p>
       <p><span>Discount</span><span>{formatMoney(invoice.discount_minor ?? 0, invoice.currency)}</span></p>
-      <p className="t"><span>{paid ? "Net Total Paid" : "Net Total Due"}</span><span>{formatMoney(invoice.amount_minor, invoice.currency)}{invoice.currency.toUpperCase() !== "USDC" && " USDC"}</span></p>
+      <p className="t"><span>{paid ? "Net Total Paid" : "Net Total Due"}</span><span>{formatMoney(invoice.amount_minor, invoice.currency)}</span></p>
     </div>
   </section>;
 }
