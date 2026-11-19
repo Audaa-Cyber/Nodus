@@ -11,11 +11,11 @@ type SettingRecord = { key:string; value:unknown; description:string|null; updat
 
 const settingOptions = [
   { key:"public_site.announcement_banner", label:"Announcement banner", description:"Public site banner copy and visibility.", value:{ enabled:false, text:"" } },
-  { key:"public_site.maintenance_mode", label:"Maintenance mode", description:"Maintenance-mode flag for a future public-site gate.", value:{ enabled:false } },
   { key:"features.faq_enabled", label:"FAQs section", description:"Feature flag for the public FAQ section.", value:{ enabled:true } },
   { key:"features.changelog_enabled", label:"Changelog", description:"Feature flag for the public changelog.", value:{ enabled:true } },
   { key:"seo.default_title", label:"Default SEO title", description:"Fallback title for pages without a custom SEO title.", value:"Nodus — Business payments, made clear" },
   { key:"seo.default_description", label:"Default SEO description", description:"Fallback description for pages without custom metadata.", value:"Create itemized invoices, share a QR checkout, and keep payment status clear." },
+  { key:"seo.default_social_image", label:"Default social preview image", description:"Fallback image URL for Open Graph and social cards.", value:"" },
 ];
 
 export function StudioGovernance({ section, role }: { section:GovernanceSection; role:CmsAdminRole }) {
