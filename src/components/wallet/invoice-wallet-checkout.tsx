@@ -32,6 +32,7 @@ export type InvoiceWalletCheckoutProps = {
   currency: string;
   status: string;
   destinationNetwork?: string | null;
+  destinationNetworks?: string[];
   recipientAddress?: string | null;
   businessName?: string | null;
   logoUrl?: string | null;
@@ -87,6 +88,7 @@ function InvoiceWalletCheckoutContent({
   currency,
   status,
   destinationNetwork,
+  destinationNetworks = destinationNetwork ? [destinationNetwork] : [],
   recipientAddress,
   businessName,
   logoUrl,
@@ -116,7 +118,8 @@ function InvoiceWalletCheckoutContent({
   const [flowError, setFlowError] = useState("");
   const [assets, setAssets] = useState<WalletAsset[]>([]);
   const [selectedSymbol, setSelectedSymbol] = useState("USDC");
-  const [selectedSourceNetworkKey, setSelectedSourceNetworkKey] = useState<string>(() => resolveCheckoutSource(isEvmConnected ? evmChainId : undefined, destinationNetwork).key);
+  const [selectedDestinationNetwork, setSelectedDestinationNetwork] = useState<string>(() => destinationNetwork ?? destinationNetworks[0] ?? "base-sepolia");
+  const [selectedSourceNetworkKey, setSelectedSourceNetworkKey] = useState<string>(() => resolveCheckoutSource(isEvmConnected ? evmChainId : undefined, selectedDestinationNetwork).key);
   const [sourceNetworkManuallySelected, setSourceNetworkManuallySelected] = useState(false);
   const [showAdvancedNetworks, setShowAdvancedNetworks] = useState(false);
   const [switchError, setSwitchError] = useState("");
@@ -184,11 +187,13 @@ function InvoiceWalletCheckoutContent({
     if (suggestedNetwork) setSelectedSourceNetworkKey(suggestedNetwork.key);
   }, [evmChainId, isEvmConnected, sourceNetworkManuallySelected]);
 
+  useEffect(() => { if (destinationNetworks.length && !destinationNetworks.includes(selectedDestinationNetwork)) setSelectedDestinationNetwork(destinationNetworks[0]); }, [destinationNetworks, selectedDestinationNetwork]);
+
   const selectedSourceNetwork = useMemo(
     () => sourceNetworkManuallySelected
-      ? circleTestnetUsdcNetworks.find((network) => network.key === selectedSourceNetworkKey) ?? resolveCheckoutSource(evmChainId, destinationNetwork)
+      ? circleTestnetUsdcNetworks.find((network) => network.key === selectedSourceNetworkKey) ?? resolveCheckoutSource(evmChainId, selectedDestinationNetwork)
       : resolveCheckoutSource(isEvmConnected ? evmChainId : undefined, destinationNetwork),
-    [selectedSourceNetworkKey, sourceNetworkManuallySelected, isEvmConnected, evmChainId, destinationNetwork],
+    [selectedSourceNetworkKey, sourceNetworkManuallySelected, isEvmConnected, evmChainId, selectedDestinationNetwork],
   );
   const selectedSourceWalletNetwork = getWalletNetwork(selectedSourceNetwork.key) ?? null;
   const isWrongChainForRoute = Boolean(isEvmConnected && evmChainId !== selectedSourceNetwork.chainId);
@@ -508,7 +513,7 @@ function InvoiceWalletCheckoutContent({
   return <>
     {canRunLiveFlow ? <LivePaymentFlow
       shareToken={shareToken} invoiceNumber={invoiceNumber} amountMinor={amountMinor} currency={currency}
-      selectedAsset={selectedAsset} activeAddress={activeConnection.address} dockDetails={dockDetails}
+      destinationNetwork={selectedDestinationNetwork} selectedAsset={selectedAsset} activeAddress={activeConnection.address} dockDetails={dockDetails}
       onExecutionStateChange={onExecutionStateChange}
       onPaymentSuccess={(receipts) => {
         if (Array.isArray(receipts) && receipts.length > 0) setStoredReceipts(receipts as ReceiptInfo[]);
@@ -546,6 +551,27 @@ function InvoiceWalletCheckoutContent({
         <>
           {/* 1. ASSET-FIRST SELECTION BAR */}
           <div className="wallet-asset-control">
+            <div className="asset-selection-header">
+              <label htmlFor="payerDestinationNetwork">Send to network</label>
+            </div>
+            <select
+              id="payerDestinationNetwork"
+              disabled={executionBusy || destinationNetworks.length <= 1}
+              value={selectedDestinationNetwork}
+              onChange={(event) => {
+                setSelectedDestinationNetwork(event.target.value);
+                setAttempt(null);
+                setFlowError("");
+              }}
+              className="nodus-input font-medium"
+              aria-label="Choose the invoice receiving network"
+            >
+              {circleTestnetUsdcNetworks.filter((network) => destinationNetworks.includes(network.key)).map((network) => (
+                <option key={network.key} value={network.key}>{network.label}</option>
+              ))}
+            </select>
+            <p className="wallet-description">The merchant accepts this invoice on the selected network. Funds are sent to their wallet address there.</p>
+
             <div className="asset-selection-header">
               <label htmlFor="payerSourceNetwork">Pay from network</label>
               {effectiveNetwork && <span className="network-pill">{effectiveNetwork.label}</span>}
