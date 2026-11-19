@@ -23,7 +23,8 @@ export async function getCmsAdmin(): Promise<CmsAdmin | null> {
 
   // Role assignments live in Supabase. The environment allowlist is only a
   // one-time bootstrap gate for the first owner, never a permanent bypass.
-  const db = createCmsServiceClient();
+  let db: ReturnType<typeof createCmsServiceClient>;
+  try { db = createCmsServiceClient(); } catch { return null; }
   const { data: existing, error } = await db
     .from("cms_admin_users")
     .select("id,workos_user_id,email,display_name,role,is_active")
