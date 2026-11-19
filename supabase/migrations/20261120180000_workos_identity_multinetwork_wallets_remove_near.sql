@@ -80,8 +80,6 @@ for insert to authenticated with check (
   )
 );
 
-grant insert on public.business_profiles to authenticated;
-grant update (receiving_address, receiving_network, receiving_networks) on public.business_profiles to authenticated;
 alter table public.notifications alter column recipient_user_id type text using recipient_user_id::text;
 
 -- Businesses may accept any subset of the four supported USDC destination networks.
@@ -98,6 +96,11 @@ alter table public.business_profiles
 alter table public.business_profiles
   add constraint business_receiving_networks_supported
   check (cardinality(receiving_networks) <= 4 and receiving_networks <@ array['sepolia','base-sepolia','arbitrum-sepolia','optimism-sepolia']::text[]);
+alter table public.business_profiles
+  add constraint business_receiving_address_required
+  check ((cardinality(receiving_networks) = 0 and receiving_address is null) or (cardinality(receiving_networks) > 0 and receiving_address is not null));
+grant insert on public.business_profiles to authenticated;
+grant update (receiving_address, receiving_network, receiving_networks) on public.business_profiles to authenticated;
 
 alter table public.invoices
   add column if not exists payment_networks text[] not null default '{}',
