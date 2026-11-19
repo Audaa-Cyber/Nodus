@@ -47,7 +47,10 @@ export async function getCmsAdmin(): Promise<CmsAdmin | null> {
 
   const bootstrapSubjects = (process.env.CMS_ADMIN_WORKOS_SUBJECTS ?? "")
     .split(",").map((value) => value.trim()).filter(Boolean);
-  if (!bootstrapSubjects.includes(user.id)) return null;
+  const bootstrapEmails = (process.env.CMS_ADMIN_EMAILS ?? "")
+    .split(",").map((value) => value.trim().toLowerCase()).filter(Boolean);
+  const normalizedEmail = user.email?.trim().toLowerCase() ?? "";
+  if (!bootstrapSubjects.includes(user.id) && (!normalizedEmail || !bootstrapEmails.includes(normalizedEmail))) return null;
 
   const { count, error: countError } = await db
     .from("cms_admin_users")
