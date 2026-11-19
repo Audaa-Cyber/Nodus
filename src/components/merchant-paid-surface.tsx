@@ -43,7 +43,7 @@ function escrowContract(evidence: unknown) {
   return null;
 }
 
-export function MerchantPaidSurface({ invoice, seller, primaryReceipt, primarySettlement, primaryAttempt, primaryNearEntry, nearSettlementEligibility = "unknown", nearOutboxError, nearInvoiceRegistration, receipts, settlements }: PaidInvoiceProps) {
+export function MerchantPaidSurface({ invoice, seller, primaryReceipt, primarySettlement, primaryAttempt, receipts, settlements }: PaidInvoiceProps) {
   const [copiedKey, setCopiedKey] = useState("");
   const [notice, setNotice] = useState("");
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -76,7 +76,7 @@ export function MerchantPaidSurface({ invoice, seller, primaryReceipt, primarySe
   function valueActions(value: string, key: string, kind?: "tx" | "address", networkOverride?: string | null) {
     const href = kind ? explorer(networkOverride ?? network, kind, value) : null;
     return <span className="ac"><button className={`ib${copiedKey === key ? " ok" : ""}`} type="button" onClick={() => void copy(value, key)} aria-label={`Copy ${key}`} title="Copy"><MerchantIcon name={copiedKey === key ? "check" : "copy"} /></button>
-      {href && <a className="ib" href={href} target="_blank" rel="noopener noreferrer" aria-label={`View ${key} on explorer`} title={network === "arbitrum-sepolia" ? "View on Arbiscan" : "View on explorer"}><MerchantIcon name="ext" /></a>}</span>;
+      {href && <a className="ib" href={href} target="_blank" rel="noopener noreferrer" aria-label={`View ${key} on explorer`} title={(networkOverride ?? network) === "arbitrum-sepolia" ? "View on Arbiscan" : "View on explorer"}><MerchantIcon name="ext" /></a>}</span>;
   }
   return <div className="merchant-design" data-state="paid"><main className="page">
     <div className="nav"><Link className="back" href="/dashboard/invoices"><MerchantIcon name="back" />Back to invoices</Link><span className="sync" role="status"><i /><span>Live · updated {dateTime(invoice.updated_at)}</span></span></div>
@@ -89,7 +89,7 @@ export function MerchantPaidSurface({ invoice, seller, primaryReceipt, primarySe
     <section className="card" data-s="paid"><h2 style={{ margin: "0 0 14px", fontSize: 18, fontWeight: 700 }}>On-chain settlement verification</h2><dl className="kv">
       <div><dt>Receipt number</dt><dd>{primaryReceipt?.receipt_number ? `#${primaryReceipt.receipt_number}` : "Unavailable"}</dd>{primaryReceipt?.receipt_number ? valueActions(primaryReceipt.receipt_number, "receipt number") : <span />}</div>
       <div><dt>Settlement timestamp</dt><dd>{dateTime(paidAt)}</dd><span /></div>
-      {payer && <div><dt>Paid from wallet</dt><dd>{shortHash(payer)}</dd>{valueActions(payer, "payer wallet address", "address", primaryAttempt?.source_network ?? network)}</div>}
+      {payer && <div><dt>Paid from wallet</dt><dd title={payer}>{shortHash(payer)}</dd>{valueActions(payer, "payer wallet address", "address", primaryAttempt?.source_network ?? network)}</div>}
       {hashes.length ? hashes.map((hash, index) => <div key={hash}><dt>Destination transaction hash{index > 0 ? ` ${index + 1}` : ""}</dt><dd>{shortHash(hash)}</dd>{valueActions(hash, "transaction hash", "tx")}</div>) : <div><dt>Destination transaction hash</dt><dd>Unavailable</dd><span /></div>}
       {contract && <div><dt>Escrow smart contract</dt><dd>{shortHash(contract)}</dd>{valueActions(contract, "contract address", "address")}</div>}
     </dl></section>
