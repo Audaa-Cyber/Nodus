@@ -174,34 +174,30 @@ export function MerchantCircleWalletCard({
     >
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-blue-500" />
+          <div className="w-2 h-2 rounded-full bg-neutral-500" />
           <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-800">
-            Circle User-Controlled Wallet
+            Circle wallet
           </h3>
         </div>
         {isCurrentConnected && (
-          <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-            ✓ Active Receiving Destination
+          <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full border border-neutral-200 bg-neutral-50 text-neutral-700">
+            Active destination
           </span>
         )}
       </div>
-
-      <p className="text-xs text-slate-600 mb-4 leading-relaxed">
-        Secure non-custodial wallet powered by Circle MPC. Backed by your personal PIN, with no browser extensions or seed phrases required.
-      </p>
 
       {isLoading ? (
         <p className="text-xs text-slate-500">Checking Circle wallet status…</p>
       ) : isConfigured === false ? (
         <div className="text-xs text-amber-700 bg-amber-50 p-3 rounded-md border border-amber-200">
-          Circle User-Controlled Wallets are not configured on this server. Configure <code>CIRCLE_API_KEY</code> and <code>NEXT_PUBLIC_CIRCLE_APP_ID</code> to enable.
+Wallet setup is unavailable right now.
         </div>
       ) : primaryWallet ? (
         <div className="space-y-3">
-          <div className="p-3 bg-slate-50 rounded-md border border-slate-200 text-xs font-mono-code break-all">
+          <div className="p-3 bg-neutral-50 rounded-md border border-neutral-200 text-xs font-mono-code break-all">
             <div className="flex justify-between items-center text-[10px] uppercase text-slate-500 mb-1">
               <span>{primaryWallet.blockchain}</span>
-              <span className="text-emerald-600 font-semibold">Verified</span>
+              <span className="text-neutral-600 font-medium">Wallet network</span>
             </div>
             <span className="text-slate-900 font-medium">{primaryWallet.address}</span>
           </div>
@@ -214,11 +210,11 @@ export function MerchantCircleWalletCard({
                 onClick={() => handleConnectProfile(primaryWallet)}
                 className="btn-save-pill text-xs px-3 py-1.5 cursor-pointer disabled:opacity-50"
               >
-                {isPending ? "Connecting…" : "Connect address to business profile"}
+                {isPending ? "Connecting…" : "Use this wallet"}
               </button>
             ) : (
-              <span className="text-xs text-emerald-600 font-medium">
-                This wallet is receiving customer payments for your business.
+              <span className="text-xs text-neutral-600 font-medium">
+                Connected for receiving payments.
               </span>
             )}
           </div>
@@ -231,13 +227,13 @@ export function MerchantCircleWalletCard({
             onClick={handleCreateWallet}
             className="btn-save-pill text-xs px-3.5 py-1.5 cursor-pointer disabled:opacity-50"
           >
-            {isPending ? "Starting PIN setup…" : "Create Circle User-Controlled Wallet"}
+            {isPending ? "Setting up…" : "Create wallet"}
           </button>
         </div>
       )}
 
       {statusMessage && (
-        <p className="text-xs text-emerald-600 mt-3 font-medium" role="status">
+        <p className="text-xs text-neutral-700 mt-3 font-medium" role="status">
           {statusMessage}
         </p>
       )}
