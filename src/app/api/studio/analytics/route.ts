@@ -14,8 +14,25 @@ function visitorHash(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const origin = request.headers.get("origin");
+  if (origin) {
+    try {
+      if (new URL(origin).origin !== request.nextUrl.origin) return new NextResponse(null, { status: 403 });
+    } catch {
+      return new NextResponse(null, { status: 403 });
+    }
+  }
+  const contentLength = Number(request.headers.get("content-length") ?? 0);
+  if (contentLength > 4096) return new NextResponse(null, { status: 413 });
+
   let body: Record<string, unknown>;
-  try { body = await request.json(); } catch { return new NextResponse(null, { status: 400 }); }
+  try {
+    const parsed: unknown = await request.json();
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return new NextResponse(null, { status: 400 });
+    body = parsed as Record<string, unknown>;
+  } catch {
+    return new NextResponse(null, { status: 400 });
+  }
   const eventName = body.eventName === "cta_click" ? "cta_click" : body.eventName === "page_view" ? "page_view" : null;
   const path = typeof body.path === "string" ? body.path : "";
   const excludedPrefixes = ["/studio", "/control", "/dashboard", "/api", "/pay", "/login", "/register", "/auth", "/sign-in", "/sign-up", "/reset-password"];
@@ -29,10 +46,15 @@ export async function POST(request: NextRequest) {
   try { if (referrer) referrerHost = new URL(referrer).hostname.slice(0, 255); } catch { /* Ignore invalid referrers. */ }
   const ctaId = typeof body.ctaId === "string" ? body.ctaId.slice(0, 120) : null;
 
-  const db = createCmsServiceClient();
-  await db.from("cms_analytics_events").insert({
-    event_name: eventName, path, visitor_hash: hash, referrer_host: referrerHost, cta_id: ctaId,
-  });
+  try {
+    const db = createCmsServiceClient();
+    const { error } = await db.from("cms_analytics_events").insert({
+      event_name: eventName, path, visitor_hash: hash, referrer_host: referrerHost, cta_id: ctaId,
+    });
+    if (error) return new NextResponse(null, { status: 204 });
+  } catch {
+    return new NextResponse(null, { status: 204 });
+  }
 
   const response = new NextResponse(null, { status: 204 });
   if (isNew) response.cookies.set("nodus_analytics", token, {
