@@ -124,9 +124,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
     const sourceNetworkOption = circleTestnetUsdcNetworks.find((network) => network.key === sourceNetwork);
     const sourceCircle = sourceNetworkOption ? getCircleChain(sourceNetwork, true) : null;
     if (!sourceCircle || sourceNetwork === destinationNetwork
-        || destinationNetwork !== destinationNetwork
         || requestedRecipient.toLowerCase() !== destinationAddress.toLowerCase()
-        || expectedReceivedAmount !== amountBaseUnits || destinationAssetId !== `${context.receiving_network}:usdc`
+        || expectedReceivedAmount !== amountBaseUnits || destinationAssetId !== `${destinationNetwork}:usdc`
         || sourceAssetId !== `${sourceNetwork}:usdc`) {
       return NextResponse.json({ error: "invoice_payment_terms_mismatch" }, { status: 409 });
     }
@@ -146,7 +145,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
         source: sourceCircle,
         destination: destinationCircle,
         payer: senderAddress,
-        recipient: context.receiving_address,
+        recipient: destinationAddress,
         amountBaseUnits: amountBaseUnits,
         quote: String(quoteSnapshotInput.quote),
         feeTotal: String(quoteSnapshotInput.feeTotal),
@@ -175,11 +174,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
       sourceAssetId: `${sourceNetwork}:usdc`,
       sourceUsdc: sourceCircle.usdcAddress,
       sourceDomain: sourceCircle.cctpDomainId,
-      destinationNetwork: context.receiving_network,
-      destinationAssetId: `${context.receiving_network}:usdc`,
+      destinationNetwork: destinationNetwork,
+      destinationAssetId: `${destinationNetwork}:usdc`,
       destinationUsdc: destinationCircle.usdcAddress,
       destinationDomain: destinationCircle.cctpDomainId,
-      recipient: context.receiving_address.toLowerCase(),
+      recipient: destinationAddress.toLowerCase(),
       amountReceived: String(quoteSnapshotInput.amountReceived ?? ""),
       feeTotal: String(quoteSnapshotInput.feeTotal ?? ""),
       feeItems: Array.isArray(quoteSnapshotInput.feeItems) ? quoteSnapshotInput.feeItems : [],
@@ -194,14 +193,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
     // circle_direct (same-chain USDC transfer)
     if (sourceNetwork !== destinationNetwork
         || !destinationNetworkOption
-        || destinationNetwork !== context.receiving_network
-        || requestedRecipient.toLowerCase() !== context.receiving_address.toLowerCase()
+        || destinationNetwork !== destinationNetwork
+        || requestedRecipient.toLowerCase() !== destinationAddress.toLowerCase()
         || expectedReceivedAmount !== amountBaseUnits || requestedAmount !== amountBaseUnits
-        || destinationAssetId !== `${context.receiving_network}:usdc`
-        || sourceAssetId !== `${context.receiving_network}:usdc`) {
+        || destinationAssetId !== `${destinationNetwork}:usdc`
+        || sourceAssetId !== `${destinationNetwork}:usdc`) {
       return NextResponse.json({ error: "invoice_payment_terms_mismatch" }, { status: 409 });
     }
-    depositAddress = context.receiving_address;
+    depositAddress = destinationAddress;
     quoteSnapshot = {
       type: "circle_direct",
       routeType: "same_chain",
@@ -213,11 +212,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
       invoiceAmountMinor: String(context.amount_minor),
       invoiceCurrency: String(context.currency),
       payer: senderAddress.toLowerCase(),
-      sourceNetwork: context.receiving_network,
-      sourceAssetId: `${context.receiving_network}:usdc`,
-      destinationNetwork: context.receiving_network,
-      destinationAssetId: `${context.receiving_network}:usdc`,
-      recipient: context.receiving_address.toLowerCase(),
+      sourceNetwork: destinationNetwork,
+      sourceAssetId: `${destinationNetwork}:usdc`,
+      destinationNetwork: destinationNetwork,
+      destinationAssetId: `${destinationNetwork}:usdc`,
+      recipient: destinationAddress.toLowerCase(),
       minimumReceived: amountBaseUnits,
       totalDebit: amountBaseUnits,
       quoteExpiresAt,
@@ -234,11 +233,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
     const { data, error } = await supabaseAdmin.rpc("create_committed_payment_attempt", {
       p_token_hash: tokenHash,
       p_idempotency_key: idempotencyKey,
-      p_source_asset_id: quoteType === "circle_cctp" ? `${sourceNetwork}:usdc` : `${context.receiving_network}:usdc`,
-      p_source_network: quoteType === "circle_cctp" ? sourceNetwork : context.receiving_network,
-      p_destination_asset_id: `${context.receiving_network}:usdc`,
-      p_destination_network: context.receiving_network,
-      p_recipient_address: context.receiving_address,
+      p_source_asset_id: quoteType === "circle_cctp" ? `${sourceNetwork}:usdc` : `${destinationNetwork}:usdc`,
+      p_source_network: quoteType === "circle_cctp" ? sourceNetwork : destinationNetwork,
+      p_destination_asset_id: `${destinationNetwork}:usdc`,
+      p_destination_network: destinationNetwork,
+      p_recipient_address: destinationAddress,
       p_requested_amount: requestedAmount,
       p_expected_received_amount: amountBaseUnits,
       p_deposit_address: depositAddress,
