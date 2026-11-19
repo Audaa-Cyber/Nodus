@@ -2,12 +2,11 @@
 
 import { useState, useTransition, useCallback } from "react";
 import { updateBusinessProfileAction } from "@/app/actions/profile";
-import { MerchantCircleWalletCard } from "@/components/merchant-circle-wallet-card";
 import { circleTestnetUsdcNetworks } from "@/lib/wallet/networks";
 
 interface ProfileFormProps {
   businessName: string;
-  receivingNetwork: string | null;
+  receivingNetworks: string[];
   receivingAddress: string | null;
   email: string;
   createdAt: string;
@@ -24,14 +23,14 @@ function formatDate(dateString: string): string {
 
 export default function ProfileForm({
   businessName: initialBusinessName,
-  receivingNetwork: initialReceivingNetwork,
+  receivingNetworks: initialReceivingNetworks,
   receivingAddress: initialReceivingAddress,
   email,
   createdAt,
   updatedAt,
 }: ProfileFormProps) {
   const [businessName, setBusinessName] = useState(initialBusinessName || "");
-  const [receivingNetwork, setReceivingNetwork] = useState(initialReceivingNetwork ?? "");
+  const [receivingNetworks, setReceivingNetworks] = useState<string[]>(initialReceivingNetworks ?? []);
   const [receivingAddress, setReceivingAddress] = useState(initialReceivingAddress || "");
   const [copyFeedback, setCopyFeedback] = useState("Copy address");
   const [kineticStatus, setKineticStatus] = useState<string | null>(null);
@@ -41,8 +40,8 @@ export default function ProfileForm({
   const [isPending, startTransition] = useTransition();
 
   const isEvmValid = /^0x[a-fA-F0-9]{40}$/.test(receivingAddress.trim());
-  const isDestinationConfigured = Boolean(receivingAddress.trim());
-  const isCircleTestnetNetwork = circleTestnetUsdcNetworks.some((network) => network.key === receivingNetwork);
+  const isDestinationConfigured = Boolean(receivingAddress.trim()) && receivingNetworks.length > 0;
+  const isSupportedNetworkSelection = receivingNetworks.length > 0 && receivingNetworks.every((key) => circleTestnetUsdcNetworks.some((network) => network.key === key));
 
   // Copy address to clipboard
   const handleCopyWallet = useCallback(async () => {
@@ -81,7 +80,7 @@ export default function ProfileForm({
     setKineticStatus(null);
     const formData = new FormData();
     formData.set("businessName", businessName.trim());
-    formData.set("receivingNetwork", receivingNetwork.trim());
+    receivingNetworks.forEach((network) => formData.append("receivingNetworks", network));
     formData.set("receivingAddress", receivingAddress.trim());
 
     startTransition(async () => {
@@ -151,7 +150,7 @@ export default function ProfileForm({
                     color: "var(--text-secondary)",
                   }}
                 >
-                  {isDestinationConfigured && isEvmValid && isCircleTestnetNetwork ? (
+                  {isDestinationConfigured && isEvmValid && isSupportedNetworkSelection ? (
                     <>
                       <span className="w-1.5 h-1.5 rounded-full bg-neutral-500" />
                       <span className="font-semibold">Checkout ready</span>
@@ -164,43 +163,28 @@ export default function ProfileForm({
                   )}
                 </span>
               </div>
-              {/* Circle wallet */}
-              <MerchantCircleWalletCard
-                currentReceivingAddress={receivingAddress}
-                onAddressConnected={(addr, net) => {
-                  setReceivingAddress(addr);
-                  setReceivingNetwork(net);
-                  setKineticStatus("Circle wallet connected & destination updated ✓");
-                }}
-              />
-
-              {/* Network choice for the saved receiving address */}
               <div className="mb-4">
-                <label htmlFor="networkInput" className="block text-xs font-semibold mb-2 text-slate-800">
-                  Receiving network
-                </label>
-                <div className="nodus-input-wrap">
-                  <select
-                    id="networkInput"
-                    name="receivingNetwork"
-                    value={receivingNetwork}
-                    onChange={(e) => setReceivingNetwork(e.target.value)}
-                    className="nodus-input font-medium"
-                  >
-                    {!receivingNetwork && <option value="">Choose a network</option>}
-                    {receivingNetwork && !isCircleTestnetNetwork && (
-                      <option value={receivingNetwork}>Current: {receivingNetwork} (unsupported)</option>
-                    )}
-                    {circleTestnetUsdcNetworks.map((network) => (
-                      <option key={network.key} value={network.key}>{network.label}</option>
-                    ))}
-                  </select>
+                <label className="block text-xs font-semibold mb-2 text-slate-800">Networks you accept</label>
+                <p className="text-xs mb-3" style={{ color: "var(--text-secondary)" }}>
+                  Select one or more networks. Your wallet address will be used on each selected network.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {circleTestnetUsdcNetworks.map((network) => {
+                    const checked = receivingNetworks.includes(network.key);
+                    return (
+                      <label key={network.key} className="flex items-center gap-2 rounded-lg border p-3 text-xs font-medium cursor-pointer" style={{ borderColor: checked ? "var(--text-primary)" : "var(--card-border)", background: checked ? "var(--pill-bg)" : "transparent" }}>
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={(event) => setReceivingNetworks((current) => event.target.checked
+                            ? [...current, network.key]
+                            : current.filter((key) => key !== network.key))}
+                        />
+                        <span>{network.label}</span>
+                      </label>
+                    );
+                  })}
                 </div>
-                {receivingNetwork && !isCircleTestnetNetwork && (
-                  <p className="mt-2 text-xs text-neutral-600" role="status">
-  This network is not supported. Choose a listed testnet.
-                  </p>
-                )}
               </div>
 
               {/* Wallet Address */}
@@ -230,7 +214,7 @@ export default function ProfileForm({
                     type="text"
                     value={receivingAddress}
                     onChange={(e) => setReceivingAddress(e.target.value)}
-                    placeholder="Address on the selected network"
+                    placeholder="0x… wallet address"
                     maxLength={256}
                     spellCheck={false}
                     className="nodus-input font-mono-code text-xs sm:text-[13px]"
@@ -239,7 +223,7 @@ export default function ProfileForm({
                     <span
                       id="walletCheckBadge"
                       className="absolute right-3.5 top-1/2 -translate-y-1/2 text-emerald-500 pointer-events-none"
-                      title="Valid EVM checksum format"
+                      title="Valid EVM address format"
                     >
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
