@@ -110,7 +110,7 @@ export default async function TermsPage() {
             </section>
           ))}
         </div>
-        <p className="border-t border-neutral-200 pt-6 text-xs leading-6 text-neutral-500">These terms are a product draft, not legal advice. They must be reviewed and completed with Nodus's legal entity, contact details, governing law, and production service arrangements before public launch.</p>
+        <p className="border-t border-neutral-200 pt-6 text-xs leading-6 text-neutral-500">These terms are a product draft, not legal advice. They must be reviewed and completed with Nodus&apos;s legal entity, contact details, governing law, and production service arrangements before public launch.</p>
         <div className="mt-8 flex gap-6 text-xs text-neutral-500"><Link href="/privacy" className="hover:text-black">Privacy policy</Link><Link href="/" className="hover:text-black">Home</Link></div>
       </div>
     </main>
