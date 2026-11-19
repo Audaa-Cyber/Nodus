@@ -16,7 +16,7 @@ export default function InvoiceDefaultsForm({logoUrl,invoicePrefix,defaultCurren
  <label className="form-wide">Business address <span>(optional)</span><textarea name="businessAddress" rows={2} maxLength={500} defaultValue={businessAddress}/></label>
  <label>Tax registration number <span>(optional)</span><input name="taxRegistrationNumber" maxLength={100} defaultValue={taxRegistrationNumber}/></label>
  <label>Invoice prefix<input name="invoicePrefix" required maxLength={16} pattern="[A-Za-z0-9-]+" defaultValue={invoicePrefix}/></label>
- <label>Default currency<select name="defaultCurrency" defaultValue={defaultCurrency}>{["USD","EUR","GBP","ETB","KES"].map(c=><option key={c}>{c}</option>)}</select></label>
+ <label>Default currency<select name="defaultCurrency" defaultValue={defaultCurrency}>{["USDC","USDT","EURC"].map(c=><option key={c}>{c}</option>)}</select></label>
  <label>Payment terms<select name="paymentTermsDays" defaultValue={String(paymentTermsDays)}>{[0,7,14,30,45,60].map(d=><option key={d} value={d}>{d===0?"Due on receipt":d+" days"}</option>)}</select></label>
  <label className="form-wide">Default thank-you note<textarea name="invoiceFooter" rows={3} maxLength={1000} defaultValue={invoiceFooter}/></label></div>
  {state.error&&<p className="form-error" role="alert">{state.error}</p>}{state.success&&<p className="form-success" role="status">{state.success}</p>}
