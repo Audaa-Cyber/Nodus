@@ -2,8 +2,8 @@
 
 import React, { createContext, useCallback, useContext, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { useAccessToken } from "@workos-inc/authkit-nextjs/components";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
-import { parseNearReconciliationUpdate, type NearReconciliationUpdate } from "@/lib/realtime/near-reconciliation-state";
 
 export type InvoiceRealtimeUpdate = {
   id: string;
@@ -17,18 +17,15 @@ export type InvoiceRealtimeUpdate = {
 };
 
 type InvoiceListener = (invoice: InvoiceRealtimeUpdate) => void;
-type NearReconciliationListener = (update: NearReconciliationUpdate) => void;
 
 interface InvoiceRealtimeContextValue {
   businessId: string | null;
   subscribeToInvoices: (listener: InvoiceListener) => () => void;
-  subscribeToNearReconciliation: (listener: NearReconciliationListener) => () => void;
 }
 
 const InvoiceRealtimeContext = createContext<InvoiceRealtimeContextValue>({
   businessId: null,
   subscribeToInvoices: () => () => {},
-  subscribeToNearReconciliation: () => () => {},
 });
 
 export function useInvoiceRealtime() {
@@ -47,11 +44,11 @@ export function InvoiceRealtimeProvider({
   children,
 }: InvoiceRealtimeProviderProps) {
   const router = useRouter();
+  const { accessToken, loading: authLoading } = useAccessToken();
   const routerRef = useRef(router);
   routerRef.current = router;
 
   const listenersRef = useRef<Set<InvoiceListener>>(new Set());
-  const nearListenersRef = useRef<Set<NearReconciliationListener>>(new Set());
   const hasSubscribedInitialRef = useRef<boolean>(false);
 
   useEffect(() => {
@@ -67,15 +64,8 @@ export function InvoiceRealtimeProvider({
     };
   }, []);
 
-  const subscribeToNearReconciliation = useCallback((listener: NearReconciliationListener) => {
-    nearListenersRef.current.add(listener);
-    return () => {
-      nearListenersRef.current.delete(listener);
-    };
-  }, []);
-
   useEffect(() => {
-    if (!businessId) {
+    if (!businessId || authLoading || !accessToken) {
       if (process.env.NODE_ENV !== "production") console.warn("[NODUS:REALTIME] subscription skipped: business context unavailable");
       return;
     }
@@ -96,23 +86,9 @@ export function InvoiceRealtimeProvider({
 
     const setupRealtime = async () => {
       try {
-        const supabase = getSupabaseBrowserClient();
+        const supabase = getSupabaseBrowserClient(accessToken);
 
-        let session = null;
-        try {
-          const sessionRes = await supabase.auth.getSession();
-          session = sessionRes.data?.session ?? null;
-          if (session?.access_token && session.user.id === userId) {
-            await supabase.realtime.setAuth(session.access_token);
-          } else {
-            if (process.env.NODE_ENV !== "production") console.warn("[NODUS:REALTIME] subscription skipped: authenticated session unavailable");
-            return;
-          }
-        } catch (err: unknown) {
-          const code = err && typeof err === "object" && "code" in err ? String(err.code) : "unknown";
-          if (process.env.NODE_ENV !== "production") console.warn("[NODUS:REALTIME] auth setup failed:", code);
-          return;
-        }
+        await supabase.realtime.setAuth(accessToken);
 
         if (isCancelled) return;
 
@@ -178,27 +154,6 @@ export function InvoiceRealtimeProvider({
               triggerRefresh();
             }
           )
-          .on(
-            "postgres_changes",
-            {
-              event: "*",
-              schema: "public",
-              table: "near_reconciliation_status",
-              filter: `business_id=eq.${businessId}`,
-            },
-            (payload) => {
-              const update = parseNearReconciliationUpdate(payload.new, businessId);
-              if (!update) return;
-              if (process.env.NODE_ENV !== "production") console.debug("[NODUS:REALTIME] NEAR status event received:", update.status);
-              nearListenersRef.current.forEach((listener) => {
-                try {
-                  listener(update);
-                } catch {
-                  // A component listener must not interrupt the shared channel.
-                }
-              });
-            },
-          )
           .subscribe(async (subStatus) => {
             if (process.env.NODE_ENV !== "production") console.debug("[NODUS:REALTIME] subscription status:", subStatus);
 
@@ -212,20 +167,7 @@ export function InvoiceRealtimeProvider({
             }
           });
 
-        // Keep Realtime authenticated across token refreshes
-        const { data: authData } = supabase.auth.onAuthStateChange(async (event, newSession) => {
-          if ((event === "TOKEN_REFRESHED" || event === "SIGNED_IN") && newSession?.access_token && newSession.user.id === userId) {
-            try {
-              await supabase.realtime.setAuth(newSession.access_token);
-            } catch {
-              if (process.env.NODE_ENV !== "production") console.warn("[NODUS:REALTIME] token refresh auth update failed");
-            }
-          } else if (event === "SIGNED_OUT") {
-            listenersRef.current.clear();
-            nearListenersRef.current.clear();
-          }
-        });
-        authListener = authData?.subscription ?? null;
+
       } catch (err: unknown) {
         const code = err && typeof err === "object" && "code" in err ? String(err.code) : "unknown";
         if (process.env.NODE_ENV !== "production") console.warn("[NODUS:REALTIME] setup failed:", code);
@@ -265,14 +207,13 @@ export function InvoiceRealtimeProvider({
         }
       }
     };
-  }, [businessId, userId]);
+  }, [businessId, userId, accessToken, authLoading]);
 
   return (
     <InvoiceRealtimeContext.Provider
       value={{
         businessId: businessId ?? null,
         subscribeToInvoices,
-        subscribeToNearReconciliation,
       }}
     >
       {children}
