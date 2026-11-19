@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { PaymentSuccessCard, type ReceiptInfo, type LineItem } from "@/components/payment-success-card";
+import type { ReceiptInfo, LineItem } from "@/components/payment-success-card";
 import { useAccount, useConnect, useDisconnect, useReadContract, useSwitchChain } from "wagmi";
 import { formatMoney } from "@/lib/invoices";
 import { formatUnits, parseAbi } from "viem";
@@ -25,6 +25,7 @@ import { lockPayerDialogBackground, trapPayerDialogFocus } from "./payer-dialog"
 
 export type InvoiceWalletCheckoutProps = {
   onSettled?: () => void;
+  autoOpen?: boolean;
   shareToken: string;
   invoiceNumber: string;
   amountMinor: number;
@@ -98,6 +99,7 @@ function InvoiceWalletCheckoutContent({
   discountMinor,
   sellerDetails,
   onSettled,
+  autoOpen = false,
 }: InvoiceWalletCheckoutProps) {
   const { address: evmAddress, chainId: evmChainId, isConnected: isEvmConnected, connector: evmConnector } = useAccount();
   const { connectors, connectAsync } = useConnect();
@@ -340,6 +342,7 @@ function InvoiceWalletCheckoutContent({
     if (locked) setOptionsOpen(false);
   }, []);
   useEffect(() => { if (storedAttemptSettled) onSettled?.(); }, [storedAttemptSettled, onSettled]);
+  useEffect(() => { if (autoOpen) setOptionsOpen(true); }, [autoOpen]);
   useEffect(() => {
     if (!optionsOpen || executionBusy) return;
     const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -487,30 +490,7 @@ function InvoiceWalletCheckoutContent({
     }
   }
 
-  if (storedAttemptSettled) {
-    return (
-      <PaymentSuccessCard
-        shareToken={shareToken}
-        invoiceNumber={invoiceNumber}
-        amountMinor={amountMinor}
-        currency={currency}
-        businessName={businessName}
-        logoUrl={logoUrl}
-        issueDate={issueDate}
-        dueDate={dueDate}
-        destinationNetwork={destinationNetwork}
-        recipientAddress={recipientAddress}
-        receipt={storedReceipts[0] ?? null}
-        receipts={storedReceipts}
-        lineItems={lineItems}
-        subtotalMinor={subtotalMinor}
-        taxRateBps={taxRateBps}
-        discountMinor={discountMinor}
-        sellerFooter={sellerFooter}
-        sellerDetails={sellerDetails}
-      />
-    );
-  }
+  if (storedAttemptSettled) return null;
 
   const mockStage = attempt?.status ?? "idle";
 
@@ -537,7 +517,7 @@ function InvoiceWalletCheckoutContent({
       }}
     /> : <section className={`dock${isEvmConnected ? "" : " off"}`} aria-label="Payment console">
       {dockDetails}
-      <button className="cta" type="button" disabled={!payable || (isEvmConnected && !isUnsupportedEvmNetwork)} onClick={() => setOptionsOpen(true)}><PayerIcon name="lock" /><span>{!isEvmConnected ? "Connect wallet to pay" : isUnsupportedEvmNetwork ? "Switch network to pay" : "Checkout unavailable"}</span></button>
+      <button className="cta" type="button" disabled={!payable || (isEvmConnected && !isUnsupportedEvmNetwork)} onClick={() => setOptionsOpen(true)}><PayerIcon name="lock" /><span>{!isEvmConnected ? "Pay now" : isUnsupportedEvmNetwork ? "Switch network to pay" : "Checkout unavailable"}</span></button>
     </section>}
     {flowError && !optionsOpen && <p role="alert" className="wallet-error">{flowError}</p>}
     <div className="ov" hidden={!optionsOpen || executionBusy} onClick={(event) => { if (event.target === event.currentTarget) setOptionsOpen(false); }}>
