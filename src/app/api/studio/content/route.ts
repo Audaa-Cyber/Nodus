@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCmsAdmin, createCmsServiceClient } from "@/lib/cms/admin";
+import { getCmsAdmin, createCmsServiceClient, canManageContent } from "@/lib/cms/admin";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +24,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   const admin = await getCmsAdmin();
   if (!admin) return new NextResponse(null, { status: 404 });
+  if (!canManageContent(admin.role)) return NextResponse.json({ error: "Your role is read-only." }, { status: 403 });
 
   let body: Record<string, unknown>;
   try { body = await request.json(); } catch { return NextResponse.json({ error: "Invalid request body." }, { status: 400 }); }
@@ -79,6 +80,7 @@ export async function POST(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   const admin = await getCmsAdmin();
   if (!admin) return new NextResponse(null, { status: 404 });
+  if (!canManageContent(admin.role)) return NextResponse.json({ error: "Your role is read-only." }, { status: 403 });
   const id = request.nextUrl.searchParams.get("id");
   if (!id) return NextResponse.json({ error: "Missing content ID." }, { status: 400 });
   const db = createCmsServiceClient();
