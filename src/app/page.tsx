@@ -24,6 +24,8 @@ const methods = ["USDC · Arc Testnet", "USDC · Ethereum Sepolia", "USDC · Bas
 export default function Home() {
   const [method, setMethod] = useState(methods[0]);
   const [paymentState, setPaymentState] = useState<"idle" | "processing" | "paid">("idle");
+  const [demoPrinted, setDemoPrinted] = useState(false);
+  const [demoTearing, setDemoTearing] = useState(false);
   const [items, setItems] = useState([
     { id: 1, name: "House espresso", price: 4.5, quantity: 1 },
     { id: 2, name: "Almond croissant", price: 6, quantity: 1 },
@@ -42,6 +44,11 @@ export default function Home() {
   useEffect(() => () => {
     if (copyTimer.current) clearTimeout(copyTimer.current);
     if (paymentTimer.current) clearTimeout(paymentTimer.current);
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDemoPrinted(true), 1750);
+    return () => window.clearTimeout(timer);
   }, []);
 
   useEffect(() => {
@@ -76,6 +83,15 @@ export default function Home() {
     if (paymentState !== "idle") return;
     setPaymentState("processing");
     paymentTimer.current = setTimeout(() => setPaymentState("paid"), 1900);
+  };
+
+  const tearDemoReceipt = () => {
+    if (paymentState !== "paid" || demoTearing) return;
+    setDemoTearing(true);
+    window.setTimeout(() => {
+      downloadReceipt();
+      setDemoTearing(false);
+    }, 720);
   };
 
   const downloadReceipt = () => {
@@ -246,88 +262,64 @@ export default function Home() {
           </div>
 
           <div className="invoice-stage">
-            <div className="invoice-card demo-invoice-card">
-              <div className="demo-invoice-document">
-                <header className="demo-invoice-header">
-                  <div className="demo-merchant">
-                    <span className="demo-merchant-mark">m.</span>
-                    <div><strong>Your business</strong><small>ADDIS ABABA · ETHIOPIA</small></div>
-                  </div>
-                  <div className="demo-invoice-number"><span>INVOICE</span><strong>N° 0248</strong><small>ISSUED {new Date().toLocaleDateString()}</small></div>
-                </header>
-                <div className="demo-invoice-parties">
-                  <div><span className="demo-field-label">BILLED BY</span><strong>Your business</strong><small>Bole Road, Addis Ababa</small><small>billing@maisoncafe.example</small></div>
-                  <div><span className="demo-field-label">BILLED TO</span><strong>Walk-in customer</strong><small>Customer checkout</small></div>
-                </div>
-                <div className="demo-invoice-table-wrap">
-                  <table className="demo-invoice-table">
-                    <thead><tr><th>DESCRIPTION</th><th>QTY</th><th>UNIT PRICE</th><th>AMOUNT</th></tr></thead>
-                    <tbody>{items.map((item) => (
-                      <tr key={item.id}>
-                        <td><strong>{item.name}</strong></td>
-                        <td><div className="demo-quantity-control"><button type="button" onClick={() => updateQuantity(item.id, -1)} disabled={item.quantity <= 1} aria-label={"Decrease " + item.name + " quantity"}>−</button><span>{item.quantity}</span><button type="button" onClick={() => updateQuantity(item.id, 1)} disabled={item.quantity >= 9} aria-label={"Increase " + item.name + " quantity"}>+</button></div></td>
-                        <td>{formatUsd(item.price)}</td>
-                        <td><strong>{formatUsd(item.price * item.quantity)}</strong></td>
-                      </tr>
-                    ))}</tbody>
-                  </table>
-                </div>
-                <div className="demo-invoice-totals">
-                  <div><span>Subtotal</span><strong>{formatUsd(subtotal)}</strong></div>
-                  <div><span>Tax (15%)</span><strong>{formatUsd(tax)}</strong></div>
-                  <div className="demo-invoice-total"><span>Total due</span><strong>{formatUsd(total)} USD</strong></div>
-                </div>
-                <footer className="demo-invoice-footer"><span>Thank you for your business.</span><span>nodus.</span></footer>
+            <div className="demo-receipt-card">
+              <div className="demo-receipt-heading">
+                <span>LIVE CHECKOUT PREVIEW</span>
+                <span className="demo-receipt-network">USDC · ARC TESTNET</span>
               </div>
-
-              <div className="demo-payment-panel">
-                <div className="pay-label">
-                  <span>PAYMENT</span>
-                  <span className="secure-label"><LockKeyhole size={11} /> DEMO</span>
-                </div>
-                <div className="method-select">
-                  <select aria-label="Choose payment network" value={method} onChange={(event) => {
-                    if (paymentTimer.current) clearTimeout(paymentTimer.current);
-                    setMethod(event.target.value);
-                    setPaymentState("idle");
-                  }}>
-                    {methods.map((item) => <option key={item} value={item}>{item}</option>)}
-                  </select>
-                  <ChevronDown size={14} aria-hidden="true" />
-                </div>
-                <button className={paymentState === "paid" ? "pay-button is-paid" : "pay-button"} type="button" onClick={runDemoPayment} disabled={paymentState !== "idle"}>
-                  {paymentState === "processing" ? <><span className="demo-spinner" /> Processing payment…</> : paymentState === "paid" ? <><Check size={16} /> Payment successful</> : "Pay " + formatUsd(total)}
-                </button>
-                <div className={"payment-feedback " + (paymentState !== "idle" ? "is-visible" : "")} aria-live="polite">
-                  <span className="success-pulse" />
-                  {paymentState === "processing" ? "Checking the simulated transaction…" : paymentState === "paid" ? "Payment confirmed. The invoice is marked paid." : "Demo transaction. No wallet is connected and no funds move."}
-                </div>
-                {paymentState === "paid" && (
-                  <div className="demo-printer-overlay" aria-live="polite">
-                    <div className="demo-printer-shell">
-                      <div className="demo-printer-slot"><span /></div>
-                      <div className="demo-printer-paper">
-                        <div className="demo-paid-stamp">PAID</div>
-                        <div className="demo-paper-brand"><strong>Your business</strong><span>PAYMENT RECEIPT</span></div>
-                        <div className="demo-paper-meta"><span>Invoice N° 0248</span><span>{new Date().toLocaleString()}</span></div>
-                        <div className="demo-paper-rule" />
-                        {items.map((item) => <div className="demo-paper-line" key={item.id}><span>{item.name} × {item.quantity}</span><strong>{formatUsd(item.price * item.quantity)}</strong></div>)}
-                        <div className="demo-paper-line"><span>Subtotal</span><strong>{formatUsd(subtotal)}</strong></div>
-                        <div className="demo-paper-line"><span>Tax · 15%</span><strong>{formatUsd(tax)}</strong></div>
-                        <div className="demo-paper-rule" />
-                        <div className="demo-paper-line demo-paper-total"><strong>TOTAL PAID</strong><strong>{formatUsd(total)} USD</strong></div>
-                        <div className="demo-paper-meta demo-paper-settlement"><span>{method}</span><span>Demo reference · NODUS-0248</span><span>Payment simulated for preview</span></div>
-                        <p>Thank you for your business.</p>
+              <div className="demo-printer-wrap">
+                <div className="demo-printer-body">
+                  <div className="demo-printer-mouth"><span /></div>
+                  <div className={`demo-receipt-feed-window${demoTearing ? " is-tearing" : ""}`}>
+                    <div className={`demo-receipt-paper${paymentState === "paid" ? " is-paid" : ""}${demoTearing ? " is-falling" : ""}`}>
+                      {paymentState === "paid" && <div className="demo-receipt-paid-stamp">PAID</div>}
+                      <div className="demo-receipt-brand">
+                        <strong>Your business</strong>
+                        <span>PAYMENT RECEIPT</span>
                       </div>
-                      <div className="demo-printer-base"><span /></div>
+                      <div className="demo-receipt-meta">
+                        <span>INVOICE N° 0248</span>
+                        <span>19 NOV 2026 · 10:42</span>
+                      </div>
+                      <div className="demo-receipt-rule" />
+                      {items.map((item) => (
+                        <div className="demo-receipt-line" key={item.id}>
+                          <span>{item.name} × {item.quantity}</span>
+                          <strong>{formatUsd(item.price * item.quantity)}</strong>
+                        </div>
+                      ))}
+                      <div className="demo-receipt-line"><span>Subtotal</span><strong>{formatUsd(subtotal)}</strong></div>
+                      <div className="demo-receipt-line"><span>Tax · 15%</span><strong>{formatUsd(tax)}</strong></div>
+                      <div className="demo-receipt-rule" />
+                      <div className="demo-receipt-line demo-receipt-total"><strong>TOTAL {paymentState === "paid" ? "PAID" : "DUE"}</strong><strong>{formatUsd(total)} USD</strong></div>
+                      <div className="demo-receipt-meta demo-receipt-reference">
+                        <span>USDC · ARC TESTNET</span>
+                        <span>DEMO REFERENCE · NODUS-0248</span>
+                      </div>
+                      <p>Thank you for your business.</p>
+                      <div className="demo-receipt-tear-edge" aria-hidden="true" />
                     </div>
-                    <button className="demo-download-receipt" type="button" onClick={downloadReceipt}>Download receipt</button>
                   </div>
-                )}
-                <div className="invoice-foot"><ShieldCheck size={13} /> A real invoice is marked paid only after settlement is verified.</div>
+                  <div className="demo-printer-base"><span /></div>
+                </div>
               </div>
+              <div className="demo-receipt-actions">
+                {!demoPrinted ? (
+                  <span className="demo-printing-label">Printing your invoice…</span>
+                ) : paymentState === "idle" ? (
+                  <button className="demo-receipt-button" type="button" onClick={runDemoPayment}>Pay now · {formatUsd(total)}</button>
+                ) : paymentState === "processing" ? (
+                  <span className="demo-printing-label"><span className="demo-spinner" /> Confirming demo payment…</span>
+                ) : (
+                  <button className="demo-receipt-button" type="button" onClick={tearDemoReceipt} disabled={demoTearing}>
+                    {demoTearing ? "Preparing receipt…" : "Tear & Download"}
+                  </button>
+                )}
+              </div>
+              <p className="demo-receipt-disclaimer">Demo only. No wallet is connected and no funds are transferred.</p>
             </div>
-            <p className="invoice-note">Customer-facing invoice layout. Payment in this demo is simulated.</p>
+            <p className="invoice-note">A receipt prints first. Payment confirmation adds the PAID stamp.</p>
+          </div>
           </div>
         </div>
       </section>
