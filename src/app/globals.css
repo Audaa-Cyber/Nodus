@@ -5712,3 +5712,6 @@ body {
 .cms-managed-item>p:not(.eyebrow){max-width:560px;margin:22px 0 0;color:#747e88;font-size:13px;line-height:1.85;white-space:pre-line}
 .cms-managed-item .button{margin-top:24px}
 @media(max-width:760px){.cms-managed-inner{grid-template-columns:1fr}.cms-managed-item{padding:24px}}
+
+
+.cms-announcement-banner{display:flex;align-items:center;justify-content:center;min-height:38px;padding:9px 20px;background:#111214;color:#fff;text-align:center;font-size:10px;letter-spacing:.02em}
