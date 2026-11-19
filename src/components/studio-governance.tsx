@@ -1,8 +1,8 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import { Activity, Check, Plus, RefreshCw, Save, Shield, Users } from "lucide-react";
-import type { CmsAdminRole } from "@/lib/cms/admin";
+type CmsAdminRole = "owner" | "admin" | "editor" | "analyst";
 
 type GovernanceSection = "team" | "activity" | "settings";
 type AdminRecord = { id:string; workos_user_id:string; email:string; display_name:string|null; role:CmsAdminRole; is_active:boolean; created_at:string; last_seen_at:string|null };
@@ -30,7 +30,7 @@ export function StudioGovernance({ section, role }: { section:GovernanceSection;
   const [error,setError] = useState("");
   const [notice,setNotice] = useState("");
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setError("");
     const endpoint = section === "team" ? "/api/studio/team" : section === "activity" ? "/api/studio/audit" : "/api/studio/settings";
     const response = await fetch(endpoint,{cache:"no-store"});
@@ -39,9 +39,9 @@ export function StudioGovernance({ section, role }: { section:GovernanceSection;
     if(section==="team") setAdmins(data.admins??[]);
     if(section==="activity") setEvents(data.events??[]);
     if(section==="settings") setSettings(data.settings??[]);
-  };
+  }, [section]);
 
-  useEffect(()=>{ void load(); },[section]);
+  useEffect(()=>{ void load(); },[load]);
 
   const addAdmin = async (event:FormEvent<HTMLFormElement>) => {
     event.preventDefault(); setBusy(true); setError(""); setNotice("");
@@ -85,7 +85,7 @@ export function StudioGovernance({ section, role }: { section:GovernanceSection;
     {error&&<p className="studio-error" role="alert">{error}</p>}
     {notice&&<p className="studio-notice" role="status">{notice}</p>}
     {section==="team"&&<section className="studio-panel">
-      <div className="studio-panel-head"><div><span className="studio-overline">GOVERNANCE / RBAC</span><h3>Access & roles</h3></div><span className="studio-role-pill"><Shield size={13}/> OWNER ONLY</span></div>
+      <div className="studio-panel-head"><div><span className="studio-overline">GOVERNANCE / RBAC</span><h3>Access & roles</h3></div><span className="studio-role-pill"><Shield size={13}/> {role.toUpperCase()}</span></div>
       <p className="studio-muted">Add existing WorkOS accounts. This grants Nodus Studio access only, not access to customer invoices or payment records.</p>
       <form className="studio-admin-form" onSubmit={addAdmin}>
         <label>WorkOS user ID<input value={workosUserId} onChange={e=>setWorkosUserId(e.target.value)} placeholder="user_..." required/></label>
