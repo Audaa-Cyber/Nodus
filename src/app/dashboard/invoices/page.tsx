@@ -21,11 +21,12 @@ export default async function InvoicesPage({ searchParams }: { searchParams: Pro
   let query = supabase.from("invoices").select("id,invoice_number,customer_name,customer_email,amount_minor,currency,status,due_date,issue_date,created_at,updated_at", { count: "exact" }).eq("business_id", business.id);
   const term = (params.q ?? "").trim().replace(/[,%()\\"*_]/g, " ").replace(/\s+/g, " ").slice(0, 100);
   if (term) { const pattern = `%${term}%`; query = query.or(`invoice_number.ilike.${pattern},customer_name.ilike.${pattern},customer_email.ilike.${pattern}`); }
-  const statuses = ["draft", "open", "paid", "overdue", "cancelled"];
-  if (params.status && statuses.includes(params.status)) {
-    if (params.status === "overdue") query = query.eq("status", "open").lt("due_date", today);
-    else if (params.status === "open") query = query.eq("status", "open").or(`due_date.is.null,due_date.gte.${today}`);
-    else query = query.eq("status", params.status);
+  const statuses = ["draft", "open", "paid", "overdue", "cancelled"] as const;
+  if (params.status && statuses.includes(params.status as (typeof statuses)[number])) {
+    const selectedStatus = params.status as (typeof statuses)[number];
+    if (selectedStatus === "overdue") query = query.or(`status.eq.overdue,and(status.eq.open,due_date.lt.${today})`);
+    else if (selectedStatus === "open") query = query.eq("status", "open").or(`due_date.is.null,due_date.gte.${today}`);
+    else query = query.eq("status", selectedStatus);
   }
   let from = ""; let to = "";
   if (params.date === "custom") { from = validDate(params.from) ? params.from! : ""; to = validDate(params.to) ? params.to! : ""; }
@@ -38,8 +39,10 @@ export default async function InvoicesPage({ searchParams }: { searchParams: Pro
   else { if (from) query = query.gte("created_at", from + "T00:00:00.000Z"); if (to) query = query.lt("created_at", nextDay(to)); }
   const currency = (params.currency ?? "").toUpperCase(); if (/^[A-Z]{3,8}$/.test(currency)) query = query.eq("currency", currency);
   const min = params.min?.trim() ? Number(params.min) : NaN; const max = params.max?.trim() ? Number(params.max) : NaN;
-  if (Number.isFinite(min) && min >= 0) query = query.gte("amount_minor", Math.round(min * 100));
-  if (Number.isFinite(max) && max >= 0) query = query.lte("amount_minor", Math.round(max * 100));
+  if (currency) {
+    if (Number.isFinite(min) && min >= 0) query = query.gte("amount_minor", Math.round(min * 100));
+    if (Number.isFinite(max) && max >= 0) query = query.lte("amount_minor", Math.round(max * 100));
+  }
   const sort = ["oldest", "amount-high", "amount-low", "updated", "due"].includes(params.sort ?? "") ? params.sort! : "newest";
   if (sort === "oldest") query = query.order("created_at", { ascending: true });
   else if (sort === "amount-high") query = query.order("amount_minor", { ascending: false }).order("created_at", { ascending: false });
