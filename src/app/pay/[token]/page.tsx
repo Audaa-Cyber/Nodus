@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { formatMoney } from "@/lib/invoices";
-import { parseInvoiceItems, settlementContract } from "@/lib/invoice-design";
+import { parseInvoiceItems } from "@/lib/invoice-design";
 import { getWalletNetwork } from "@/lib/wallet/networks";
 import { PayerInvoiceFrame } from "@/components/payer-invoice-frame";
 import { PayerInvoiceSheet } from "@/components/payer-invoice-sheet";
@@ -147,7 +147,6 @@ export default async function PublicInvoicePage({ params }: { params: Promise<{ 
     unitPriceMinor: invoice.subtotal_minor ?? invoice.amount_minor,
     lineTotalMinor: invoice.subtotal_minor ?? invoice.amount_minor }];
   const subtotalMinor = invoice.subtotal_minor ?? invoice.amount_minor;
-  const escrowContract = shortAddress(settlementContract(null));
   const checkout = (status === "open" || status === "overdue") ? {
     shareToken: token, invoiceNumber: invoice.invoice_number, amountMinor: invoice.amount_minor,
     currency: invoice.currency, status, destinationNetwork, recipientAddress,
@@ -162,12 +161,12 @@ export default async function PublicInvoicePage({ params }: { params: Promise<{ 
       email={sellerEmail} phone={sellerPhone} address={sellerAddress} taxId={sellerTaxId}
       customerName={parties?.customer_name} customerEmail={parties?.customer_email}
       customerCompany={parties?.customer_company} customerPhone={parties?.customer_phone} customerAddress={parties?.customer_address}
-      amount={safeFormatMoney(invoice.amount_minor, invoice.currency)} subtotal={safeFormatMoney(subtotalMinor, invoice.currency)}
+      currency={invoice.currency} amount={safeFormatMoney(invoice.amount_minor, invoice.currency)} subtotal={safeFormatMoney(subtotalMinor, invoice.currency)}
       tax={safeFormatMoney(Math.round(subtotalMinor * (invoice.tax_rate_bps ?? 0) / 10000), invoice.currency)}
       taxPercent={((invoice.tax_rate_bps ?? 0) / 100).toString()} discount={safeFormatMoney(invoice.discount_minor ?? 0, invoice.currency)}
       issueDate={displayDate(invoice.issue_date)} dueDate={invoice.due_date ? displayDate(invoice.due_date) : "—"}
       network={destinationNetwork ? formatNetworkLabel(destinationNetwork) : "Unavailable"} recipient={shortAddress(recipientAddress)}
-      escrowContract={escrowContract} signature={sellerDetails.founderName} signatureTitle={sellerDetails.founderTitle}
+      signature={sellerDetails.founderName} signatureTitle={sellerDetails.founderTitle}
       items={items.map((item) => ({ ...item, price: safeFormatMoney(item.unitPriceMinor, invoice.currency!), total: safeFormatMoney(item.lineTotalMinor, invoice.currency!) }))}
     />
     {status !== "open" && <p className={`public-invoice-status public-status-${status}`} role="status">{statusMessage}</p>}
