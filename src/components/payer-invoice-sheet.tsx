@@ -17,6 +17,7 @@ export type PayerInvoiceSheetProps = {
   customerPhone?: string | null;
   customerAddress?: string | null;
   amount: string;
+  currency?: string;
   subtotal: string;
   tax: string;
   taxPercent: string;
@@ -32,6 +33,7 @@ export type PayerInvoiceSheetProps = {
 };
 
 export function PayerInvoiceSheet(invoice: PayerInvoiceSheetProps) {
+  const currency = invoice.currency ?? "USDC";
   const hasCustomerDetails = Boolean(invoice.customerName || invoice.customerCompany || invoice.customerEmail || invoice.customerPhone || invoice.customerAddress);
   return <article className="sheet" aria-label={`Invoice from ${invoice.businessName}`}>
     <header className="head">
@@ -66,7 +68,7 @@ export function PayerInvoiceSheet(invoice: PayerInvoiceSheetProps) {
         </dl>
       </div>}
       <div>
-        <div className="banner"><div className="t"><small>Total:</small><div className="amt">{invoice.amount} USDC</div></div></div>
+        <div className="banner"><div className="t"><small>Total:</small><div className="amt">{invoice.amount} {currency}</div></div></div>
         <div className="dates"><p>INVOICE DATE: <b>{invoice.issueDate}</b></p><p>DATE DUE: <b>{invoice.dueDate}</b></p></div>
       </div>
     </section>
@@ -86,7 +88,7 @@ export function PayerInvoiceSheet(invoice: PayerInvoiceSheetProps) {
     <footer className="foot">
       <section>
         <h3>Payment method &amp; escrow terms</h3>
-        <dl className="kv"><dt>Asset</dt><dd>USDC · Circle CCTP</dd><dt>Network</dt><dd>{invoice.network}</dd><dt>Escrow Contract</dt><dd>{invoice.escrowContract}</dd><dt>Payee</dt><dd>{invoice.recipient}</dd></dl>
+        <dl className="kv"><dt>Asset</dt><dd>{currency}</dd><dt>Network</dt><dd>{invoice.network}</dd><dt>Escrow Contract</dt><dd>{invoice.escrowContract}</dd><dt>Payee</dt><dd>{invoice.recipient}</dd></dl>
         <p className="guar"><PayerIcon name="lock" /><span>Your deposit is held by the Nodus Escrow Contract, never by {invoice.businessName} or Nodus. Funds release to the payee on-chain after settlement is verified, and no intermediary can move them.</span></p>
       </section>
       <section className="sig"><span className="cv">{invoice.signature || invoice.businessName}</span><svg viewBox="0 0 200 20" aria-hidden="true"><path d="M4 14C40 4 72 18 104 9s60-6 92 3" /></svg><p><b>Authorized Signatory</b>{invoice.signatureTitle ? ` / ${invoice.signatureTitle}` : ""}</p></section>
