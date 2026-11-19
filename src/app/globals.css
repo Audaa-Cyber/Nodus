@@ -5115,3 +5115,18 @@ main > section button {
     transform: scale(.56);
   }
 }
+
+
+/* Desktop hero spacing: tighten the nav-to-content rhythm without changing the mobile layout. */
+@media (min-width: 1001px) {
+  .nav {
+    flex-basis: 76px;
+    height: 76px;
+  }
+  .hero-copy {
+    padding: 24px 0 18px;
+  }
+  .hero-bottom {
+    margin-top: 30px;
+  }
+}
