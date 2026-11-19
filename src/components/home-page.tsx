@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import DotMatrixHands from "@/components/dot-matrix-hands";
 
-export function HomePage() {
+export function HomePage({ announcementBanner }: { announcementBanner?: { enabled: boolean; text: string } }) {
   const method = "USDC · Arc Testnet";
   const [paymentState, setPaymentState] = useState<"idle" | "processing" | "paid">("idle");
   const [demoPrinted, setDemoPrinted] = useState(false);
@@ -191,6 +191,7 @@ export function HomePage() {
 
   return (
     <main>
+      {announcementBanner?.enabled && announcementBanner.text.trim() && <div className="cms-announcement-banner">{announcementBanner.text}</div>}
       <section className="hero" id="top">
         <nav className="nav shell" aria-label="Main navigation">
           <Link href="#top" className="brand" onClick={closeMenu} aria-label="Nodus home">
