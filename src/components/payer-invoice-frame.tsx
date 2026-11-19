@@ -141,6 +141,7 @@ export function PayerInvoiceFrame({
             <div className={`receipt-paper-window${tearing ? " tearing" : ""}`} ref={windowRef}>
               <div className={`receipt-paper-capture${falling ? " torn-away" : ""}`} ref={paperRef}>
                 {children}
+                <div className="receipt-paper-torn-edge" aria-hidden="true" />
                 {paid && printed && (
                   <div className="receipt-advance-stamp" aria-label="Paid">
                     PAID
