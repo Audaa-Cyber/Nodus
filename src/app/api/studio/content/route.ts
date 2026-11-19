@@ -82,7 +82,23 @@ export async function DELETE(request: NextRequest) {
   const id = request.nextUrl.searchParams.get("id");
   if (!id) return NextResponse.json({ error: "Missing content ID." }, { status: 400 });
   const db = createCmsServiceClient();
-  const result = await db.from("cms_documents").update({ status: "archived", updated_by: admin.workosUserId, updated_at: new Date().toISOString() }).eq("id", id);
-  if (result.error) return NextResponse.json({ error: "Could not archive this entry." }, { status: 400 });
+  const { data: document, error: readError } = await db.from("cms_documents")
+    .select("id,kind,slug,title,content,seo")
+    .eq("id", id)
+    .maybeSingle();
+  if (readError || !document) return NextResponse.json({ error: "Content entry not found." }, { status: 404 });
+
+  const { error } = await db.rpc("nodus_cms_save_document", {
+    p_document_id: document.id,
+    p_kind: document.kind,
+    p_slug: document.slug,
+    p_title: document.title,
+    p_status: "archived",
+    p_content: document.content,
+    p_seo: document.seo,
+    p_actor: admin.workosUserId,
+    p_change_note: "Archived from Nodus Studio",
+  });
+  if (error) return NextResponse.json({ error: "Could not archive this entry." }, { status: 400 });
   return NextResponse.json({ ok: true });
 }
