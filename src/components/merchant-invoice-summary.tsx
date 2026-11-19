@@ -1,5 +1,6 @@
 import { formatMoney } from "@/lib/invoices";
 import type { PaidInvoiceProps } from "@/components/paid-invoice-detail-view";
+import { WalletAddressCopy } from "@/components/wallet-address-copy";
 
 function shortAddress(value?: string | null) {
   return value ? `${value.slice(0, 6)}...${value.slice(-4)}` : "Unavailable";
@@ -10,21 +11,20 @@ export function MerchantInvoiceSummary({ invoice, seller, paid = false }: Pick<P
   const subtotal = invoice.subtotal_minor ?? invoice.amount_minor;
   const taxRate = invoice.tax_rate_bps ?? 0;
   const tax = Math.round(subtotal * taxRate / 10000);
-  const hasCustomerDetails = Boolean(invoice.customer_name || invoice.customer_email || invoice.customer_company || invoice.customer_phone || invoice.customer_address);
   return <section className="card cd invoice-print-sheet">
     <div className="top"><h2 style={{ margin: 0 }}>Invoice summary &amp; items</h2><span className="chip">#{invoice.invoice_number}</span></div>
     <div className="parties">
       <div><h3 className="lab">Billed by</h3><p className="nm">{seller.business_name}</p>
         {seller.address && <p>{seller.address}</p>}{seller.email && <p>{seller.email}</p>}{seller.phone && <p>{seller.phone}</p>}
-        {seller.tax_id && <p className="m"><b>Tax ID / EIN</b> {seller.tax_id}</p>}
-        <p className="m"><b>Receiving wallet</b> {shortAddress(seller.receiving_address)}</p>
+        {seller.tax_id && <p className="m"><b>Tax ID</b> {seller.tax_id}</p>}
+        <p className="m receiving-wallet-row"><b>Receiving wallet</b> <WalletAddressCopy value={seller.receiving_address} /></p>
       </div>
-      {hasCustomerDetails && <div><h3 className="lab">Billed to</h3>{invoice.customer_name && <p className="nm">{invoice.customer_name}</p>}
+      <div><h3 className="lab">Billed to</h3>{invoice.customer_name ? <p className="nm">{invoice.customer_name}</p> : <p className="nm">Customer</p> }
         {invoice.customer_company && <p>{invoice.customer_company}</p>}
         {invoice.customer_email && <p>{invoice.customer_email}</p>}
         {invoice.customer_phone && <p>{invoice.customer_phone}</p>}
         {invoice.customer_address && <p>{invoice.customer_address}</p>}
-      </div>}
+      </div>
     </div>
     <div className="tw"><table>
       <colgroup><col /><col className="q" /><col className="u" /><col className="t" /></colgroup>
@@ -39,7 +39,7 @@ export function MerchantInvoiceSummary({ invoice, seller, paid = false }: Pick<P
     <div className="sum">
       <p><span>Subtotal</span><span>{formatMoney(subtotal, invoice.currency)}</span></p>
       <p><span>Tax ({taxRate / 100}%)</span><span>{formatMoney(tax, invoice.currency)}</span></p>
-      <p><span>Discount</span><span>{formatMoney(invoice.discount_minor ?? 0, invoice.currency)}</span></p>
+      {(invoice.discount_minor ?? 0) > 0 && <p><span>Discount</span><span>−{formatMoney(invoice.discount_minor ?? 0, invoice.currency)}</span></p>}
       <p className="t"><span>{paid ? "Net Total Paid" : "Net Total Due"}</span><span>{formatMoney(invoice.amount_minor, invoice.currency)}</span></p>
     </div>
   </section>;
