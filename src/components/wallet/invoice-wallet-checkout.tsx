@@ -518,7 +518,7 @@ function InvoiceWalletCheckoutContent({
   const dockDetails = <>
     <div className="w"><span className="ic"><PayerIcon name="wallet" /></span><div><small>{isEvmConnected ? "Connected wallet" : "Wallet"}</small><span className="ad" title={evmAddress}>{evmAddress && isEvmConnected ? shortAddress(evmAddress) : "Not connected"}</span></div></div>
     <button className="net" type="button" disabled={executionBusy} onClick={() => { if (!executionBusy) setOptionsOpen(true); }} aria-label="Choose payment network"><i />{selectedSourceNetwork.label}</button>
-    <div><small style={{ display: "block", fontSize: 12, color: "var(--zinc)" }}>Available balance</small><span className="bal">{!isEvmConnected ? "—" : balanceError ? "Unavailable" : balancePending || typeof sourceBalance !== "bigint" ? "Loading…" : Number(formatUnits(sourceBalance, selectedAsset?.decimals ?? 6)).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " USDC"}</span></div>
+    <div><small style={{ display: "block", fontSize: 12, color: "var(--zinc)" }}>Available balance</small><span className="bal">{!isEvmConnected ? "—" : balanceError ? "Unavailable" : balancePending || typeof sourceBalance !== "bigint" ? "Loading…" : Number(formatUnits(sourceBalance, selectedAsset?.decimals ?? 6)).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ` ${selectedAsset?.symbol ?? "USDC"}`}</span></div>
     <button className="tg" type="button" disabled={executionBusy} onClick={() => {
       if (executionBusy) return;
       if (isEvmConnected) void disconnectAsync().catch(() => setFlowError("The wallet could not be disconnected. Try again in your wallet."));
