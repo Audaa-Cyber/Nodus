@@ -22,6 +22,7 @@ export type PayerInvoiceSheetProps = {
   tax: string;
   taxPercent: string;
   discount: string;
+  discountMinor?: number | null;
   issueDate: string;
   dueDate: string;
   network: string;
@@ -45,7 +46,7 @@ export function PayerInvoiceSheet(invoice: PayerInvoiceSheetProps) {
         <span className="no">No. {invoice.invoiceNumber}</span><br />
         <span className="pill"><span className="dot" />{invoice.status.toUpperCase()}{invoice.dueDate !== "—" ? ` · DUE ${invoice.dueDate.toUpperCase()}` : ""}</span>
       </div>
-      <section className="dos" aria-label="Merchant business dossier">
+      <section className="dos" aria-label="Business details">
         <h2>Business details</h2>
         <dl className="d">
           <div><PayerIcon name="phone" /><dd style={{ margin: 0 }}>{invoice.phone || "—"}</dd></div>
@@ -81,7 +82,7 @@ export function PayerInvoiceSheet(invoice: PayerInvoiceSheetProps) {
     <div className="sum">
       <p><span>Subtotal</span><span>{invoice.subtotal}</span></p>
       <p><span>Tax ({invoice.taxPercent}%)</span><span>{invoice.tax}</span></p>
-      {invoice.discount !== "0.00 " + currency && <p><span>Discount</span><span>{invoice.discount}</span></p>}
+      {(invoice.discountMinor ?? 0) > 0 && <p><span>Discount</span><span>{invoice.discount}</span></p>}
       <div className="tot"><span>Total due</span><span>{invoice.amount} {currency}</span></div>
     </div>
     <footer className="foot">
