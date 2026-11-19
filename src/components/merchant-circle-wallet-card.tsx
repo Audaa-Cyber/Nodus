@@ -118,7 +118,7 @@ export function MerchantCircleWalletCard({
         }
         setWallets(newWallets);
         if (newWallets.length > 0) {
-          setStatusMessage("Circle User-Controlled Wallet created successfully!");
+          setStatusMessage("Wallet created.");
         }
       } catch (err) {
         setErrorMessage(err instanceof Error ? err.message : "Circle wallet setup failed.");
@@ -149,7 +149,7 @@ export function MerchantCircleWalletCard({
 
         const result = await res.json();
         onAddressConnected(result.receiving_address, result.receiving_network);
-        setStatusMessage("Connected verified Circle wallet to business profile ✓");
+        setStatusMessage("Wallet connected.");
       } catch (err) {
         setErrorMessage(err instanceof Error ? err.message : "Failed to connect wallet.");
       }
@@ -199,7 +199,6 @@ Wallet setup is unavailable right now.
               <span>{primaryWallet.blockchain}</span>
               <span className="text-neutral-600 font-medium">Wallet network</span>
             </div>
-            <span className="text-slate-900 font-medium">{primaryWallet.address}</span>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
