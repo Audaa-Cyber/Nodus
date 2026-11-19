@@ -18,7 +18,8 @@ const sections = [
       "Invoice information. This can include invoice numbers, customer names and contact details, descriptions, line items, quantities, prices, currency, tax and discount values, issue and due dates, invoice status, and business details displayed on the invoice.",
       "Payment and settlement information. When a payment flow is used, Nodus may process payment method and network selections, source and destination asset/network identifiers, receiving or deposit addresses, payment amounts, quote details and expiry, transaction identifiers, payment status, settlement records, and related verification evidence. Public blockchain data may also be visible through the relevant network's explorers.",
       "Receipt and feedback information. Nodus may process receipt numbers and issue times, plus ratings or comments submitted through invoice feedback.",
-      "Technical and session information. Authentication session cookies and information needed to operate, protect, troubleshoot, and maintain the service may be processed by Nodus and its infrastructure providers."
+      "Technical and session information. Authentication session cookies and information needed to operate, protect, troubleshoot, and maintain the service may be processed by Nodus and its infrastructure providers.",
+      "Public website analytics. Nodus records public page views, designated call-to-action clicks, referring website hostnames, and a pseudonymous first-party visitor identifier derived from a random cookie. This analytics feature does not collect IP addresses or full browser user-agent strings."
     ]
   },
   {
