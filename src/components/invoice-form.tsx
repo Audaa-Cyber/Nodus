@@ -4,15 +4,17 @@ import Image from "next/image";
 import type { FormState } from "@/app/actions/auth";
 import { saveInvoiceAction } from "@/app/actions/invoices";
 import type { Invoice } from "@/lib/invoices";
+import { circleTestnetUsdcNetworks } from "@/lib/wallet/networks";
 type Line={description:string;quantity:string;unitPrice:string};
 const blank=():Line=>({description:"",quantity:"1",unitPrice:""});
 const fmt=(minor:number,currency:string)=>{try{return new Intl.NumberFormat("en-US",{style:"currency",currency}).format(minor/100)}catch{return (minor/100).toFixed(2)+" "+currency}};
 function addDays(date:string,days:number){const d=new Date(date+"T00:00:00Z");d.setUTCDate(d.getUTCDate()+days);return d.toISOString().slice(0,10)}
-export default function InvoiceForm({invoice,defaultCurrency="USDC",paymentTermsDays=14,businessName="Your business",logoUrl="",businessEmail="",businessPhone="",businessAddress="",websiteUrl="",taxRegistrationNumber="",defaultFooter="Thank you for your business."}:{invoice?:Invoice;defaultCurrency?:string;paymentTermsDays?:number;businessName?:string;logoUrl?:string;businessEmail?:string;businessPhone?:string;businessAddress?:string;websiteUrl?:string;taxRegistrationNumber?:string;defaultFooter?:string}){
+export default function InvoiceForm({invoice,defaultCurrency="USDC",paymentTermsDays=14,businessName="Your business",logoUrl="",businessEmail="",businessPhone="",businessAddress="",websiteUrl="",taxRegistrationNumber="",defaultFooter="Thank you for your business.",businessNetworks=[],businessReceivingAddress=""}:{invoice?:Invoice;defaultCurrency?:string;paymentTermsDays?:number;businessName?:string;logoUrl?:string;businessEmail?:string;businessPhone?:string;businessAddress?:string;websiteUrl?:string;taxRegistrationNumber?:string;defaultFooter?:string;businessNetworks?:string[];businessReceivingAddress?:string}){
  const [state,action,pending]=useActionState<FormState,FormData>(saveInvoiceAction,{});
  const [clientDraftId] = useState(() => invoice?.id ?? (typeof crypto !== "undefined" ? crypto.randomUUID() : ""));
  const [isSubmitting, setIsSubmitting] = useState(false);
  const [activeIntent, setActiveIntent] = useState<"draft" | "issue" | null>(null);
+ const [paymentNetworks, setPaymentNetworks] = useState<string[]>(invoice?.payment_networks?.length ? invoice.payment_networks : businessNetworks);
 
  useEffect(() => {
    if (!pending) {
@@ -32,8 +34,19 @@ export default function InvoiceForm({invoice,defaultCurrency="USDC",paymentTerms
  return <form action={action} className="business-form" onSubmit={(e) => { if (pending || isSubmitting) { e.preventDefault(); return; } setIsSubmitting(true); }}>
  {invoice&&<input type="hidden" name="invoiceId" value={invoice.id}/>}
  {!invoice && <input type="hidden" name="clientDraftId" value={clientDraftId} />}
- <input type="hidden" name="lineItems" value={JSON.stringify(rows)}/><input type="hidden" name="taxRateBps" value={String(taxBps)}/><input type="hidden" name="discountMinor" value={String(discountMinor)}/>
+ <input type="hidden" name="lineItems" value={JSON.stringify(rows)}/><input type="hidden" name="taxRateBps" value={String(taxBps)}/><input type="hidden" name="discountMinor" value={String(discountMinor)}/>{paymentNetworks.map(network=><input key={network} type="hidden" name="paymentNetworks" value={network}/>)}
  <div className="form-grid">
+ <section className="form-wide" aria-labelledby="payment-networks-title">
+  <strong id="payment-networks-title">Payment networks</strong>
+  <p className="form-help">Choose which networks this customer can pay on. They will select one at checkout.</p>
+  {businessNetworks.length ? <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3">
+   {circleTestnetUsdcNetworks.filter(network=>businessNetworks.includes(network.key)).map(network=><label key={network.key} className="flex items-center gap-2 rounded-lg border p-3 text-xs" style={{borderColor:"var(--card-border)"}}>
+    <input type="checkbox" checked={paymentNetworks.includes(network.key)} disabled={Boolean(invoice && invoice.status!=="draft")} onChange={e=>setPaymentNetworks(current=>e.target.checked?[...current,network.key]:current.filter(key=>key!==network.key))}/>
+    <span>{network.label}</span>
+   </label>)}
+  </div> : <p className="form-help">Add your wallet address and supported networks in Business profile before issuing an invoice.</p>}
+  {invoice && invoice.status!=="draft" && <p className="form-help">Payment networks are locked after an invoice is issued.</p>}
+ </section>
  <label>Customer name <span>(optional)</span><input name="customerName" type="text" autoComplete="name" maxLength={120} value={customerName} onChange={e=>setCustomerName(e.target.value)} placeholder="Customer or recipient name"/></label>
  <label>Customer email <span>(optional)</span><input name="customerEmail" type="email" autoComplete="email" maxLength={254} value={customerEmail} onChange={e=>setCustomerEmail(e.target.value)} placeholder="customer@example.com"/></label>
  <label>Currency<select name="currency" value={currency} onChange={e=>setCurrency(e.target.value)}>{["USDC","USDT","EURC"].map(c=><option key={c}>{c}</option>)}</select></label>
@@ -56,7 +69,7 @@ export default function InvoiceForm({invoice,defaultCurrency="USDC",paymentTerms
   <button className="button button-dark" type="submit" name="intent" value="draft" onClick={() => setActiveIntent("draft")} disabled={pending || isSubmitting || total <= 0}>
     {pending && activeIntent === "draft" ? "Saving draft…" : "Save draft"}
   </button>
-  <button className="button button-outline" type="submit" name="intent" value="issue" onClick={() => setActiveIntent("issue")} disabled={pending || isSubmitting || total <= 0}>
+  <button className="button button-outline" type="submit" name="intent" value="issue" onClick={() => setActiveIntent("issue")} disabled={pending || isSubmitting || total <= 0 || paymentNetworks.length === 0 || !businessReceivingAddress}>
     {pending && activeIntent === "issue" ? (!invoice || invoice.status === "draft" ? "Issuing invoice…" : "Saving changes…") : (!invoice || invoice.status === "draft" ? "Issue invoice" : "Save changes")}
   </button>
 </div>
