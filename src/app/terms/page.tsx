@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { getPublishedCmsDocument } from "@/lib/cms/public";
+import { CmsPublicPage } from "@/components/cms-public-page";
 
 const sections = [
   {
@@ -67,7 +69,9 @@ const sections = [
   }
 ];
 
-export default function TermsPage() {
+export default async function TermsPage() {
+  const cmsDocument = await getPublishedCmsDocument("terms");
+  if (cmsDocument?.kind === "legal") return <CmsPublicPage document={cmsDocument} eyebrow="NODUS / LEGAL" />;
   return (
     <main className="min-h-screen bg-white text-[#171816]">
       <div className="mx-auto w-full max-w-[820px] px-6 py-12 sm:px-10 sm:py-20">
