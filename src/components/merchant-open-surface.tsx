@@ -3,12 +3,10 @@ import CancelInvoiceForm from "@/components/cancel-invoice-form";
 import InvoiceSharePanel from "@/components/invoice-share-panel";
 import InvoicePrintButton from "@/components/invoice-print-button";
 import { InvoiceDetailLiveSync } from "@/components/invoice-detail-live-sync";
-import { NearReconciliationLiveSync } from "@/components/near-reconciliation-live-sync";
 import { MerchantInvoiceSummary } from "@/components/merchant-invoice-summary";
 import { MerchantIcon } from "@/components/merchant-icon";
 import { MerchantReceiptHistory } from "@/components/merchant-receipt-history";
 import type { PaidInvoiceProps } from "@/components/paid-invoice-detail-view";
-import { retryNearInvoiceRegistrationAction } from "@/app/actions/invoices";
 import { formatMoney, formatUtcDate } from "@/lib/invoices";
 import { getWalletNetwork } from "@/lib/wallet/networks";
 
@@ -24,17 +22,15 @@ type MerchantOpenProps = {
   isCancelled: boolean;
   shareState: "active" | "expired" | "none";
   initialPayUrl: string | null;
-  nearInvoiceRegistration: PaidInvoiceProps["nearInvoiceRegistration"];
   receipts: PaidInvoiceProps["receipts"];
   settlements: PaidInvoiceProps["settlements"];
 };
 
-export function MerchantOpenSurface({ invoice, seller, receivingNetwork, status, query, canEdit, canCancel, canShare, isCancelled, shareState, initialPayUrl, nearInvoiceRegistration, receipts, settlements }: MerchantOpenProps) {
+export function MerchantOpenSurface({ invoice, seller, receivingNetwork, status, query, canEdit, canCancel, canShare, isCancelled, shareState, initialPayUrl, receipts, settlements }: MerchantOpenProps) {
   const id = invoice.id;
   const isPaid = invoice.status === "paid";
   return <div className="merchant-design" data-state="open"><main className="page">
     <InvoiceDetailLiveSync invoiceId={id} currentStatus={invoice.status} />
-    <NearReconciliationLiveSync invoiceId={id} />
     <div className="nav"><Link className="back" href="/dashboard/invoices"><MerchantIcon name="back" />Back to invoices</Link></div>
     <section className="card hd"><div>
       <h1><span className="n">#{invoice.invoice_number}</span><span className="st o" data-s="open"><i />{status === "open" ? "Open" : status === "overdue" ? "Overdue" : status === "draft" ? "Draft" : "Cancelled"}</span></h1>
@@ -50,11 +46,6 @@ export function MerchantOpenSurface({ invoice, seller, receivingNetwork, status,
     <section className="card amt"><div><p className="lab">Amount due</p><div className="big">{formatMoney(invoice.amount_minor, invoice.currency)}<small>USDC</small></div></div><span className="net"><i />{receivingNetwork ? getWalletNetwork(receivingNetwork)?.label ?? receivingNetwork : "Unavailable"}</span></section>
     {!isPaid && !isCancelled && <InvoiceSharePanel invoiceId={id} invoiceNumber={invoice.invoice_number} shareState={shareState} expiresAt={invoice.share_token_expires_at} canShare={canShare} initialUrl={initialPayUrl ?? undefined} />}
     <MerchantInvoiceSummary invoice={invoice} seller={seller} />
-    {invoice.status !== "draft" && nearInvoiceRegistration && <section className="card" aria-label="NEAR invoice registration"><h2 style={{ margin: "0 0 14px", fontSize: 18, fontWeight: 700 }}>NEAR invoice registration</h2>
-      <p>{invoice.near_registration_status === "registered" ? "Registered on NEAR" : invoice.near_registration_status === "submitting" ? "Registration transaction is being verified" : invoice.near_registration_status === "failed" ? `Registration failed${invoice.near_registration_failure_reason ? `: ${invoice.near_registration_failure_reason}` : "."}` : "Registration is queued"}</p>
-      {invoice.near_registration_status === "registered" && invoice.near_registration_transaction_hash && <a href={`https://nearblocks.io/txns/${encodeURIComponent(invoice.near_registration_transaction_hash)}`} target="_blank" rel="noopener noreferrer">View registration transaction</a>}
-      {invoice.near_registration_status === "failed" && <form action={retryNearInvoiceRegistrationAction}><input type="hidden" name="invoiceId" value={id} /><button type="submit" className="btn">Retry NEAR registration</button></form>}
-    </section>}
     <MerchantReceiptHistory receipts={receipts} settlements={settlements} />
   </main></div>;
 }
