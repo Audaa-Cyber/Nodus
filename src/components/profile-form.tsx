@@ -100,7 +100,6 @@ export default function ProfileForm({
       {/* Section Header */}
       <div className="mb-6 stagger-item delay-1">
         <span id="pageEyebrow" className="block text-[11px] font-semibold uppercase tracking-widest mb-1.5" style={{ color: "var(--text-muted)" }}>
-          ACCOUNT
         </span>
         <h1 id="pageMainHeading" className="text-3xl sm:text-[34px] font-bold tracking-tight text-slate-900 mb-1.5">
           Business profile
@@ -154,21 +153,17 @@ export default function ProfileForm({
                 >
                   {isDestinationConfigured && isEvmValid && isCircleTestnetNetwork ? (
                     <>
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                      <span className="text-emerald-600 font-semibold">Testnet checkout configured ✓</span>
+                      <span className="w-1.5 h-1.5 rounded-full bg-neutral-500" />
+                      <span className="font-semibold">Checkout ready</span>
                     </>
                   ) : (
                     <>
-                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                      <span>Unverified route</span>
+                      <span className="w-1.5 h-1.5 rounded-full bg-neutral-400" />
+                      <span>Setup needed</span>
                     </>
                   )}
                 </span>
               </div>
-              <p className="text-xs leading-relaxed mb-4" style={{ color: "var(--text-secondary)" }}>
-                Testnet checkout supports USDC on the five listed networks.
-              </p>
-
               {/* Circle User-Controlled Wallet Option */}
               <MerchantCircleWalletCard
                 currentReceivingAddress={receivingAddress}
@@ -203,12 +198,9 @@ export default function ProfileForm({
                 </div>
                 {receivingNetwork && !isCircleTestnetNetwork && (
                   <p className="mt-2 text-xs text-amber-700" role="status">
-                    This saved network is not enabled for live testnet checkout. Choose a supported testnet above to use this payment flow.
+  This network is not supported. Choose a listed testnet.
                   </p>
                 )}
-                <p className="mt-2 text-xs" style={{ color: "var(--text-secondary)" }}>
-                  Choose where this address will receive USDC. Testnets are for test funds only.
-                </p>
               </div>
 
               {/* Wallet Address */}
