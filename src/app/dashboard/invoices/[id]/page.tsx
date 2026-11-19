@@ -126,7 +126,7 @@ export default async function InvoiceDetailPage({
             tax_id: invoiceSellerTaxId,
             email: typeof sellerSnapshot.email === "string" ? sellerSnapshot.email : business.email,
             invoice_footer: invoiceSellerFooter,
-            receiving_address: business.receiving_address,
+            receiving_address: invoice.payment_receiving_address ?? business.receiving_address,
           }}
           primaryReceipt={primaryReceipt}
           primarySettlement={primarySettlement}
@@ -138,5 +138,5 @@ export default async function InvoiceDetailPage({
     );
   }
 
-  return <MerchantOpenSurface invoice={invoice} seller={{ business_name: invoiceSellerName, logo_url: invoiceSellerLogo, phone: invoiceSellerPhone, address: invoiceSellerAddress, website: invoiceSellerWebsite, tax_id: invoiceSellerTaxId, email: typeof sellerSnapshot.email === "string" ? sellerSnapshot.email : business.email, invoice_footer: invoiceSellerFooter, receiving_address: business.receiving_address }} receivingNetwork={business.receiving_network} status={status} query={query} canEdit={canEdit} canCancel={canCancel} canShare={canShare} isCancelled={isCancelled} shareState={shareState} initialPayUrl={initialPayUrl} receipts={receipts} settlements={settlements} />;
+  return <MerchantOpenSurface invoice={invoice} seller={{ business_name: invoiceSellerName, logo_url: invoiceSellerLogo, phone: invoiceSellerPhone, address: invoiceSellerAddress, website: invoiceSellerWebsite, tax_id: invoiceSellerTaxId, email: typeof sellerSnapshot.email === "string" ? sellerSnapshot.email : business.email, invoice_footer: invoiceSellerFooter, receiving_address: business.receiving_address }} receivingNetwork={invoice.payment_networks?.[0] ?? business.receiving_network} status={status} query={query} canEdit={canEdit} canCancel={canCancel} canShare={canShare} isCancelled={isCancelled} shareState={shareState} initialPayUrl={initialPayUrl} receipts={receipts} settlements={settlements} />;
 }
