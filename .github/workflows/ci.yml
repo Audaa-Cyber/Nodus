@@ -31,7 +31,14 @@ jobs:
         with:
           node-version: 24
           cache: npm
-      - run: npm ci --no-audit --no-fund
-      - run: npm run test:payments
-      - run: npm run lint
-      - run: npm run build
+      - id: install
+        run: npm ci --no-audit --no-fund
+      - name: Payment and integration tests
+        if: steps.install.outcome == 'success'
+        run: npm run test:payments
+      - name: Lint
+        if: always() && steps.install.outcome == 'success'
+        run: npm run lint
+      - name: Production build
+        if: always() && steps.install.outcome == 'success'
+        run: npm run build
