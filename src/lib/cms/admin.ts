@@ -53,34 +53,32 @@ export async function getCmsAdmin(): Promise<CmsAdmin | null> {
   const normalizedEmail = user.email?.trim().toLowerCase() ?? "";
   if (!bootstrapSubjects.includes(user.id) && (!normalizedEmail || !bootstrapEmails.includes(normalizedEmail))) return null;
 
-  const { count, error: countError } = await db
-    .from("cms_admin_users")
-    .select("id", { count: "exact", head: true });
-  if (countError || (count ?? 0) > 0) return null;
-
-  const email = user.email ?? "";
+  const email = user.email?.trim();
   if (!email) return null;
-  const { data: created, error: createError } = await db
-    .from("cms_admin_users")
-    .insert({
-      workos_user_id: user.id,
-      email,
-      display_name: [user.firstName, user.lastName].filter(Boolean).join(" ") || null,
-      role: "owner",
-      is_active: true,
-      invited_by: user.id,
-    })
-    .select("id,workos_user_id,email,display_name,role,is_active")
-    .single();
 
-  if (createError || !created) return null;
+  const { error: bootstrapError } = await db.rpc("nodus_cms_bootstrap_owner", {
+    p_workos_user_id: user.id,
+    p_email: email,
+    p_display_name: [user.firstName, user.lastName].filter(Boolean).join(" ") || null,
+  });
+  if (bootstrapError) return null;
+
+  // The RPC serializes first-owner creation. Re-read the role record rather
+  // than trusting the bootstrap return value or keeping an environment bypass.
+  const { data: bootstrapped, error: readError } = await db
+    .from("cms_admin_users")
+    .select("id,workos_user_id,email,display_name,role,is_active")
+    .eq("workos_user_id", user.id)
+    .maybeSingle();
+
+  if (readError || !bootstrapped || !bootstrapped.is_active) return null;
   return {
-    id: created.id,
-    workosUserId: created.workos_user_id,
-    email: created.email,
-    displayName: created.display_name,
-    role: created.role as CmsAdminRole,
-    isActive: created.is_active,
+    id: bootstrapped.id,
+    workosUserId: bootstrapped.workos_user_id,
+    email: bootstrapped.email,
+    displayName: bootstrapped.display_name,
+    role: bootstrapped.role as CmsAdminRole,
+    isActive: bootstrapped.is_active,
     firstName: user.firstName,
     lastName: user.lastName,
   };
