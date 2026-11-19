@@ -1,8 +1,7 @@
 "use client";
 
-import React, { createContext, useCallback, useContext, useEffect, useRef } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAccessToken } from "@workos-inc/authkit-nextjs/components";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 export type InvoiceRealtimeUpdate = {
@@ -44,9 +43,32 @@ export function InvoiceRealtimeProvider({
   children,
 }: InvoiceRealtimeProviderProps) {
   const router = useRouter();
-  const { accessToken, loading: authLoading } = useAccessToken();
+  const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const routerRef = useRef(router);
   routerRef.current = router;
+
+  useEffect(() => {
+    const supabase = getSupabaseBrowserClient();
+    let isMounted = true;
+
+    void supabase.auth.getSession().then(({ data, error }) => {
+      if (!isMounted) return;
+      setAccessToken(error ? null : data.session?.access_token ?? null);
+      setAuthLoading(false);
+    });
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!isMounted) return;
+      setAccessToken(session?.access_token ?? null);
+      setAuthLoading(false);
+    });
+
+    return () => {
+      isMounted = false;
+      authListener.subscription.unsubscribe();
+    };
+  }, []);
 
   const listenersRef = useRef<Set<InvoiceListener>>(new Set());
   const hasSubscribedInitialRef = useRef<boolean>(false);
@@ -85,7 +107,7 @@ export function InvoiceRealtimeProvider({
 
     const setupRealtime = async () => {
       try {
-        const supabase = getSupabaseBrowserClient(accessToken);
+        const supabase = getSupabaseBrowserClient();
 
         await supabase.realtime.setAuth(accessToken);
 
@@ -192,7 +214,7 @@ export function InvoiceRealtimeProvider({
       if (refreshDebounceTimeout) clearTimeout(refreshDebounceTimeout);
       if (channel) {
         try {
-          const supabase = getSupabaseBrowserClient(accessToken);
+          const supabase = getSupabaseBrowserClient();
           supabase.removeChannel(channel);
         } catch {
           // ignore cleanup error
