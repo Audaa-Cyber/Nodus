@@ -32,6 +32,7 @@ export type PayerInvoiceSheetProps = {
 };
 
 export function PayerInvoiceSheet(invoice: PayerInvoiceSheetProps) {
+  const hasCustomerDetails = Boolean(invoice.customerName || invoice.customerCompany || invoice.customerEmail || invoice.customerPhone || invoice.customerAddress);
   return <article className="sheet" aria-label={`Invoice from ${invoice.businessName}`}>
     <header className="head">
       <div>
@@ -53,17 +54,17 @@ export function PayerInvoiceSheet(invoice: PayerInvoiceSheetProps) {
         </dl>
       </section>
     </header>
-    <section className="row2">
-      <div className="to">
+    <section className="row2" style={{ gridTemplateColumns: hasCustomerDetails ? undefined : "1fr" }}>
+      {hasCustomerDetails && <div className="to">
         <h2>Invoice to</h2>
-        <div className="nm">{invoice.customerName || "Customer"}</div>
-        <div className="co">{invoice.customerCompany || "—"}</div>
+        {invoice.customerName && <div className="nm">{invoice.customerName}</div>}
+        {invoice.customerCompany && <div className="co">{invoice.customerCompany}</div>}
         <dl className="d">
-          <div><PayerIcon name="pin" /><dd style={{ margin: 0 }}>{invoice.customerAddress || "—"}</dd></div>
-          <div><PayerIcon name="phone" /><dd style={{ margin: 0 }}>{invoice.customerPhone || "—"}</dd></div>
-          <div><PayerIcon name="mail" /><dd style={{ margin: 0 }}>{invoice.customerEmail || "—"}</dd></div>
+          {invoice.customerAddress && <div><PayerIcon name="pin" /><dd style={{ margin: 0 }}>{invoice.customerAddress}</dd></div>}
+          {invoice.customerPhone && <div><PayerIcon name="phone" /><dd style={{ margin: 0 }}>{invoice.customerPhone}</dd></div>}
+          {invoice.customerEmail && <div><PayerIcon name="mail" /><dd style={{ margin: 0 }}>{invoice.customerEmail}</dd></div>}
         </dl>
-      </div>
+      </div>}
       <div>
         <div className="banner"><div className="t"><small>Total:</small><div className="amt">{invoice.amount} USDC</div></div></div>
         <div className="dates"><p>INVOICE DATE: <b>{invoice.issueDate}</b></p><p>DATE DUE: <b>{invoice.dueDate}</b></p></div>
