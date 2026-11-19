@@ -3,6 +3,28 @@ import { NextResponse, type NextRequest } from "next/server";
 import { normalizeSupabaseUrl } from "@/config/env.client";
 
 export async function middleware(request: NextRequest) {
+  // Local UI preview only. This never activates in production or on a remote host.
+  const isLocalHost = ["localhost", "127.0.0.1", "::1"].includes(request.nextUrl.hostname);
+  const isLocalDemo = process.env.NODE_ENV === "development" &&
+    process.env.NODUS_DEV_AUTH_BYPASS === "true" && isLocalHost;
+
+  if (isLocalDemo && (isDashboard || isAuthPage)) {
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.delete("x-user-id");
+    requestHeaders.delete("x-user-email");
+    requestHeaders.delete("x-nodus-demo-mode");
+
+    if (isAuthPage) {
+      return NextResponse.redirect(new URL("/dashboard", request.url));
+    }
+
+    requestHeaders.set("x-user-id", "00000000-0000-4000-8000-000000000001");
+    requestHeaders.set("x-user-email", "demo@nodus.local");
+    requestHeaders.set("x-nodus-demo-mode", "true");
+
+    return NextResponse.next({ request: { headers: requestHeaders } });
+  }
+
   let response = NextResponse.next({ request });
   const rawUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
