@@ -28,6 +28,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
   const input = body as Record<string, unknown>;
   const sourceAssetId = String(input.sourceAssetId ?? "").trim();
   const sourceNetwork = String(input.sourceNetwork ?? "").trim();
+  const destinationNetwork = String(input.destinationNetwork ?? "").trim().toLowerCase();
   const sourceSymbol = String(input.sourceSymbol ?? "").trim();
   const sourceDecimals = Number(input.sourceDecimals ?? 6);
   const sourceContractAddress = typeof input.sourceContractAddress === "string" ? input.sourceContractAddress : null;
@@ -37,7 +38,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
     return NextResponse.json({ error: "missing_asset_parameters" }, { status: 400 });
   }
 
-  const { context: invoice, error: ctxError } = await lookupPublicPaymentContext(token);
+  const { context: invoice, options: invoiceOptions, error: ctxError } = await lookupPublicPaymentContext(token);
 
   if (ctxError || !invoice) {
     return NextResponse.json({ error: "invoice_unavailable" }, { status: 404 });
@@ -46,12 +47,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
     return NextResponse.json({ error: "invoice_not_payable" }, { status: 409 });
   }
 
-  if (!invoice.receiving_address || !invoice.receiving_network) {
+  const availableDestinationNetworks = invoiceOptions?.receiving_networks ?? [];
+  const recipientAddress = invoiceOptions?.receiving_address ?? invoice.receiving_address;
+  if (!recipientAddress || !Array.isArray(availableDestinationNetworks) || availableDestinationNetworks.length === 0 || !availableDestinationNetworks.includes(destinationNetwork)) {
     return NextResponse.json({ error: "receiving_destination_not_configured" }, { status: 400 });
   }
 
-  const destinationNetworkOption = circleTestnetUsdcNetworks.find((network) => network.key === invoice.receiving_network);
-  const destinationCircle = destinationNetworkOption ? getCircleChain(invoice.receiving_network, true) : null;
+  const destinationNetworkOption = circleTestnetUsdcNetworks.find((network) => network.key === destinationNetwork);
+  const destinationCircle = destinationNetworkOption ? getCircleChain(destinationNetwork, true) : null;
   if (!destinationNetworkOption || !destinationCircle) {
     return NextResponse.json({ error: "unsupported_circle_testnet_destination_network" }, { status: 400 });
   }
@@ -69,8 +72,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
     invoiceId: invoice.invoice_id,
     amountMinor: Number(invoice.amount_minor),
     currency: invoice.currency,
-    destinationNetwork: invoice.receiving_network,
-    recipientAddress: invoice.receiving_address,
+    destinationNetwork,
+    recipientAddress,
     sourceAssetId,
     sourceNetwork,
     sourceSymbol,
@@ -156,8 +159,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
         invoiceNumber: invoice.invoice_number,
         amountMinor: invoice.amount_minor,
         currency: invoice.currency,
-        receivingAddress: invoice.receiving_address,
-        receivingNetwork: invoice.receiving_network,
+        receivingAddress: recipientAddress,
+        receivingNetwork: destinationNetwork,
       },
     },
     { headers: { "Cache-Control": "no-store" } }
