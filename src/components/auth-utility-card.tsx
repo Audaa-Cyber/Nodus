@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
-export function AuthUtilityCard({ mode }: { mode: "forgot" }) {
+export function AuthUtilityCard() {
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
