@@ -294,7 +294,6 @@ export default function Home() {
             </div>
             <p className="invoice-note">A receipt prints first. Payment confirmation adds the PAID stamp.</p>
           </div>
-          </div>
         </div>
       </section>
 
