@@ -2,10 +2,6 @@ import { formatMoney } from "@/lib/invoices";
 import type { PaidInvoiceProps } from "@/components/paid-invoice-detail-view";
 import { WalletAddressCopy } from "@/components/wallet-address-copy";
 
-function shortAddress(value?: string | null) {
-  return value ? `${value.slice(0, 6)}...${value.slice(-4)}` : "Unavailable";
-}
-
 export function MerchantInvoiceSummary({ invoice, seller, paid = false }: Pick<PaidInvoiceProps, "invoice" | "seller"> & { paid?: boolean }) {
   const items = Array.isArray(invoice.line_items) ? invoice.line_items.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object" && !Array.isArray(item)) : [];
   const subtotal = invoice.subtotal_minor ?? invoice.amount_minor;
