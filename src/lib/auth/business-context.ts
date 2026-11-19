@@ -55,6 +55,24 @@ function setCachedProfile(userId: string, profile: BusinessProfile | null) {
 export const getVerifiedUser = cache(async (): Promise<User | null> => {
   try {
     const headerList = await headers();
+    if (headerList.get("x-nodus-demo-mode") === "true" &&
+        process.env.NODE_ENV === "development" &&
+        process.env.NODUS_DEV_AUTH_BYPASS === "true") {
+      return {
+        id: "00000000-0000-4000-8000-000000000001",
+        email: "demo@nodus.local",
+        app_metadata: {},
+        user_metadata: { business_name: "Offlines Demo" },
+        aud: "authenticated",
+        created_at: "2026-01-01T00:00:00.000Z",
+      } as User;
+    }
+  } catch {
+    // Continue with the regular Supabase session lookup.
+  }
+
+  try {
+    const headerList = await headers();
     const verifiedUserId = headerList.get("x-user-id");
     const verifiedUserEmail = headerList.get("x-user-email");
 
@@ -90,6 +108,36 @@ export const getBusinessContext = cache(async () => {
   const supabase = await createSupabaseServerClient();
   const user = await getVerifiedUser();
   if (!user) return { supabase, user: null, business: null };
+
+  try {
+    const headerList = await headers();
+    if (headerList.get("x-nodus-demo-mode") === "true" &&
+        process.env.NODE_ENV === "development" &&
+        process.env.NODUS_DEV_AUTH_BYPASS === "true") {
+      const demoBusiness: BusinessProfile = {
+        id: "00000000-0000-4000-8000-000000000002",
+        business_name: "Offlines Demo",
+        email: "demo@nodus.local",
+        receiving_address: null,
+        receiving_network: "base-sepolia",
+        logo_url: null,
+        business_phone: null,
+        business_address: "Addis Ababa, Ethiopia",
+        website_url: null,
+        tax_registration_number: null,
+        invoice_prefix: "DEMO",
+        next_invoice_number: 1,
+        default_currency: "USDC",
+        default_payment_terms_days: 7,
+        invoice_footer: "Demo workspace",
+        created_at: "2026-01-01T00:00:00.000Z",
+        updated_at: "2026-01-01T00:00:00.000Z",
+      };
+      return { supabase, user, business: demoBusiness };
+    }
+  } catch {
+    // Continue with the regular database-backed business profile.
+  }
 
   const cached = getCachedProfile(user.id);
   if (cached !== undefined) {
