@@ -23,9 +23,9 @@ A merchant can configure one wallet address and enable any combination of the fi
 
 1. Install dependencies with `npm install`.
 2. Copy `.env.example` to `.env.local`.
-3. Set `WORKOS_CLIENT_ID` and `WORKOS_API_KEY` to the Staging environment credentials.
+3. Set `WORKOS_CLIENT_ID` to the Staging client ID. Nodus uses AuthKit's PKCE public-client flow, so `WORKOS_API_KEY` can remain unset.
 4. Generate a 32+ character `WORKOS_COOKIE_PASSWORD` (for example, `openssl rand -base64 32`).
-5. Set `NEXT_PUBLIC_WORKOS_REDIRECT_URI=http://localhost:3000/auth/callback`.
+5. Set `NEXT_PUBLIC_WORKOS_REDIRECT_URI=http://localhost:3000/auth/callback` and `WORKOS_ISSUER` to the comma-separated Staging and Production issuers in `.env.example`.
 6. Set the Supabase project URL and publishable key.
 7. In Supabase Dashboard → Authentication → Third-Party Auth, add both issuers below and ensure WorkOS JWTs use the `authenticated` role:
    - Staging: `https://api.workos.com/user_management/client_01M7T841PNMYSWF6CYPTWWK7MH`
@@ -37,7 +37,7 @@ A merchant can configure one wallet address and enable any combination of the fi
 
 ### Production environment
 
-In Vercel, use the Production WorkOS client ID `client_01M7T841Y5D7AJZHVW8YSTJ9EG` and a Production WorkOS API key. Also set `WORKOS_COOKIE_PASSWORD`, `NEXT_PUBLIC_WORKOS_REDIRECT_URI=https://nodus.pro.et/auth/callback`, `NEXT_PUBLIC_APP_URL=https://nodus.pro.et`, the Supabase URL and publishable key, and the server-only `SUPABASE_SERVICE_ROLE_KEY`. Do not expose either API key or the service-role key to browser code.
+In Vercel, use the Production WorkOS client ID `client_01M7T841Y5D7AJZHVW8YSTJ9EG`. `WORKOS_API_KEY` can remain unset because Nodus uses PKCE public-client mode. Also set `WORKOS_COOKIE_PASSWORD`, `NEXT_PUBLIC_WORKOS_REDIRECT_URI=https://nodus.pro.et/auth/callback`, `NEXT_PUBLIC_APP_URL=https://nodus.pro.et`, the Supabase URL and publishable key, and the server-only `SUPABASE_SERVICE_ROLE_KEY`. Do not expose either API key or the service-role key to browser code.
 
 ## Security notes
 
