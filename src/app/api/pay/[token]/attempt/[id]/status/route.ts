@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { after, NextResponse } from "next/server.js";
+import { NextResponse } from "next/server.js";
 import { getSupabaseAdminClient } from "../../../../../../../lib/supabase/admin.ts";
 import { isServerSupabaseConfigured } from "../../../../../../../config/env.server.ts";
 import { getCircleChain, fetchCircleCctpStatus } from "../../../../../../../lib/server/circle.ts";
@@ -11,8 +11,6 @@ import {
 import { isSamePaymentChain } from "../../../../../../../lib/wallet/networks.ts";
 import { assetUnitsToInvoiceMinor } from "../../../../../../../lib/payments/settlement-policy.ts";
 import { verifyImmutableAttemptInvoiceBinding } from "../../../../../../../lib/payments/cctp-v2-integrity.ts";
-import { processNearSettlementOutbox } from "../../../../../../../lib/server/near-settlement-outbox.ts";
-import { logNearSettlementTiming, measureNearSettlementStage } from "../../../../../../../lib/server/near-settlement-telemetry.ts";
 
 export const dynamic = "force-dynamic";
 const TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
@@ -224,10 +222,6 @@ export async function GET(
           p_evidence: { routeType: "same_chain", destinationProof: proof, verifiedAt: new Date().toISOString() },
         });
         if (recError || !recResult) return NextResponse.json({ attempt: publicAttempt(attempt), pending: true });
-        after(async () => {
-          try { await processNearSettlementOutbox(1, { entryPoint: "payment_status", correlationId: id }); }
-          catch { /* The durable outbox worker retries independently of payer settlement. */ }
-        });
         const { data: receipts } = await supabaseAdmin.rpc("lookup_shared_payment_receipts", { p_token_hash: tokenHash });
         return NextResponse.json({
           attempt: publicAttempt({ ...attempt, status: "SUCCESS" }),
@@ -304,9 +298,7 @@ export async function GET(
       if (!merchantRecipient || !attestedMessage || !minimumReceived || !destinationAssetId) {
         throw new Error("incomplete_payment_attempt");
       }
-      const nearLogContext = { entryPoint: "payment_status" as const, correlationId: attempt.id };
-      const sourceProof = await measureNearSettlementStage(nearLogContext, "evm_source_verification", () =>
-        verifyCctpV2SourceTransaction({
+      const sourceProof = await verifyCctpV2SourceTransaction({
           sourceNetwork: attempt.source_network,
           sourceTxHash,
           payer,
@@ -315,7 +307,7 @@ export async function GET(
           expectedSourceDebitAmount,
           merchantRecipient,
           attestedMessage,
-        }));
+        });
       if (cctp.eventNonce !== undefined) {
         let irisNonce: bigint;
         try { irisNonce = BigInt(cctp.eventNonce); } catch { throw new Error("iris_nonce_malformed"); }
@@ -349,8 +341,7 @@ export async function GET(
         });
       }
 
-      const destinationProof = await measureNearSettlementStage(nearLogContext, "evm_destination_verification_and_finality", () =>
-        verifyCctpV2DestinationTransaction({
+      const destinationProof = await verifyCctpV2DestinationTransaction({
           destinationNetwork: attempt.destination_network,
           destinationTxHashes: destinationHashes,
           sourceNetwork: attempt.source_network,
@@ -358,7 +349,7 @@ export async function GET(
           recipient: merchantRecipient,
           minimumReceived,
           assetId: destinationAssetId,
-        }));
+        });
       await saveRecovery(supabaseAdmin, id, destinationProof.finalityConfirmed ? "DESTINATION_VERIFIED" : "AWAITING_FINALITY", {
         nonce: sourceProof.nonce,
         messageHash: sourceProof.messageHash,
@@ -382,10 +373,7 @@ export async function GET(
 
       const receivedMinor = assetUnitsToInvoiceMinor(destinationProof.amount, 6);
       if (receivedMinor === null) throw new Error("destination_amount_conversion_failed");
-      const { data: recResult, error: recError } = await measureNearSettlementStage(
-        nearLogContext,
-        "postgres_reconciliation_and_outbox_insert",
-        () => supabaseAdmin.rpc("record_payment_reconciliation", {
+      const { data: recResult, error: recError } = await supabaseAdmin.rpc("record_payment_reconciliation", {
         p_attempt_id: id,
         p_provider_status: "SUCCESS",
         p_provider_signature_verified: true,
@@ -407,24 +395,9 @@ export async function GET(
           circleStatus: { forwardState: cctp.forwardState, cctpVersion: cctp.cctpVersion },
           verifiedAt: new Date().toISOString(),
         },
-      }),
-      );
-      if (recError || !recResult) throw new Error(recError?.message ?? "payment_reconciliation_failed");
-      // The verified PostgreSQL reconciliation is authoritative. The durable outbox
-      // survives process exits; post-response work starts delivery promptly, while
-      // the scheduled worker remains the recovery path if this request is terminated.
-      after(async () => {
-        const startedAt = performance.now();
-        try {
-          await processNearSettlementOutbox(5, {
-            entryPoint: "payment_status",
-            correlationId: attempt.id,
-          });
-          logNearSettlementTiming(nearLogContext, "post_response_worker_dispatch", performance.now() - startedAt, "ok");
-        } catch {
-          logNearSettlementTiming(nearLogContext, "post_response_worker_dispatch", performance.now() - startedAt, "error");
-        }
       });
+      if (recError || !recResult) throw new Error(recError?.message ?? "payment_reconciliation_failed");
+      // PostgreSQL reconciliation is authoritative; NEAR settlement delivery is not part of Nodus checkout.
       await saveRecovery(supabaseAdmin, id, "SETTLED", {
         nonce: sourceProof.nonce, messageHash: sourceProof.messageHash,
         destinationTxHashes: destinationProof.transactionHashes,
