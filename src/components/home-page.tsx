@@ -208,7 +208,7 @@ export function HomePage() {
 
           <div className="nav-right">
             <Link href="/login?next=%2Fdashboard" prefetch={true} className="nav-login">Log in</Link>
-            <Link href="/register?mode=signup" prefetch={true} className="nav-cta nav-register">Sign up</Link>
+            <Link href="/register?mode=signup" prefetch={true} className="nav-cta nav-register" data-analytics-cta="nav-signup">Sign up</Link>
             <button
               className="menu-toggle"
               type="button"
@@ -432,7 +432,7 @@ export function HomePage() {
           <h2>Ready to send<br /><span>your first invoice?</span></h2>
           <div className="closing-bottom">
             <p>Create your business workspace to prepare itemized invoices, share a QR checkout, and track payment status.</p>
-            <Link href="/register?mode=signup" className="button button-light">Create account <ArrowUpRight size={15} strokeWidth={1.7} aria-hidden="true" /></Link>
+            <Link href="/register?mode=signup" className="button button-light" data-analytics-cta="closing-create-account">Create account <ArrowUpRight size={15} strokeWidth={1.7} aria-hidden="true" /></Link>
           </div>
         </div>
       </section>
