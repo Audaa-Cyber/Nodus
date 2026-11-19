@@ -11,7 +11,7 @@ export async function saveInvoiceDefaultsAction(_previous:FormState,formData:For
  if(businessPhone.length>80||businessAddress.length>500||taxRegistrationNumber.length>100)return{error:"Business contact details exceed the allowed length."};
  if(websiteUrl&&(websiteUrl.length>2048||!/^https:\/\//i.test(websiteUrl)))return{error:"Use a public HTTPS URL for your website."};
  if(!/^[A-Z0-9-]{1,16}$/.test(invoicePrefix))return{error:"Use a prefix of 1–16 letters, numbers, or hyphens."};
- if(!["USD","EUR","GBP","ETB","KES"].includes(defaultCurrency))return{error:"Choose a supported currency."};
+ if(!["USDC","USDT","EURC"].includes(defaultCurrency))return{error:"Choose a supported currency."};
  if(![0,7,14,30,45,60].includes(paymentTermsDays))return{error:"Choose a supported payment term."};
  if(invoiceFooter.length>1000)return{error:"Thank-you note must be 1,000 characters or fewer."};
  const {supabase,user,business}=await getBusinessContext();if(!user)redirect("/login",RedirectType.replace);if(!business)return{error:"Business profile is unavailable."};
