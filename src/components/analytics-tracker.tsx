@@ -6,7 +6,8 @@ import { usePathname } from "next/navigation";
 export function AnalyticsTracker() {
   const pathname = usePathname();
   useEffect(() => {
-    if (!pathname || pathname.startsWith("/studio") || pathname.startsWith("/api/")) return;
+    const excludedPrefixes = ["/studio", "/control", "/dashboard", "/api", "/pay", "/login", "/register", "/auth", "/sign-in", "/sign-up", "/reset-password"];
+    if (!pathname || excludedPrefixes.some((prefix) => pathname === prefix || pathname.startsWith(prefix + "/"))) return;
     const send = (payload: Record<string,string>) => {
       void fetch("/api/studio/analytics", {
         method: "POST",
