@@ -12,7 +12,7 @@ export default async function BusinessProfilePage() {
         <div className="surface-card p-6 sm:p-8">
           <h1 className="text-xl font-bold mb-2">Business profile unavailable</h1>
           <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
-            Apply the Supabase migration to finish setting up your business account.
+            Your account is signed in, but the business profile could not be created. Refresh the page or contact support.
           </p>
         </div>
       </div>
@@ -23,7 +23,7 @@ export default async function BusinessProfilePage() {
     <>
     <ProfileForm
       businessName={business.business_name}
-      receivingNetwork={business.receiving_network}
+      receivingNetworks={business.receiving_networks ?? []}
       receivingAddress={business.receiving_address}
       email={business.email ?? user.email ?? ""}
       createdAt={business.created_at}
