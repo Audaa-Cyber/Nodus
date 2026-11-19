@@ -5395,3 +5395,38 @@ body {
 .scroll-design .pill { color: #404040 !important; background: #fff !important; border-color: #d4d4d4 !important; }
 .scroll-design .note, .scroll-design .cap, .scroll-design .hint { color: #525252; }
 .scroll-design .receipt-stamp, .scroll-design .stamp { color: #404040; border-color: #737373; }
+
+
+/* Customer receipt printer: original Advance Receipt Print interaction, driven by live invoice data. */
+.receipt-print-experience { width: min(100%, 620px); margin: 0 auto; padding: 30px 16px 56px; }
+.receipt-printer-stage { position: relative; width: 100%; max-width: 560px; margin: 0 auto; padding-top: 33px; }
+.receipt-printer-slot { position: absolute; left: 50%; z-index: 50; width: min(100%, 560px); background: linear-gradient(180deg,#2d323c 0%,#15181f 100%); box-shadow: 0 4px 12px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.07),inset 0 -2px 5px rgba(0,0,0,.45); transform: translateX(-50%); }
+.receipt-slot-top { top: 0; height: 16px; border-radius: 16px 16px 0 0; }
+.receipt-slot-bottom { top: 19px; height: 14px; border-radius: 0 0 16px 16px; }
+.receipt-printer-slot.printing { animation: receiptSlotVibrate .075s linear infinite; }
+@keyframes receiptSlotVibrate { 0%,100% { transform: translate(-50%,0); } 50% { transform: translate(-50%,.7px); } }
+.receipt-paper-window { position: relative; width: min(calc(100% - 20px),540px); height: 0; margin: 0 auto; overflow: hidden; z-index: 20; transition: height .22s ease; }
+.receipt-paper-window.printing { transition: height .18s ease-out; }
+.receipt-paper-window.tearing { overflow: visible; }
+.receipt-paper-capture { position: relative; width: 100%; min-height: 1px; background: #fafafa; box-shadow: 0 22px 55px -15px rgba(0,0,0,.18); }
+.receipt-paper-capture > .sheet { width: 100%; margin: 0 auto; }
+.receipt-advance-stamp { position: absolute; top: 74px; right: 24px; z-index: 70; width: 94px; height: 94px; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 4px solid rgba(5,150,105,.82); border-radius: 50%; color: rgba(5,150,105,.86); font-size: 19px; font-weight: 900; letter-spacing: .07em; line-height: 1; text-align: center; transform: rotate(-18deg) scale(0); opacity: 0; pointer-events: none; text-shadow: 0 0 1px rgba(5,150,105,.35); box-shadow: inset 0 0 0 2px rgba(5,150,105,.12),0 0 0 2px rgba(5,150,105,.1); }
+.receipt-advance-stamp::after { content: ""; position: absolute; inset: 5px; border: 1px dashed rgba(5,150,105,.7); border-radius: 50%; }
+.receipt-advance-stamp small { margin-top: 5px; font-size: 8px; font-weight: 700; letter-spacing: .04em; }
+.receipt-advance-stamp { animation: receiptStampIn .5s cubic-bezier(.34,1.56,.64,1) forwards; }
+@keyframes receiptStampIn { 0% { transform: rotate(-18deg) scale(0); opacity: 0; } 65% { transform: rotate(-18deg) scale(1.15); opacity: 1; } 100% { transform: rotate(-18deg) scale(1); opacity: 1; } }
+.receipt-tear-perforation { position: absolute; top: 42px; left: 0; z-index: 80; width: 0; height: 14px; overflow: hidden; pointer-events: none; transition: width .7s cubic-bezier(.4,0,.2,1); }
+.receipt-tear-perforation::before { content: ""; position: absolute; top: 50%; left: 0; width: 100%; height: 3px; background: repeating-linear-gradient(90deg,#94a3b8 0 4px,transparent 4px 9px); transform: translateY(-50%); }
+.receipt-paper-window.tearing .receipt-tear-perforation { width: 100%; }
+.receipt-tear-rip { position: absolute; top: 42px; left: 0; z-index: 81; width: 0; height: 18px; opacity: 0; pointer-events: none; background: linear-gradient(135deg,transparent 40%,#e2e8f0 40%,#e2e8f0 60%,transparent 60%) 0 0/10px 18px,linear-gradient(45deg,transparent 40%,#cbd5e1 40%,#cbd5e1 55%,transparent 55%) 0 0/10px 18px; transition: width .7s cubic-bezier(.4,0,.2,1),opacity .15s ease; }
+.receipt-paper-window.tearing .receipt-tear-rip { width: 100%; opacity: 1; }
+.receipt-paper-stub { position: absolute; top: 0; left: 0; right: 0; z-index: 25; height: 42px; background: #fafafa; box-shadow: 0 4px 12px rgba(0,0,0,.08); opacity: 0; transform: translateY(-100%); transition: opacity .2s ease,transform .35s ease; pointer-events: none; }
+.receipt-paper-window.tearing .receipt-paper-stub { opacity: 1; transform: translateY(0); }
+.receipt-paper-capture.torn-away { animation: receiptPaperFall .85s cubic-bezier(.4,0,.6,1) forwards; transform-origin: top center; }
+@keyframes receiptPaperFall { 0% { transform: translateY(0) rotate(0); opacity: 1; } 40% { transform: translateY(30px) rotate(2deg); opacity: 1; } 100% { transform: translateY(420px) rotate(8deg); opacity: 0; } }
+.receipt-action-button { display: flex; width: min(100%,540px); min-height: 50px; align-items: center; justify-content: center; margin: 30px auto 0; padding: 12px 18px; border: 1px solid #171717; border-radius: 3px; background: #171717; color: #fff; font: 600 13px/1.2 inherit; cursor: pointer; transition: background .18s ease,transform .18s ease; }
+.receipt-action-button:hover:not(:disabled) { background: #333; transform: translateY(-1px); }
+.receipt-action-button:disabled { opacity: .65; cursor: wait; }
+.receipt-download-error { margin: 12px auto 0; color: #525252; font-size: 12px; text-align: center; }
+@media(max-width:600px) { .receipt-print-experience { padding: 22px 10px 42px; } .receipt-printer-stage { padding-top: 33px; } .receipt-paper-window { width: calc(100% - 12px); } .receipt-advance-stamp { top: 68px; right: 14px; width: 78px; height: 78px; font-size: 15px; } .receipt-advance-stamp small { font-size: 7px; } }
+@media(prefers-reduced-motion:reduce) { .receipt-printer-slot.printing,.receipt-paper-capture.torn-away,.receipt-advance-stamp { animation-duration:.01ms!important; animation-iteration-count:1!important; } }
