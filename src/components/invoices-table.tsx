@@ -25,6 +25,7 @@ export interface InvoicesTableProps {
   pageSize: number;
   totalPages: number;
   queryString?: string;
+  hasFilters?: boolean;
   hasError?: boolean;
 }
 
@@ -35,6 +36,7 @@ export function InvoicesTable({
   pageSize,
   totalPages,
   queryString = "",
+  hasFilters = false,
   hasError,
 }: InvoicesTableProps) {
   const [invoices, setInvoices] = useState<InvoiceListItem[]>(initialInvoices);
@@ -81,14 +83,9 @@ export function InvoicesTable({
     return (
       <div className="p-8 text-center space-y-2">
         <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
-          No invoices yet.
+          {hasFilters ? "No invoices match these filters." : "No invoices yet."}
         </p>
-        <Link
-          href="/dashboard/invoices/new"
-          className="text-xs font-semibold hover:underline inline-block text-slate-900"
-        >
-          Create your first invoice →
-        </Link>
+        {!hasFilters && <Link href="/dashboard/invoices/new" className="text-xs font-semibold hover:underline inline-block text-slate-900">Create your first invoice →</Link>}
       </div>
     );
   }
