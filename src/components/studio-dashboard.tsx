@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Activity, ArrowUpRight, BarChart3, BookOpen, Clock3, FileText, Globe2, LayoutDashboard, LogOut, Plus, Search, Settings2, ShieldCheck, Sparkles, Users, ScrollText } from "lucide-react";\nimport { StudioGovernance } from "@/components/studio-governance";
+import { Activity, ArrowUpRight, BarChart3, BookOpen, Clock3, FileText, Globe2, LayoutDashboard, LogOut, Plus, Search, Settings2, ShieldCheck, Sparkles, Users, ScrollText } from "lucide-react";
+import { StudioGovernance } from "@/components/studio-governance";
 
 type DocumentKind = "homepage" | "feature" | "faq" | "announcement" | "changelog" | "legal";
 type CmsDocument = { id: string; kind: DocumentKind; slug: string; title: string; status: "draft" | "published" | "archived"; content: Record<string, unknown>; seo: Record<string, unknown>; updated_at: string; published_at: string | null };
@@ -42,7 +43,16 @@ export function StudioDashboard({adminEmail,adminRole}:{adminEmail:string;adminR
     if(!active) return;
     setBusy(true); setError(""); setMessage("");
     try {
-      const response=await fetch("/api/studio/content",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...active,status:status??active.status,changeNote:status==="published"?"Published from Nodus Studio":"Saved from Nodus Studio"})});
+      const content = { ...(active.content ?? {}) };
+      if (active.kind === "homepage") {
+        const rawSections = String(content.sectionsDraft ?? JSON.stringify(content.sections ?? [], null, 2));
+        let sections: unknown;
+        try { sections = JSON.parse(rawSections); } catch { throw new Error("Homepage sections must be valid JSON."); }
+        if (!Array.isArray(sections)) throw new Error("Homepage sections must be a JSON array.");
+        content.sections = sections;
+        delete content.sectionsDraft;
+      }
+      const response=await fetch("/api/studio/content",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...active,content,status:status??active.status,changeNote:status==="published"?"Published from Nodus Studio":"Saved from Nodus Studio"})});
       const data=await response.json();
       if(!response.ok) throw new Error(data.error??"Could not save content.");
       setMessage(status==="published"?"Content published.":"Draft saved.");
@@ -81,7 +91,7 @@ export function StudioDashboard({adminEmail,adminRole}:{adminEmail:string;adminR
           <label>Content type<select value={active.kind??"feature"} onChange={e=>setActive({...active,kind:e.target.value as DocumentKind})}>{kinds.map(k=><option key={k.value} value={k.value}>{k.label}</option>)}</select></label>
           <label>URL slug<input value={active.slug??""} onChange={e=>setActive({...active,slug:e.target.value.toLowerCase().replace(/[^a-z0-9/_-]/g,"-")})}/></label>
           <label className="wide">Title<input value={active.title??""} onChange={e=>setActive({...active,title:e.target.value})}/></label>
-          {active.kind==="homepage"&&<><label className="wide">Hero headline<input value={String(active.content?.heroTitle??"")} onChange={e=>setActive({...active,content:{...active.content,heroTitle:e.target.value}})} placeholder="Itemized invoices. Payments made clear."/></label><label className="wide">Hero description<textarea rows={3} value={String(active.content?.heroDescription??"")} onChange={e=>setActive({...active,content:{...active.content,heroDescription:e.target.value}})} placeholder="Describe what Nodus does."/></label><label>Primary CTA label<input value={String(active.content?.ctaLabel??"")} onChange={e=>setActive({...active,content:{...active.content,ctaLabel:e.target.value}})} placeholder="Log in"/></label><label>Primary CTA destination<input value={String(active.content?.ctaHref??"")} onChange={e=>setActive({...active,content:{...active.content,ctaHref:e.target.value}})} placeholder="/login?next=%2Fdashboard"/></label></>}<label className="wide">Body / answer / section copy<textarea rows={active.kind==="homepage"?5:12} value={String(active.content?.body??"")} onChange={e=>setActive({...active,content:{...active.content,body:e.target.value}})} placeholder="Write the public-facing content here. Keep it clear and concise."/></label>
+          {active.kind==="homepage"&&<><label className="wide">Hero headline<input value={String(active.content?.heroTitle??"")} onChange={e=>setActive({...active,content:{...active.content,heroTitle:e.target.value}})} placeholder="Itemized invoices. Payments made clear."/></label><label className="wide">Hero description<textarea rows={3} value={String(active.content?.heroDescription??"")} onChange={e=>setActive({...active,content:{...active.content,heroDescription:e.target.value}})} placeholder="Describe what Nodus does."/></label><label>Primary CTA label<input value={String(active.content?.ctaLabel??"")} onChange={e=>setActive({...active,content:{...active.content,ctaLabel:e.target.value}})} placeholder="Log in"/></label><label>Primary CTA destination<input value={String(active.content?.ctaHref??"")} onChange={e=>setActive({...active,content:{...active.content,ctaHref:e.target.value}})} placeholder="/login?next=%2Fdashboard"/></label><label className="wide">Homepage sections · JSON array<textarea rows={8} value={String(active.content?.sectionsDraft??JSON.stringify(active.content?.sections??[],null,2))} onChange={e=>setActive({...active,content:{...active.content,sectionsDraft:e.target.value}})} placeholder={'[{"eyebrow":"SECTION","title":"A clear message","body":"Section copy"}]'}/></label></>}<label className="wide">Body / answer / section copy<textarea rows={active.kind==="homepage"?5:12} value={String(active.content?.body??"")} onChange={e=>setActive({...active,content:{...active.content,body:e.target.value}})} placeholder="Write the public-facing content here. Keep it clear and concise."/></label>
           <label>SEO title<input value={String(active.seo?.title??"")} onChange={e=>setActive({...active,seo:{...active.seo,title:e.target.value}})}/></label>
           <label>SEO description<textarea rows={3} value={String(active.seo?.description??"")} onChange={e=>setActive({...active,seo:{...active.seo,description:e.target.value}})}/></label>
           <label className="wide">Social preview image URL<input value={String(active.seo?.socialImage??"")} onChange={e=>setActive({...active,seo:{...active.seo,socialImage:e.target.value}})} placeholder="https://…"/></label>
