@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { getPublishedCmsDocuments } from "@/lib/cms/public";
+import { cmsMetadata } from "@/lib/cms/metadata";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "FAQs | Nodus", description: "Answers to common questions about Nodus." };
+export async function generateMetadata() { const docs=await getPublishedCmsDocuments("faq"); return cmsMetadata(docs[0],{title:"FAQs | Nodus",description:"Answers to common questions about Nodus."}); }
 
 export default async function FaqPage() {
   const items=await getPublishedCmsDocuments("faq");
