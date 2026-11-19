@@ -79,7 +79,7 @@ export function MerchantPaidSurface({ invoice, seller, primaryReceipt, primarySe
       {href && <a className="ib" href={href} target="_blank" rel="noopener noreferrer" aria-label={`View ${key} on explorer`} title={(networkOverride ?? network) === "arbitrum-sepolia" ? "View on Arbiscan" : "View on explorer"}><MerchantIcon name="ext" /></a>}</span>;
   }
   return <div className="merchant-design" data-state="paid"><main className="page">
-    <div className="nav"><Link className="back" href="/dashboard/invoices"><MerchantIcon name="back" />Back to invoices</Link><span className="sync" role="status"><i /><span>Live · updated {dateTime(invoice.updated_at)}</span></span></div>
+    <div className="nav"><Link className="back" href="/dashboard/invoices"><MerchantIcon name="back" />Back to invoices</Link></div>
     <section className="card hd"><div><h1><span className="n">#{invoice.invoice_number}</span><span className="st p" data-s="paid"><i />Paid</span></h1>
       <p className="sub" data-s="paid">Issued {formatUtcDate(invoice.issue_date)} · Settled {paidAt ? formatUtcDate(paidAt) : "Unavailable"} · {verified ? "Funds released to your wallet" : "Receipt data may still be loading"}</p></div>
       <div className="acts"><InvoicePrintButton className="btn"><MerchantIcon name="print" />Print / Save PDF</InvoicePrintButton></div>
