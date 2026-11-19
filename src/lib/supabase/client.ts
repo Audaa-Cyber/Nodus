@@ -8,7 +8,7 @@ import type { Database } from "@/types/database";
 let clientInstance: SupabaseClient<Database> | null = null;
 
 /** Cookie-backed browser client for Supabase Auth and database access. */
-export function getSupabaseBrowserClient(_legacyAccessToken?: string): SupabaseClient<Database> {
+export function getSupabaseBrowserClient(): SupabaseClient<Database> {
   if (clientInstance) return clientInstance;
   const env = getClientEnv();
   if (!isClientSupabaseConfigured()) throw new Error("Supabase is not configured.");
