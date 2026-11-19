@@ -7,12 +7,14 @@ export interface PaymentRoutesRequest {
   sourceDecimals: number;
   sourceContractAddress: string | null;
   senderAddress: string;
+  destinationNetwork: string;
 }
 
 /** Build the same canonical route request for Circle guest and external EVM wallets. */
 export function buildPaymentRoutesRequest(
   asset: WalletAsset,
   senderAddress: string,
+  destinationNetwork: string,
 ): PaymentRoutesRequest {
   const sourceNetwork = asset.network.key.trim().toLowerCase().replace(/_/g, "-");
   return {
@@ -22,5 +24,6 @@ export function buildPaymentRoutesRequest(
     sourceDecimals: asset.decimals,
     sourceContractAddress: asset.contractAddress,
     senderAddress,
+    destinationNetwork: destinationNetwork.trim().toLowerCase(),
   };
 }
