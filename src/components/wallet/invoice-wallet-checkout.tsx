@@ -550,7 +550,7 @@ function InvoiceWalletCheckoutContent({
           <h2 id="invoice-wallet-title">Pay with crypto</h2>
         </div>
         <span className="wallet-phase-label">
-          {liveQuotesEnabled ? "Guarded live route" : "Checkout"}
+          {liveQuotesEnabled ? "Available payment route" : "Checkout"}
         </span>
       </div>
 
@@ -588,7 +588,7 @@ function InvoiceWalletCheckoutContent({
               ))}
             </select>
             <p className="wallet-description">
-              Choose the network holding your USDC. A direct route is available when it matches the merchant network; cross-network availability depends on the supported Circle route.
+              Choose the network your payment token is on. Your wallet must be connected to the same network before you can pay.
             </p>
 
             <div className="asset-selection-header">
@@ -640,7 +640,7 @@ function InvoiceWalletCheckoutContent({
 
             {selectedAsset && (
               <p className="wallet-asset-detail">
-                Paying with <strong>{selectedAsset.symbol}</strong> via <strong>{selectedAsset.network.label}</strong> ({selectedAsset.decimals} decimals)
+                Payment token: <strong>{selectedAsset.symbol}</strong> on <strong>{selectedAsset.network.label}</strong>
               </p>
             )}
           </div>
@@ -748,14 +748,14 @@ function InvoiceWalletCheckoutContent({
           {/* 6. SETTLED STATE FROM AUTHORITATIVE SERVER STATUS */}
           {storedAttemptSettled && (
             <div className="wallet-preparation" aria-live="polite">
-              <p className="wallet-eyebrow">PAYMENT SETTLED</p>
-              <h3 style={{ color: "#166534" }}>Payment complete &amp; verified</h3>
-              <div style={{ marginTop: "0.75rem", padding: "0.75rem", background: "#f0fdf4", borderRadius: "6px", border: "1px solid #bbf7d0" }}>
-                <p style={{ margin: 0, fontWeight: 600, color: "#166534", fontSize: "0.875rem" }}>
+              <p className="wallet-eyebrow">PAYMENT CONFIRMED</p>
+              <h3>Payment complete</h3>
+              <div style={{ marginTop: "0.75rem", padding: "0.75rem", background: "#f5f5f5", borderRadius: "6px", border: "1px solid #e5e5e5" }}>
+                <p style={{ margin: 0, fontWeight: 600, color: "#171717", fontSize: "0.875rem" }}>
                   ✓ Official Receipt Issued: #{storedReceipts[0]?.receipt_number ?? "Confirmed"}
                 </p>
-                <p style={{ margin: "0.25rem 0 0 0", color: "#15803d", fontSize: "0.75rem" }}>
-                  Settlement independently verified on destination chain.
+                <p style={{ margin: "0.25rem 0 0 0", color: "#525252", fontSize: "0.75rem" }}>
+                  Payment verification is complete.
                 </p>
               </div>
               <p className="wallet-description" style={{ marginTop: "0.75rem" }}>
@@ -808,12 +808,12 @@ function InvoiceWalletCheckoutContent({
                   </dd>
                 </div>
                 <div>
-                  <dt>Destination</dt>
-                  <dd>USDC on {formatNetworkLabel(destinationNetwork ?? null)}</dd>
+                  <dt>Receiving network</dt>
+                  <dd>{currency} on {formatNetworkLabel(destinationNetwork ?? null)}</dd>
                 </div>
                 {recipientAddress && (
                   <div>
-                    <dt>Merchant recipient</dt>
+                    <dt>Payee address</dt>
                     <dd>
                       <span title={recipientAddress}>{shortAddress(recipientAddress)}</span>
                     </dd>
@@ -900,7 +900,7 @@ function InvoiceWalletCheckoutContent({
                 </div>
                 <div>
                   <dt>Payment token</dt>
-                  <dd>{selectedAsset ? `${selectedAsset.symbol} on ${selectedAsset.network.label}` : `USDC on ${DEFAULT_RECOMMENDED_CHAIN_NAME}`}</dd>
+                  <dd>{selectedAsset ? `${selectedAsset.symbol} on ${selectedAsset.network.label}` : `${currency} on ${DEFAULT_RECOMMENDED_CHAIN_NAME}`}</dd>
                 </div>
                 <div>
                   <dt>Destination network</dt>
@@ -916,7 +916,7 @@ function InvoiceWalletCheckoutContent({
                 )}
               </dl>
               <p className="wallet-description" style={{ marginTop: "1rem" }}>
-                Connect an Ethereum-compatible wallet above to review real-time Circle CCTP quote parameters and authorize payment.
+                Connect your wallet to review the payment and approve it securely.
               </p>
             </div>
           )}
