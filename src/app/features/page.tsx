@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { getPublishedCmsDocuments } from "@/lib/cms/public";
+import { cmsMetadata } from "@/lib/cms/metadata";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Features | Nodus", description: "Explore Nodus invoice, QR checkout, and payment workflow features." };
+export async function generateMetadata() { const docs=await getPublishedCmsDocuments("feature"); return cmsMetadata(docs[0],{title:"Features | Nodus",description:"Explore Nodus invoice, QR checkout, and payment workflow features."}); }
 
 export default async function FeaturesPage() {
   const items=await getPublishedCmsDocuments("feature");
