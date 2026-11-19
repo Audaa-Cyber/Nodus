@@ -156,6 +156,10 @@ begin
     if new.status not in ('draft', 'open') then raise exception 'Invoices can only be created as draft or open'; end if;
     return new;
   end if;
+  if old.status <> 'draft' and row(new.payment_networks,new.payment_receiving_address)
+     is distinct from row(old.payment_networks,old.payment_receiving_address) then
+    raise exception 'Invoice payment destination is immutable after issue';
+  end if;
   if old.status = 'paid' then
     if current_user <> 'postgres' then raise exception 'Paid invoices cannot be changed'; end if;
     if row(new.id,new.business_id,new.invoice_number,new.customer_name,new.customer_email,new.description,new.amount_minor,new.currency,new.issue_date,new.due_date,new.status,new.created_at,new.updated_at,new.line_items,new.subtotal_minor,new.tax_rate_bps,new.discount_minor,new.invoice_footer,new.seller_snapshot,new.payment_networks,new.payment_receiving_address)
@@ -176,6 +180,136 @@ begin
   return new;
 end;
 $$;
+
+create or replace function public.create_committed_payment_attempt(
+  p_token_hash text,
+  p_idempotency_key uuid,
+  p_source_asset_id text,
+  p_source_network text,
+  p_destination_asset_id text,
+  p_destination_network text,
+  p_recipient_address text,
+  p_requested_amount text,
+  p_expected_received_amount text,
+  p_deposit_address text,
+  p_deposit_memo text,
+  p_quote_expires_at timestamp with time zone,
+  p_quote_snapshot jsonb
+)
+returns setof public.payment_attempts
+language plpgsql security definer set search_path = '' as $
+declare
+  v_context record;
+  v_invoice public.invoices%rowtype;
+begin
+  select * into v_context from public.lookup_shared_payment_context(p_token_hash);
+  if not found or v_context.invoice_status not in ('open','overdue') then
+    raise exception 'invoice_unavailable' using errcode = 'P0002';
+  end if;
+  if p_requested_amount !~ '^[0-9]+
+drop table if exists public.near_reconciliation_status cascade;
+drop table if exists public.near_invoice_registration_outbox cascade;
+drop table if exists public.near_settlement_outbox cascade;
+drop function if exists public.cctp_near_settlement_evidence_eligible(public.payment_settlements, public.payment_attempts) cascade;
+drop function if exists public.near_settlement_evidence_eligible(public.payment_settlements, public.payment_attempts) cascade;
+drop function if exists public.block_near_settlement_outbox(uuid, uuid, text) cascade;
+drop function if exists public.claim_near_invoice_registration_outbox(integer) cascade;
+drop function if exists public.claim_near_settlement_outbox(integer) cascade;
+drop function if exists public.enqueue_near_invoice_registration() cascade;
+drop function if exists public.enqueue_verified_near_settlement() cascade;
+drop function if exists public.fail_near_invoice_registration(uuid, uuid, text) cascade;
+drop function if exists public.finish_near_invoice_registration(uuid, uuid, text, text) cascade;
+drop function if exists public.finish_near_settlement_outbox(uuid, uuid, text) cascade;
+drop function if exists public.mark_near_invoice_registration_submitted(uuid, uuid, text) cascade;
+drop function if exists public.record_near_settlement_submission(uuid, uuid, text) cascade;
+drop function if exists public.requeue_near_invoice_registration(uuid) cascade;
+drop function if exists public.requeue_near_settlement_outbox(uuid) cascade;
+drop function if exists public.retry_near_invoice_registration(uuid, uuid, text) cascade;
+drop function if exists public.retry_near_settlement_outbox(uuid, uuid, text) cascade;
+drop function if exists public.sync_near_reconciliation_status() cascade;
+alter table public.invoices
+  drop column if exists near_registration_status,
+  drop column if exists near_registration_transaction_hash,
+  drop column if exists near_invoice_reference,
+  drop column if exists near_registered_at,
+  drop column if exists near_registration_failure_reason;
+ or p_expected_received_amount !~ '^[0-9]+([.][0-9]+)?
+drop table if exists public.near_reconciliation_status cascade;
+drop table if exists public.near_invoice_registration_outbox cascade;
+drop table if exists public.near_settlement_outbox cascade;
+drop function if exists public.cctp_near_settlement_evidence_eligible(public.payment_settlements, public.payment_attempts) cascade;
+drop function if exists public.near_settlement_evidence_eligible(public.payment_settlements, public.payment_attempts) cascade;
+drop function if exists public.block_near_settlement_outbox(uuid, uuid, text) cascade;
+drop function if exists public.claim_near_invoice_registration_outbox(integer) cascade;
+drop function if exists public.claim_near_settlement_outbox(integer) cascade;
+drop function if exists public.enqueue_near_invoice_registration() cascade;
+drop function if exists public.enqueue_verified_near_settlement() cascade;
+drop function if exists public.fail_near_invoice_registration(uuid, uuid, text) cascade;
+drop function if exists public.finish_near_invoice_registration(uuid, uuid, text, text) cascade;
+drop function if exists public.finish_near_settlement_outbox(uuid, uuid, text) cascade;
+drop function if exists public.mark_near_invoice_registration_submitted(uuid, uuid, text) cascade;
+drop function if exists public.record_near_settlement_submission(uuid, uuid, text) cascade;
+drop function if exists public.requeue_near_invoice_registration(uuid) cascade;
+drop function if exists public.requeue_near_settlement_outbox(uuid) cascade;
+drop function if exists public.retry_near_invoice_registration(uuid, uuid, text) cascade;
+drop function if exists public.retry_near_settlement_outbox(uuid, uuid, text) cascade;
+drop function if exists public.sync_near_reconciliation_status() cascade;
+alter table public.invoices
+  drop column if exists near_registration_status,
+  drop column if exists near_registration_transaction_hash,
+  drop column if exists near_invoice_reference,
+  drop column if exists near_registered_at,
+  drop column if exists near_registration_failure_reason;
+
+    or p_quote_snapshot is null or p_deposit_address is null then
+    raise exception 'invalid_quote_snapshot' using errcode = '22023';
+  end if;
+
+  select * into v_invoice from public.invoices where id = v_context.invoice_id for update;
+  if not found or v_invoice.status not in ('open', 'overdue') then
+    raise exception 'invoice_unavailable' using errcode = 'P0002';
+  end if;
+
+  if not (p_destination_network = any(v_invoice.payment_networks))
+    or lower(p_recipient_address) <> lower(coalesce(v_invoice.payment_receiving_address, ''))
+    or p_destination_asset_id <> p_destination_network || ':usdc' then
+    raise exception 'invoice_payment_terms_mismatch' using errcode = '22023';
+  end if;
+
+  return query select pa.* from public.payment_attempts pa
+    where pa.invoice_id = v_invoice.id and pa.idempotency_key = p_idempotency_key
+      and pa.status in ('PENDING_DEPOSIT', 'PROCESSING', 'KNOWN_DEPOSIT_TX');
+  if found then return; end if;
+
+  update public.payment_attempts pa
+  set status = 'QUOTE_EXPIRED', circle_recovery_updated_at = statement_timestamp()
+  where pa.invoice_id = v_invoice.id and pa.mode = 'live'
+    and pa.status in ('PENDING_DEPOSIT', 'MOCK_QUOTE_READY')
+    and pa.quote_expires_at is not null and pa.quote_expires_at <= statement_timestamp()
+    and pa.circle_execution_reserved_at is null and pa.transaction_hash is null
+    and pa.circle_approval_tx_hash is null and pa.settlement_resolved_at is null;
+
+  if exists (
+    select 1 from public.payment_attempts pa where pa.invoice_id = v_invoice.id
+      and (pa.status in ('MOCK_QUOTE_READY', 'PENDING_DEPOSIT', 'KNOWN_DEPOSIT_TX', 'PROCESSING')
+        or (pa.mode = 'live' and pa.status = 'SUCCESS'))
+  ) then
+    raise exception 'active_payment_attempt_exists' using errcode = '23505';
+  end if;
+
+  return query insert into public.payment_attempts (
+    invoice_id, business_id, mode, source_asset_id, source_network,
+    destination_asset_id, destination_network, recipient_address, idempotency_key,
+    requested_amount, expected_received_amount, deposit_address, deposit_memo,
+    quote_expires_at, quote_snapshot, status
+  ) values (
+    v_invoice.id, v_invoice.business_id, 'live', p_source_asset_id, p_source_network,
+    p_destination_asset_id, p_destination_network, p_recipient_address, p_idempotency_key,
+    p_requested_amount, p_expected_received_amount, p_deposit_address, p_deposit_memo,
+    p_quote_expires_at, p_quote_snapshot, 'PENDING_DEPOSIT'
+  ) returning *;
+end;
+$;
 
 -- NEAR invoice registration and settlement were not part of Nodus's required invoice flow.
 drop table if exists public.near_reconciliation_status cascade;
