@@ -3,11 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { getClientEnv } from "@/config/env.client";
 import type { Database } from "@/types/database";
 
-/**
- * Create a Supabase client authenticated by the WorkOS access token.
- * The token is supplied per request and verified by Supabase's WorkOS
- * third-party-auth integration. Never use a service-role key here.
- */
+/** Server client authenticated by the request's WorkOS access token. */
 export async function createSupabaseServerClient(accessToken?: string) {
   const env = getClientEnv();
   return createClient<Database>(
