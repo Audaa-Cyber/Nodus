@@ -163,7 +163,7 @@ export default async function PublicInvoicePage({ params }: { params: Promise<{ 
       customerCompany={parties?.customer_company} customerPhone={parties?.customer_phone} customerAddress={parties?.customer_address}
       currency={invoice.currency} amount={safeFormatMoney(invoice.amount_minor, invoice.currency)} subtotal={safeFormatMoney(subtotalMinor, invoice.currency)}
       tax={safeFormatMoney(Math.round(subtotalMinor * (invoice.tax_rate_bps ?? 0) / 10000), invoice.currency)}
-      taxPercent={((invoice.tax_rate_bps ?? 0) / 100).toString()} discount={safeFormatMoney(invoice.discount_minor ?? 0, invoice.currency)}
+      taxPercent={((invoice.tax_rate_bps ?? 0) / 100).toString()} discount={safeFormatMoney(invoice.discount_minor ?? 0, invoice.currency)} discountMinor={invoice.discount_minor}
       issueDate={displayDate(invoice.issue_date)} dueDate={invoice.due_date ? displayDate(invoice.due_date) : "—"}
       network={destinationNetwork ? formatNetworkLabel(destinationNetwork) : "Unavailable"} recipient={shortAddress(recipientAddress)}
       signature={sellerDetails.founderName} signatureTitle={sellerDetails.founderTitle}
