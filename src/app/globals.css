@@ -5300,3 +5300,44 @@ body {
   color: #525252;
   box-shadow: none;
 }
+
+
+/* Apply the same restrained treatment to invoice and settlement surfaces. */
+.merchant-design .st,
+.payer-design .pill,
+.scroll-design .pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 22px;
+  padding: 2px 7px;
+  border: 1px solid #e5e5e5;
+  border-radius: 6px;
+  background: #fff;
+  color: #525252;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 16px;
+  letter-spacing: 0;
+  box-shadow: none;
+  text-transform: none;
+}
+
+.merchant-design .st i,
+.payer-design .pill .dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  flex: 0 0 6px;
+  border-radius: 50%;
+  background: #737373;
+}
+
+.merchant-design .st[data-s="paid"] i,
+.scroll-design .pill {
+  color: #525252;
+}
+
+.payer-design .pill .dot {
+  background: #16845b;
+}
