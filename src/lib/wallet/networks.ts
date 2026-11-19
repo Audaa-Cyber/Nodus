@@ -70,6 +70,13 @@ export const arbitrumSepoliaChain = defineChain({
   rpcUrls: { default: { http: ["https://sepolia-rollup.arbitrum.io/rpc"] } },
   blockExplorers: { default: { name: "Arbiscan", url: "https://sepolia.arbiscan.io" } },
 });
+export const arcTestnetChain = defineChain({
+  id: 5042002,
+  name: "Arc Testnet",
+  nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 },
+  rpcUrls: { default: { http: ["https://rpc.testnet.arc.network"] } },
+  blockExplorers: { default: { name: "ArcScan", url: "https://testnet.arcscan.app" } },
+});
 export const optimismSepoliaChain = defineChain({
   id: 11155420,
   name: "Optimism Sepolia",
@@ -90,6 +97,7 @@ export const evmWalletChains = [
   baseSepoliaChain,
   arbitrumSepoliaChain,
   optimismSepoliaChain,
+  arcTestnetChain,
 ] as const;
 
 // Circle checkout currently supports CCTP USDC across these EVM testnets.
@@ -98,6 +106,7 @@ export const circleTestnetUsdcNetworks = [
   { key: "base-sepolia", label: "Base Sepolia", chainId: baseSepoliaChain.id },
   { key: "arbitrum-sepolia", label: "Arbitrum Sepolia", chainId: arbitrumSepoliaChain.id },
   { key: "optimism-sepolia", label: "Optimism Sepolia", chainId: optimismSepoliaChain.id },
+  { key: "arc-testnet", label: "Arc Testnet", chainId: arcTestnetChain.id },
 ] as const;
 
 export function getCircleTestnetUsdcNetworkForChainId(chainId: number | undefined) {
@@ -142,6 +151,9 @@ const walletNetworkMap: Record<string, WalletNetwork> = {
   "base-sepolia": { key: "base-sepolia", label: "Base Sepolia", family: "evm", chainId: baseSepoliaChain.id },
   "arbitrum-sepolia": { key: "arbitrum-sepolia", label: "Arbitrum Sepolia", family: "evm", chainId: arbitrumSepoliaChain.id },
   "optimism-sepolia": { key: "optimism-sepolia", label: "Optimism Sepolia", family: "evm", chainId: optimismSepoliaChain.id },
+  "arc-testnet": { key: "arc-testnet", label: "Arc Testnet", family: "evm", chainId: arcTestnetChain.id },
+  arc: { key: "arc-testnet", label: "Arc Testnet", family: "evm", chainId: arcTestnetChain.id },
+  arc_testnet: { key: "arc-testnet", label: "Arc Testnet", family: "evm", chainId: arcTestnetChain.id },
 };
 
 export function getWalletNetwork(blockchain: string): WalletNetwork | undefined {
