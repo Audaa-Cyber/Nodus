@@ -56,3 +56,32 @@ In Vercel, use the Production WorkOS client ID `client_01M7T841Y5D7AJZHVW8YSTJ9E
 - `src/lib/` — authentication, invoice, payment, and database logic
 - `supabase/migrations/` — ordered database schema and security changes
 - `tests/` — payment and invoice regression tests
+
+
+## Nodus Studio
+
+Nodus Studio is the private CMS and public-site analytics workspace at `/studio`. It is not linked from the public website, is excluded from search indexing, and returns the branded 404 for visitors without an active Studio role. Every Studio API route checks the WorkOS identity and database role independently.
+
+### First owner setup
+
+1. Add `SUPABASE_SERVICE_ROLE_KEY` to the server environment (local `.env.local` and Vercel Production/Preview as appropriate). This key is required by server-only CMS routes and must never use a `NEXT_PUBLIC_` prefix.
+2. Set either `CMS_ADMIN_EMAILS` to the first owner's verified WorkOS email, or `CMS_ADMIN_WORKOS_SUBJECTS` to their WorkOS user ID.
+3. Sign in to Nodus with that WorkOS identity and visit `/studio`. If `cms_admin_users` is empty, the first matching identity is inserted as the owner.
+4. Remove the bootstrap environment value after the owner record exists. The role is then managed in Supabase, not through the environment allowlist.
+
+### Studio roles
+
+- **Owner:** full access, including team and role management.
+- **Admin:** manage content, analytics, audit activity, and safe public-site settings.
+- **Editor:** create, edit, archive, and publish website content.
+- **Analyst:** read-only content, analytics, and audit activity.
+
+Only existing WorkOS accounts can be added to the team. Add the user's WorkOS ID and verified account email from the Access & Roles section. Disable access there when needed.
+
+### CMS and analytics
+
+Studio manages the public homepage, features, FAQs, announcements, changelog, privacy policy, terms, SEO metadata, and social preview images. Content is saved as drafts, can be previewed, and is versioned on every edit. Publishing updates the public CMS endpoints and connected pages.
+
+Website analytics track public page views and marked CTA clicks using a first-party anonymous visitor token. The system stores a token hash, path, coarse referrer hostname, event type, and timestamp. It does not collect IP addresses, customer checkout URLs, invoice data, wallet addresses, or payment records. Trend comparisons use the immediately preceding period of the same length.
+
+The audit trail is append-only at the database level. Studio settings are limited to public-site announcement banners, FAQ/changelog visibility flags, and default SEO metadata. Payment secrets, billing settings, invoices, and settlement records remain outside this CMS.
