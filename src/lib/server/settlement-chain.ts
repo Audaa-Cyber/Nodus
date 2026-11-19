@@ -7,11 +7,7 @@ import type { DestinationTransferProof } from "../payments/settlement-policy.ts"
 const transferAbi = parseAbi(["event Transfer(address indexed from, address indexed to, uint256 value)"]);
 const HASH = /^0x[0-9a-fA-F]{64}$/;
 
-const DEFAULT_SETTLEMENT_RPC_URLS: Record<string, string> = {
-  "arc-testnet": "https://rpc.testnet.arc.network",
-};
 const DEFAULT_SETTLEMENT_CONFIRMATIONS: Record<string, number> = {
-  "arc-testnet": 2,
   sepolia: 2,
 };
 
