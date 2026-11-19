@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { Activity, ArrowUpRight, BarChart3, BookOpen, Clock3, FileText, Globe2, LayoutDashboard, Plus, Search, Settings2, ShieldCheck, Sparkles, Users, ScrollText } from "lucide-react";
 import { StudioSignOut } from "@/components/studio-signout";
 import { StudioGovernance } from "@/components/studio-governance";
@@ -72,7 +73,7 @@ export function StudioDashboard({adminEmail,adminRole}:{adminEmail:string;adminR
 
   return <main className="studio-root">
     <aside className="studio-sidebar">
-      <a className="studio-brand" href="/"><span className="studio-brand-mark">N</span><span>nodus<span>.</span><small>STUDIO</small></span></a>
+      <Link className="studio-brand" href="/"><span className="studio-brand-mark">N</span><span>nodus<span>.</span><small>STUDIO</small></span></Link>
       <div className="studio-side-label">WORKSPACE</div>
       <nav className="studio-nav">
         <button className={section==="overview"?"active":""} onClick={()=>{setSection("overview");setActive(null)}}><LayoutDashboard/>Overview</button>
