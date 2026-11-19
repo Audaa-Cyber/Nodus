@@ -31,6 +31,7 @@ export type Database = {
           owner_user_id: string
           receiving_address: string | null
           receiving_network: string | null
+          receiving_networks: string[]
           tax_registration_number: string | null
           updated_at: string
           website_url: string | null
@@ -51,6 +52,7 @@ export type Database = {
           owner_user_id: string
           receiving_address?: string | null
           receiving_network?: string | null
+          receiving_networks?: string[]
           tax_registration_number?: string | null
           updated_at?: string
           website_url?: string | null
@@ -71,6 +73,7 @@ export type Database = {
           owner_user_id?: string
           receiving_address?: string | null
           receiving_network?: string | null
+          receiving_networks?: string[]
           tax_registration_number?: string | null
           updated_at?: string
           website_url?: string | null
@@ -132,11 +135,8 @@ export type Database = {
           invoice_number: string
           issue_date: string
           line_items: Json
-          near_invoice_reference: string | null
-          near_registered_at: string | null
-          near_registration_failure_reason: string | null
-          near_registration_status: string
-          near_registration_transaction_hash: string | null
+          payment_networks: string[]
+          payment_receiving_address: string | null
           seller_snapshot: Json | null
           share_token_expires_at: string | null
           share_token_hash: string | null
@@ -160,11 +160,8 @@ export type Database = {
           invoice_number: string
           issue_date: string
           line_items?: Json
-          near_invoice_reference?: string | null
-          near_registered_at?: string | null
-          near_registration_failure_reason?: string | null
-          near_registration_status?: string
-          near_registration_transaction_hash?: string | null
+          payment_networks?: string[]
+          payment_receiving_address?: string | null
           seller_snapshot?: Json | null
           share_token_expires_at?: string | null
           share_token_hash?: string | null
@@ -188,11 +185,8 @@ export type Database = {
           invoice_number?: string
           issue_date?: string
           line_items?: Json
-          near_invoice_reference?: string | null
-          near_registered_at?: string | null
-          near_registration_failure_reason?: string | null
-          near_registration_status?: string
-          near_registration_transaction_hash?: string | null
+          payment_networks?: string[]
+          payment_receiving_address?: string | null
           seller_snapshot?: Json | null
           share_token_expires_at?: string | null
           share_token_hash?: string | null
@@ -207,189 +201,6 @@ export type Database = {
             columns: ["business_id"]
             isOneToOne: false
             referencedRelation: "business_profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      near_invoice_registration_outbox: {
-        Row: {
-          attempt_count: number
-          created_at: string
-          failure_reason: string | null
-          id: string
-          invoice_id: string
-          lock_token: string | null
-          locked_until: string | null
-          near_transaction_hash: string | null
-          next_attempt_at: string
-          onchain_invoice_reference: string | null
-          registered_at: string | null
-          status: string
-          submitted_at: string | null
-          updated_at: string
-        }
-        Insert: {
-          attempt_count?: number
-          created_at?: string
-          failure_reason?: string | null
-          id?: string
-          invoice_id: string
-          lock_token?: string | null
-          locked_until?: string | null
-          near_transaction_hash?: string | null
-          next_attempt_at?: string
-          onchain_invoice_reference?: string | null
-          registered_at?: string | null
-          status?: string
-          submitted_at?: string | null
-          updated_at?: string
-        }
-        Update: {
-          attempt_count?: number
-          created_at?: string
-          failure_reason?: string | null
-          id?: string
-          invoice_id?: string
-          lock_token?: string | null
-          locked_until?: string | null
-          near_transaction_hash?: string | null
-          next_attempt_at?: string
-          onchain_invoice_reference?: string | null
-          registered_at?: string | null
-          status?: string
-          submitted_at?: string | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "near_invoice_registration_outbox_invoice_id_fkey"
-            columns: ["invoice_id"]
-            isOneToOne: true
-            referencedRelation: "invoices"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      near_reconciliation_status: {
-        Row: {
-          business_id: string
-          invoice_id: string
-          near_transaction_hash: string | null
-          reconciliation_id: string
-          status: string
-          updated_at: string
-        }
-        Insert: {
-          business_id: string
-          invoice_id: string
-          near_transaction_hash?: string | null
-          reconciliation_id: string
-          status: string
-          updated_at?: string
-        }
-        Update: {
-          business_id?: string
-          invoice_id?: string
-          near_transaction_hash?: string | null
-          reconciliation_id?: string
-          status?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "near_reconciliation_status_business_id_fkey"
-            columns: ["business_id"]
-            isOneToOne: false
-            referencedRelation: "business_profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "near_reconciliation_status_invoice_id_fkey"
-            columns: ["invoice_id"]
-            isOneToOne: false
-            referencedRelation: "invoices"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      near_settlement_outbox: {
-        Row: {
-          attempt_count: number
-          created_at: string
-          destination_tx_hashes: Json
-          id: string
-          invoice_id: string
-          last_error_code: string | null
-          lock_token: string | null
-          locked_until: string | null
-          near_transaction_hash: string | null
-          next_attempt_at: string
-          payment_attempt_id: string
-          payment_settlement_id: string
-          reconciliation_id: string
-          source_transaction_hash: string
-          status: string
-          submitted_at: string | null
-          updated_at: string
-        }
-        Insert: {
-          attempt_count?: number
-          created_at?: string
-          destination_tx_hashes?: Json
-          id?: string
-          invoice_id: string
-          last_error_code?: string | null
-          lock_token?: string | null
-          locked_until?: string | null
-          near_transaction_hash?: string | null
-          next_attempt_at?: string
-          payment_attempt_id: string
-          payment_settlement_id: string
-          reconciliation_id: string
-          source_transaction_hash: string
-          status?: string
-          submitted_at?: string | null
-          updated_at?: string
-        }
-        Update: {
-          attempt_count?: number
-          created_at?: string
-          destination_tx_hashes?: Json
-          id?: string
-          invoice_id?: string
-          last_error_code?: string | null
-          lock_token?: string | null
-          locked_until?: string | null
-          near_transaction_hash?: string | null
-          next_attempt_at?: string
-          payment_attempt_id?: string
-          payment_settlement_id?: string
-          reconciliation_id?: string
-          source_transaction_hash?: string
-          status?: string
-          submitted_at?: string | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "near_settlement_outbox_invoice_id_fkey"
-            columns: ["invoice_id"]
-            isOneToOne: false
-            referencedRelation: "invoices"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "near_settlement_outbox_payment_attempt_id_fkey"
-            columns: ["payment_attempt_id"]
-            isOneToOne: true
-            referencedRelation: "payment_attempts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "near_settlement_outbox_payment_settlement_id_fkey"
-            columns: ["payment_settlement_id"]
-            isOneToOne: true
-            referencedRelation: "payment_settlements"
             referencedColumns: ["id"]
           },
         ]
@@ -798,70 +609,6 @@ export type Database = {
         Args: { p_business_id: string }
         Returns: string
       }
-      block_near_settlement_outbox: {
-        Args: { p_error_code: string; p_id: string; p_lock_token: string }
-        Returns: boolean
-      }
-      cctp_near_settlement_evidence_eligible: {
-        Args: {
-          p_attempt: Database["public"]["Tables"]["payment_attempts"]["Row"]
-          p_settlement: Database["public"]["Tables"]["payment_settlements"]["Row"]
-        }
-        Returns: boolean
-      }
-      claim_near_invoice_registration_outbox: {
-        Args: { p_limit?: number }
-        Returns: {
-          attempt_count: number
-          created_at: string
-          failure_reason: string | null
-          id: string
-          invoice_id: string
-          lock_token: string | null
-          locked_until: string | null
-          near_transaction_hash: string | null
-          next_attempt_at: string
-          onchain_invoice_reference: string | null
-          registered_at: string | null
-          status: string
-          submitted_at: string | null
-          updated_at: string
-        }[]
-        SetofOptions: {
-          from: "*"
-          to: "near_invoice_registration_outbox"
-          isOneToOne: false
-          isSetofReturn: true
-        }
-      }
-      claim_near_settlement_outbox: {
-        Args: { p_limit?: number }
-        Returns: {
-          attempt_count: number
-          created_at: string
-          destination_tx_hashes: Json
-          id: string
-          invoice_id: string
-          last_error_code: string | null
-          lock_token: string | null
-          locked_until: string | null
-          near_transaction_hash: string | null
-          next_attempt_at: string
-          payment_attempt_id: string
-          payment_settlement_id: string
-          reconciliation_id: string
-          source_transaction_hash: string
-          status: string
-          submitted_at: string | null
-          updated_at: string
-        }[]
-        SetofOptions: {
-          from: "*"
-          to: "near_settlement_outbox"
-          isOneToOne: false
-          isSetofReturn: true
-        }
-      }
       close_live_attempt: {
         Args: {
           p_attempt_id: string
@@ -1049,27 +796,6 @@ export type Database = {
           isSetofReturn: true
         }
       }
-      fail_near_invoice_registration: {
-        Args: { p_failure_reason: string; p_id: string; p_lock_token: string }
-        Returns: boolean
-      }
-      finish_near_invoice_registration: {
-        Args: {
-          p_id: string
-          p_invoice_reference: string
-          p_lock_token: string
-          p_transaction_hash: string
-        }
-        Returns: boolean
-      }
-      finish_near_settlement_outbox: {
-        Args: {
-          p_id: string
-          p_lock_token: string
-          p_near_transaction_hash?: string
-        }
-        Returns: boolean
-      }
       get_shared_live_attempt: {
         Args: { p_attempt_id: string; p_token_hash: string }
         Returns: {
@@ -1167,6 +893,14 @@ export type Database = {
           receiving_network: string
         }[]
       }
+      lookup_shared_payment_networks: {
+        Args: { p_token_hash: string }
+        Returns: {
+          invoice_id: string
+          receiving_address: string | null
+          receiving_networks: string[]
+        }[]
+      }
       lookup_shared_payment_receipts: {
         Args: { p_token_hash: string }
         Returns: {
@@ -1234,10 +968,6 @@ export type Database = {
           isSetofReturn: true
         }
       }
-      mark_near_invoice_registration_submitted: {
-        Args: { p_id: string; p_lock_token: string; p_transaction_hash: string }
-        Returns: boolean
-      }
       merchant_nodus_received_by_chain: {
         Args: never
         Returns: {
@@ -1245,13 +975,6 @@ export type Database = {
           payment_count: number
           total_base_units: string
         }[]
-      }
-      near_settlement_evidence_eligible: {
-        Args: {
-          p_attempt: Database["public"]["Tables"]["payment_attempts"]["Row"]
-          p_settlement: Database["public"]["Tables"]["payment_settlements"]["Row"]
-        }
-        Returns: boolean
       }
       record_circle_recovery_progress: {
         Args: {
@@ -1309,14 +1032,6 @@ export type Database = {
           isSetofReturn: true
         }
       }
-      record_near_settlement_submission: {
-        Args: {
-          p_id: string
-          p_lock_token: string
-          p_near_transaction_hash: string
-        }
-        Returns: boolean
-      }
       record_payment_reconciliation: {
         Args: {
           p_attempt_id: string
@@ -1333,14 +1048,6 @@ export type Database = {
           p_recipient_address?: string
         }
         Returns: Json
-      }
-      requeue_near_invoice_registration: {
-        Args: { p_invoice_id: string }
-        Returns: boolean
-      }
-      requeue_near_settlement_outbox: {
-        Args: { p_id: string }
-        Returns: boolean
       }
       reserve_direct_payment_execution: {
         Args: {
@@ -1386,14 +1093,6 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
-      }
-      retry_near_invoice_registration: {
-        Args: { p_failure_reason: string; p_id: string; p_lock_token: string }
-        Returns: boolean
-      }
-      retry_near_settlement_outbox: {
-        Args: { p_error_code: string; p_id: string; p_lock_token: string }
-        Returns: boolean
       }
       submit_circle_broadcast_references: {
         Args: {
