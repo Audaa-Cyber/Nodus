@@ -8,8 +8,9 @@ Nodus is a B2B invoicing and USDC payment platform. Merchants create invoices wi
 - Base Sepolia
 - Arbitrum Sepolia
 - Optimism Sepolia
+- Arc Testnet
 
-A merchant can configure one wallet address and enable any combination of the four networks. Each invoice can offer any subset of the merchant's enabled networks. The customer selects the destination network at checkout.
+A merchant can configure one wallet address and enable any combination of the five networks. Each invoice can offer any subset of the merchant's enabled networks. The customer selects the destination network at checkout.
 
 ## Authentication and data
 
@@ -27,12 +28,12 @@ A merchant can configure one wallet address and enable any combination of the fo
 5. Set `NEXT_PUBLIC_WORKOS_REDIRECT_URI=http://localhost:3000/auth/callback`.
 6. Set the Supabase project URL and publishable key.
 7. Add the WorkOS staging issuer as a third-party auth provider in Supabase and set its JWT role claim to `authenticated`.
-8. Configure the Circle API key and required RPC URLs for live payment routes.
+8. Configure the required HTTPS RPC URLs for live payment verification. Circle CCTP itself does not require an API key.
 9. Run `npm run dev`.
 
 ## Security notes
 
-- Keep service-role keys and Circle API keys server-only.
+- Keep service-role keys server-only.
 - Never mark an invoice paid from a browser callback. Nodus records paid status only after independent destination settlement verification.
 - An issued invoice's payment address and accepted networks are immutable.
 - Testnet payments are not real funds.
