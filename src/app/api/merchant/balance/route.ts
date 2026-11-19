@@ -1,24 +1,15 @@
 import { NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getBusinessContext } from "@/lib/auth/business-context";
 import { circleTestnetUsdcNetworks } from "@/lib/wallet/networks";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const supabase = await createSupabaseServerClient();
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { supabase, user, business } = await getBusinessContext();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!business) return NextResponse.json({ error: "Business profile not found." }, { status: 404 });
 
-  const { data: business, error: profileError } = await supabase
-    .from("business_profiles")
-    .select("id, receiving_network")
-    .eq("owner_user_id", user.id)
-    .maybeSingle();
-  if (profileError || !business) {
-    return NextResponse.json({ error: "Business profile not found." }, { status: 404 });
-  }
-
-  // The RPC is security-invoker and derives its merchant scope from auth.uid().
+  // The RPC derives its merchant scope from the verified WorkOS JWT subject.
   // It reads only verified, paid NODUS invoice settlements under the caller's RLS.
   const { data: rows, error: balanceError } = await supabase.rpc("merchant_nodus_received_by_chain");
 
@@ -43,7 +34,8 @@ export async function GET() {
     status: "ok",
     decimals: 6,
     totalBaseUnits,
-    selectedNetwork: business.receiving_network,
+    selectedNetwork: business.receiving_networks?.[0] ?? business.receiving_network,
+    selectedNetworks: business.receiving_networks ?? [],
     chains,
   }, { headers: { "Cache-Control": "private, no-store" } });
 }
