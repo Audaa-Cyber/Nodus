@@ -5356,3 +5356,33 @@ body {
   background: #fff;
   color: #525252;
 }
+
+
+/* Monochrome success and status feedback. No green, blue, or red status accents. */
+.status-paid::before,
+.overview-status-paid > span,
+.payer-design .pill .dot { background: #737373 !important; }
+.status-overdue::before,
+.overview-status-overdue > span { background: #737373 !important; }
+.status-open::before,
+.overview-status-open > span,
+.status-cancelled::before,
+.overview-status-cancelled > span,
+.status-draft::before { background: #a3a3a3 !important; }
+.status-paid,
+.status-open,
+.status-overdue,
+.status-cancelled,
+.status-draft,
+.overview-status-paid,
+.overview-status-open,
+.overview-status-overdue,
+.overview-status-cancelled { color: #404040 !important; background: #fff !important; border-color: #e5e5e5 !important; }
+.receipt-paid-chip,
+.receipt-stamp,
+.demo-paid-stamp { color: #404040 !important; border-color: #737373 !important; }
+.pay-button.is-paid { background: #171717 !important; border-color: #171717 !important; color: #fff !important; }
+.success-pulse { background: #737373 !important; }
+.overview-page-container .overview-refresh-feedback.is-changed { color: #404040 !important; background: #f5f5f5 !important; }
+.overview-page-container .overview-address button[data-feedback="copied"] { background: #f5f5f5 !important; border-color: #d4d4d4 !important; color: #171717 !important; }
+.overview-page-container .overview-address button[data-feedback="error"] { color: #525252 !important; }
