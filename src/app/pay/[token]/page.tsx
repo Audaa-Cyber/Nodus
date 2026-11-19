@@ -69,10 +69,11 @@ export default async function PublicInvoicePage({ params }: { params: Promise<{ 
 
   const tokenHash = createHash("sha256").update(token, "utf8").digest("hex");
   const supabase = await createSupabaseServerClient();
-  const [{ data, error }, contextResult, partyResult] = await Promise.all([
+  const [{ data, error }, contextResult, partyResult, paymentOptionsResult] = await Promise.all([
     supabase.rpc("lookup_shared_invoice", { p_token_hash: tokenHash }),
     supabase.rpc("lookup_shared_payment_context", { p_token_hash: tokenHash }),
     supabase.rpc("lookup_shared_invoice_parties", { p_token_hash: tokenHash }),
+    supabase.rpc("lookup_shared_payment_networks", { p_token_hash: tokenHash }),
   ]);
   if (error) return unavailablePage("Invoice details are temporarily unavailable", "We couldn't load this invoice right now.", "error");
   const invoice = data?.[0];
@@ -91,8 +92,10 @@ export default async function PublicInvoicePage({ params }: { params: Promise<{ 
   const sellerTaxId = typeof seller.tax_registration_number === "string" ? seller.tax_registration_number : null;
   const sellerLogo = typeof seller.logo_url === "string" ? seller.logo_url : invoice.logo_url;
   const paymentContext = contextResult?.data?.[0] ?? null;
-  const destinationNetwork = paymentContext?.receiving_network ?? null;
-  const recipientAddress = paymentContext?.receiving_address ?? null;
+  const paymentOptions = paymentOptionsResult?.data?.[0] ?? null;
+  const destinationNetworks = Array.isArray(paymentOptions?.receiving_networks) ? paymentOptions.receiving_networks : [];
+  const destinationNetwork = destinationNetworks[0] ?? paymentContext?.receiving_network ?? null;
+  const recipientAddress = paymentOptions?.receiving_address ?? paymentContext?.receiving_address ?? null;
   const { data: receipts } = await supabase.rpc("lookup_shared_payment_receipts", { p_token_hash: tokenHash });
 
   const status = invoice.status;
@@ -118,7 +121,7 @@ export default async function PublicInvoicePage({ params }: { params: Promise<{ 
   const subtotalMinor = invoice.subtotal_minor ?? invoice.amount_minor;
   const checkout = (status === "open" || status === "overdue") ? {
     shareToken: token, invoiceNumber: invoice.invoice_number, amountMinor: invoice.amount_minor,
-    currency: invoice.currency, status, destinationNetwork, recipientAddress,
+    currency: invoice.currency, status, destinationNetwork, destinationNetworks, recipientAddress,
     businessName: sellerName, logoUrl: sellerLogo, issueDate: invoice.issue_date, dueDate: invoice.due_date,
     sellerFooter: typeof seller.invoice_footer === "string" ? seller.invoice_footer : invoice.invoice_footer,
     lineItems: items, subtotalMinor, taxRateBps: invoice.tax_rate_bps, discountMinor: invoice.discount_minor, sellerDetails,
