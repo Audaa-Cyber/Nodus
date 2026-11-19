@@ -51,10 +51,9 @@ export default async function DashboardPage() {
       .limit(5),
   ]);
 
-  const isConfigured = Boolean(business.receiving_network && business.receiving_address?.trim());
-  const receivingNetworkLabel = circleTestnetUsdcNetworks.find((network) => network.key === business.receiving_network)?.label
-    ?? business.receiving_network?.replaceAll("-", " ")
-    ?? "Not configured";
+  const enabledNetworks = business.receiving_networks ?? [];
+  const isConfigured = Boolean(enabledNetworks.length && business.receiving_address?.trim());
+  const receivingNetworkLabels = enabledNetworks.map((key) => circleTestnetUsdcNetworks.find((network) => network.key === key)?.label ?? key.replaceAll("-", " "));
   const recentInvoices = recentInvoicesResult.data ?? [];
   const verifiedSettlements = recentSettlementsResult.error ? null : recentSettlementsResult.data ?? [];
   const invoiceNumbers = new Map(recentInvoices.map((invoice) => [invoice.id, invoice.invoice_number]));
@@ -121,13 +120,13 @@ export default async function DashboardPage() {
 
         <section className="overview-card overview-network" aria-labelledby="receiving-network-title">
           <div className="overview-section-heading">
-            <h2 id="receiving-network-title">Receiving Network</h2>
+            <h2 id="receiving-network-title">Receiving Networks</h2>
             <span className={`overview-status ${isConfigured ? "overview-status-paid" : "overview-status-overdue"}`}><span aria-hidden="true" />{isConfigured ? "Configured" : "Setup needed"}</span>
           </div>
           <div className="overview-network-body">
             <div className="overview-network-identity">
               <span className="overview-network-icon"><NetworkLogo networkKey={business.receiving_network} size="md" /></span>
-              <div><p>Receiving on</p><h3>{receivingNetworkLabel}</h3></div>
+              <div><p>Accepting on</p><h3>{receivingNetworkLabels.length ? receivingNetworkLabels.join(", ") : "Not configured"}</h3></div>
             </div>
             <p className="overview-address-label">Receiving address</p>
             {business.receiving_address?.trim() ? (
