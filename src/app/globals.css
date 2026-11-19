@@ -5219,3 +5219,84 @@ main > section button {
 body {
   letter-spacing: .012em;
 }
+
+
+/* Nodus status system: Geist-inspired, compact and restrained. Network labels are intentionally excluded. */
+.status,
+.overview-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 22px;
+  padding: 2px 7px;
+  border: 1px solid #e5e5e5;
+  border-radius: 6px;
+  background: #fff;
+  color: #525252;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 16px;
+  letter-spacing: 0;
+  text-transform: capitalize;
+  white-space: nowrap;
+  box-shadow: none;
+}
+
+.status::before,
+.overview-status > span {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  flex: 0 0 6px;
+  border-radius: 50%;
+  background: #a1a1aa;
+}
+
+.status-paid::before,
+.overview-status-paid > span {
+  background: #16845b;
+}
+
+.status-open::before,
+.overview-status-open > span {
+  background: #737373;
+}
+
+.status-overdue::before,
+.overview-status-overdue > span {
+  background: #c47a22;
+}
+
+.status-cancelled::before,
+.overview-status-cancelled > span {
+  background: #a1a1aa;
+}
+
+.status-draft::before {
+  background: #a1a1aa;
+}
+
+.overview-status {
+  padding: 2px 7px;
+  border-color: #e5e5e5;
+  background: #fff;
+  color: #525252;
+}
+
+.overview-status > span {
+  width: 6px;
+  height: 6px;
+}
+
+.overview-metric-share,
+.overview-metric-share-paid,
+.overview-metric-share-open,
+.overview-metric-share-overdue,
+.overview-metric-share-cancelled,
+.overview-metric-share-neutral {
+  border-color: #e5e5e5;
+  background: #f7f7f7;
+  color: #525252;
+  box-shadow: none;
+}
