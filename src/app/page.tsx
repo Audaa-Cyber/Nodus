@@ -32,6 +32,16 @@ export default function Home() {
   const total = subtotal + tax;
   const formatUsd = (amount: number) => "$" + amount.toFixed(2);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [cmsHome, setCmsHome] = useState<{title:string;content:{body?:string;ctaLabel?:string;ctaHref?:string}} | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/cms/public/homepage", { cache: "no-store" })
+      .then((response) => response.ok ? response.json() : null)
+      .then((data) => { if (active && data?.kind === "homepage") setCmsHome(data); })
+      .catch(() => undefined);
+    return () => { active = false; };
+  }, []);
 
   useEffect(() => () => {
     if (paymentTimer.current) clearTimeout(paymentTimer.current);
@@ -211,14 +221,14 @@ export default function Home() {
         </nav>
 
         <div className="hero-copy shell">
-          <h1>Itemized invoices.<br /><span>Payments made clear.</span></h1>
+          <h1>{cmsHome?.title ?? <>Itemized invoices.<br /><span>Payments made clear.</span></>}</h1>
           <div className="hero-bottom">
             <p className="hero-lede">
               Nodus turns an itemized invoice into a QR checkout. Guests scan,
               choose a supported stablecoin, and approve payment from their wallet.
             </p>
             <div className="hero-actions">
-              <Link href="/login?next=%2Fdashboard" prefetch={true} className="button button-dark">Log in</Link>
+              <Link href={cmsHome?.content?.ctaHref || "/login?next=%2Fdashboard"} prefetch={true} className="button button-dark" data-analytics-cta="homepage-primary">{cmsHome?.content?.ctaLabel || "Log in"}</Link>
             </div>
           </div>
         </div>
