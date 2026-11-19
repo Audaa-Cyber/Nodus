@@ -265,7 +265,7 @@ export default function Home() {
                     <tbody>{items.map((item) => (
                       <tr key={item.id}>
                         <td><strong>{item.name}</strong></td>
-                        <td>{item.quantity}</td>
+                        <td><div className="demo-quantity-control"><button type="button" onClick={() => updateQuantity(item.id, -1)} disabled={item.quantity <= 1} aria-label={"Decrease " + item.name + " quantity"}>−</button><span>{item.quantity}</span><button type="button" onClick={() => updateQuantity(item.id, 1)} disabled={item.quantity >= 9} aria-label={"Increase " + item.name + " quantity"}>+</button></div></td>
                         <td>{formatUsd(item.price)}</td>
                         <td><strong>{formatUsd(item.price * item.quantity)}</strong></td>
                       </tr>
@@ -327,7 +327,7 @@ export default function Home() {
                 <div className="invoice-foot"><ShieldCheck size={13} /> A real invoice is marked paid only after settlement is verified.</div>
               </div>
             </div>
-            <p className="invoice-note">A preview of the guest experience. Network options are illustrative.</p>
+            <p className="invoice-note">Customer-facing invoice layout. Payment in this demo is simulated.</p>
           </div>
         </div>
       </section>
