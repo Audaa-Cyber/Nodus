@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { useAccessToken } from "@workos-inc/authkit-nextjs/components";
 import { applyNotificationChange, mergeNotificationSnapshot, type NotificationChange, type NotificationItem } from "@/lib/realtime/notification-state";
 
 export type { NotificationItem } from "@/lib/realtime/notification-state";
@@ -20,6 +21,7 @@ export interface NotificationCenterProps {
 
 export function NotificationCenter({ recipientUserId }: NotificationCenterProps) {
   const router = useRouter();
+  const { accessToken, loading: authLoading } = useAccessToken();
   const [isOpen, setIsOpen] = useState(false);
   const [status, setStatus] = useState<"loading" | "ready" | "unavailable" | "error">("loading");
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -39,8 +41,9 @@ export function NotificationCenter({ recipientUserId }: NotificationCenterProps)
   }, [unreadCount]);
 
   const refreshUnreadCount = useCallback(async () => {
+    if (!accessToken) return;
     const version = ++unreadQueryVersion.current;
-    const { count, error } = await getSupabaseBrowserClient()
+    const { count, error } = await getSupabaseBrowserClient(accessToken)
       .from("notifications")
       .select("id", { count: "exact", head: true })
       .eq("recipient_user_id", recipientUserId)
@@ -50,11 +53,11 @@ export function NotificationCenter({ recipientUserId }: NotificationCenterProps)
       unreadCountRef.current = count;
       setUnreadCount(count);
     }
-  }, [recipientUserId]);
+  }, [recipientUserId, accessToken]);
 
   // Fetch initial notifications and unread count
   const fetchNotifications = useCallback(async (liveChanges: NotificationChange[] = []) => {
-    if (!recipientUserId) return;
+    if (!recipientUserId || !accessToken) return;
     setStatus("loading");
     setErrorMessage(null);
 
@@ -127,11 +130,10 @@ export function NotificationCenter({ recipientUserId }: NotificationCenterProps)
 
   // Realtime subscription setup & cleanup
   useEffect(() => {
-    if (!recipientUserId) return;
+    if (!recipientUserId || authLoading || !accessToken) return;
 
     let isCancelled = false;
     let channel: ReturnType<ReturnType<typeof getSupabaseBrowserClient>["channel"]> | null = null;
-    let authListener: { unsubscribe: () => void } | null = null;
     const bufferedChanges: NotificationChange[] = [];
     let initialFetchInProgress = true;
 
@@ -139,23 +141,7 @@ export function NotificationCenter({ recipientUserId }: NotificationCenterProps)
       try {
         const supabase = getSupabaseBrowserClient();
 
-        // 1. Critical for RLS: Explicitly authenticate Realtime client with the user's active session token.
-        // In @supabase/ssr, the browser client initializes with the anon key by default.
-        // Without setAuth(token), the Realtime WebSocket connects as "anon", where auth.uid() is null,
-        // causing Postgres RLS to silently drop all incoming notification events.
-        try {
-          const { data: { session } } = await supabase.auth.getSession();
-          if (!session?.access_token || session.user.id !== recipientUserId) {
-            setStatus("error");
-            setErrorMessage("The notification session is not available for this account.");
-            return;
-          }
-          await supabase.realtime.setAuth(session.access_token);
-        } catch {
-          setStatus("error");
-          setErrorMessage("Could not authenticate live notifications for this account.");
-          return;
-        }
+        await supabase.realtime.setAuth(accessToken);
 
         if (isCancelled) return;
 
@@ -227,20 +213,7 @@ export function NotificationCenter({ recipientUserId }: NotificationCenterProps)
         await fetchNotifications(bufferedChanges);
         initialFetchInProgress = false;
 
-        // Keep Realtime authenticated across token refreshes, and handle sign-out
-        const { data: authData } = supabase.auth.onAuthStateChange(async (event, session) => {
-          if ((event === "TOKEN_REFRESHED" || event === "SIGNED_IN") && session?.access_token && session.user.id === recipientUserId) {
-            try {
-              await supabase.realtime.setAuth(session.access_token);
-            } catch {
-              // Ignore
-            }
-          } else if (event === "SIGNED_OUT") {
-            setNotifications([]);
-            setUnreadCount(0);
-          }
-        });
-        authListener = authData?.subscription ?? null;
+
       } catch {
         if (!isCancelled) {
           setStatus("error");
@@ -254,13 +227,6 @@ export function NotificationCenter({ recipientUserId }: NotificationCenterProps)
 
     return () => {
       isCancelled = true;
-      if (authListener) {
-        try {
-          authListener.unsubscribe();
-        } catch {
-          // ignore
-        }
-      }
       if (channel) {
         try {
           const supabase = getSupabaseBrowserClient();
@@ -270,7 +236,7 @@ export function NotificationCenter({ recipientUserId }: NotificationCenterProps)
         }
       }
     };
-  }, [recipientUserId, fetchNotifications, refreshUnreadCount]);
+  }, [recipientUserId, fetchNotifications, refreshUnreadCount, accessToken, authLoading]);
 
   // Handle outside click to close panel
   useEffect(() => {
