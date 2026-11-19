@@ -193,7 +193,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
     // circle_direct (same-chain USDC transfer)
     if (sourceNetwork !== destinationNetwork
         || !destinationNetworkOption
-        || destinationNetwork !== destinationNetwork
         || requestedRecipient.toLowerCase() !== destinationAddress.toLowerCase()
         || expectedReceivedAmount !== amountBaseUnits || requestedAmount !== amountBaseUnits
         || destinationAssetId !== `${destinationNetwork}:usdc`
