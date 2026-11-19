@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Activity, ArrowUpRight, BarChart3, BookOpen, Clock3, FileText, Globe2, LayoutDashboard, LogOut, Plus, Search, Settings2, ShieldCheck, Sparkles, Users, ScrollText } from "lucide-react";
+import { Activity, ArrowUpRight, BarChart3, BookOpen, Clock3, FileText, Globe2, LayoutDashboard, Plus, Search, Settings2, ShieldCheck, Sparkles, Users, ScrollText } from "lucide-react";
+import { StudioSignOut } from "@/components/studio-signout";
 import { StudioGovernance } from "@/components/studio-governance";
 
 type DocumentKind = "homepage" | "feature" | "faq" | "announcement" | "changelog" | "legal";
