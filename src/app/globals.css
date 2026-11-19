@@ -5585,3 +5585,62 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .demo-receipt-paper, .demo-receipt-paid-stamp, .demo-receipt-paper.is-falling { animation-duration: .01ms !important; }
 }
+
+
+/* Landing page spacing, alignment, and checkout demo finish. */
+@media (min-width: 701px) {
+  .checkout-layout { align-items: start !important; }
+  .checkout-copy { padding-top: 0 !important; }
+  .invoice-stage { align-self: start; margin-top: 0; }
+}
+@media (max-width: 700px) {
+  .hero { min-height: max(440px, 58svh) !important; }
+  .hero-copy { transform: translateY(-12px); }
+  .checkout-section { padding-top: 24px !important; }
+  .checkout-layout { gap: 28px; }
+}
+@media (max-width: 390px) {
+  .hero { min-height: max(420px, 56svh) !important; }
+  .hero-copy { transform: translateY(-14px); }
+  .checkout-section { padding-top: 20px !important; }
+}
+
+/* Square-edged surfaces with a deliberate, soft corner radius. */
+.nav-cta, .button, .demo-receipt-button, .demo-download-receipt,
+.receipt-action-button { border-radius: 8px !important; }
+.demo-invoice-card, .demo-receipt-card { border-radius: 8px !important; }
+.demo-printer-body { border-radius: 6px !important; }
+.demo-printer-mouth, .demo-printer-base { border-radius: 0 !important; }
+
+/* Give the landing-page receipt demo the same physical print and tear cues. */
+.demo-printer-body { position: relative; }
+.demo-printer-mouth { animation: demo-printer-idle 3.2s ease-in-out infinite; }
+.demo-receipt-feed-window { position: relative; }
+.demo-receipt-feed-window.is-tearing::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 13px;
+  left: 0;
+  z-index: 5;
+  height: 2px;
+  background: repeating-linear-gradient(90deg, #777 0 4px, transparent 4px 8px);
+  transform-origin: left center;
+  animation: demo-tear-reveal .62s ease-out forwards;
+}
+.demo-receipt-paper.is-falling { transform-origin: top center; }
+.demo-receipt-paper.is-falling .demo-receipt-tear-edge {
+  filter: drop-shadow(0 2px 1px rgba(0,0,0,.14));
+}
+@keyframes demo-printer-idle {
+  0%, 92%, 100% { box-shadow: inset 0 -2px 3px rgba(255,255,255,.08); }
+  94% { box-shadow: inset 0 -2px 3px rgba(255,255,255,.2); }
+}
+@keyframes demo-tear-reveal {
+  from { clip-path: inset(0 100% 0 0); opacity: .35; }
+  to { clip-path: inset(0 0 0 0); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .demo-printer-mouth { animation: none !important; }
+  .demo-receipt-feed-window.is-tearing::after { animation-duration: .01ms !important; }
+}
