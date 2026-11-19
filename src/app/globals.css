@@ -58,7 +58,8 @@ p { text-wrap: pretty; }
 .nav-login:hover { color: var(--accent); }
 .nav-cta { min-height: 42px; display: inline-flex; align-items: center; gap: 12px; padding: 0 16px 0 18px; border: 1px solid #bfc0b9; border-radius: 999px; font-size: 11px; transition: background 220ms ease, color 220ms ease, border-color 220ms ease, transform 220ms var(--ease); }
 .nav-cta:hover { transform: translateY(-2px); border-color: var(--ink); background: var(--ink); color: white; }
-.nav-register { border-color: var(--ink); background: var(--ink); color: #fff; }
+.nav-register { border-color: var(--ink); background: #fff; color: var(--ink); }
+.nav-register:hover { border-color: var(--ink); background: #fff; color: var(--ink); }
 .mobile-business-link { display: none; }
 .menu-toggle { display: none; padding: 9px; border: 0; background: transparent; color: var(--ink); }
 .hero-copy { position: relative; z-index: 6; flex: 1 0 auto; width: min(1320px, calc(100% - 112px)); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 34px 0 24px; text-align: center; }
