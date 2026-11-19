@@ -68,7 +68,7 @@ export function PayerInvoiceSheet(invoice: PayerInvoiceSheetProps) {
         </dl>
       </div>}
       <div>
-        <div className="banner"><div className="t"><small>Total:</small><div className="amt">{invoice.amount} {currency}</div></div></div>
+        <div className="banner"><div className="t"><small>Total:</small><div className="amt">{invoice.amount}</div></div></div>
         <div className="dates"><p>INVOICE DATE: <b>{invoice.issueDate}</b></p><p>DATE DUE: <b>{invoice.dueDate}</b></p></div>
       </div>
     </section>
@@ -83,7 +83,7 @@ export function PayerInvoiceSheet(invoice: PayerInvoiceSheetProps) {
       <p><span>Subtotal</span><span>{invoice.subtotal}</span></p>
       <p><span>Tax ({invoice.taxPercent}%)</span><span>{invoice.tax}</span></p>
       {(invoice.discountMinor ?? 0) > 0 && <p><span>Discount</span><span>{invoice.discount}</span></p>}
-      <div className="tot"><span>Total due</span><span>{invoice.amount} {currency}</span></div>
+      <div className="tot"><span>Total due</span><span>{invoice.amount}</span></div>
     </div>
     <footer className="foot">
       <section>
