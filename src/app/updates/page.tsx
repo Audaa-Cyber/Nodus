@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { getPublishedCmsDocuments } from "@/lib/cms/public";
+import { cmsMetadata } from "@/lib/cms/metadata";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Updates | Nodus", description: "Announcements and product updates from Nodus." };
+export async function generateMetadata() { const docs=await getPublishedCmsDocuments("announcement"); return cmsMetadata(docs[0],{title:"Updates | Nodus",description:"Announcements and product updates from Nodus."}); }
 
 export default async function UpdatesPage() {
   const [announcements,changelog]=await Promise.all([getPublishedCmsDocuments("announcement"),getPublishedCmsDocuments("changelog")]);
